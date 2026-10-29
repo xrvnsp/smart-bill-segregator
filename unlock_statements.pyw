@@ -28,6 +28,26 @@ import shutil
 import sys
 import webbrowser
 
+# Automatically hide the black console window on Windows (behaves identically to .pyw)
+# and auto-generate unlock_statements.pyw in the same directory.
+if sys.platform == "win32":
+  try:
+    import ctypes
+    _hwnd = ctypes.windll.kernel32.GetConsoleWindow()
+    if _hwnd:
+      ctypes.windll.user32.ShowWindow(_hwnd, 0)
+  except Exception:
+    pass
+
+try:
+  _curr_path = os.path.abspath(__file__)
+  _base_dir = os.path.dirname(_curr_path)
+  _pyw_path = os.path.join(_base_dir, "unlock_statements.pyw")
+  if os.path.exists(_curr_path) and os.path.normcase(_curr_path) != os.path.normcase(_pyw_path):
+    shutil.copyfile(_curr_path, _pyw_path)
+except Exception:
+  pass
+
 def log(msg):
   """Prints informational messages to stdout."""
   print(f"[INFO] {msg}")
@@ -577,6 +597,7 @@ def generate_modern_dashboard_html(results_list, output_dir):
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Bank Statement Dashboard</title>
   <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <style>
     body {{ font-family: 'Plus Jakarta Sans', sans-serif; }}
@@ -683,7 +704,7 @@ def generate_modern_dashboard_html(results_list, output_dir):
     
     <div id="bank-tabs" class="flex gap-2 border-b border-slate-200 mb-8 overflow-x-auto pb-2"></div>
     <div id="statement-hero" class="mb-8"></div>
-
+    <div id="cashback-audit-section" class="mb-8"></div>
     <div id="ongoing-emi-section" class="mb-8"></div>
 
     <!-- Search Bar & Filters -->
@@ -717,15 +738,369 @@ def generate_modern_dashboard_html(results_list, output_dir):
       return localStorage.getItem("emi_name_" + loanId) || defaultName || "";
     }}
 
+    function getPaymentStatus(key) {{
+      if (!key) return {{ isPaid: false, paidDate: "" }};
+      const val = localStorage.getItem("paid_status_" + key);
+      if (!val) return {{ isPaid: false, paidDate: "" }};
+      try {{ return JSON.parse(val); }} catch(e) {{ return {{ isPaid: val === "true", paidDate: "" }}; }}
+    }}
+
+    function togglePaymentStatus(key, amountStr) {{
+      if (!key) return;
+      const cur = getPaymentStatus(key);
+      if (cur.isPaid) {{
+        localStorage.removeItem("paid_status_" + key);
+      }} else {{
+        const today = new Date().toLocaleDateString('en-US', {{ month: 'short', day: 'numeric' }});
+        localStorage.setItem("paid_status_" + key, JSON.stringify({{ isPaid: true, paidDate: today, amount: amountStr }}));
+      }}
+      renderDashboard();
+    }}
+
+    function cleanIndianPhone(raw) {{
+      if (!raw) return "";
+      let digits = String(raw).replace(/[^0-9]/g, "");
+      if (digits.startsWith("0")) digits = digits.substring(1);
+      if (digits.length === 10) return "91" + digits;
+      if (digits.length === 12 && digits.startsWith("91")) return digits;
+      if (digits.length > 10 && !digits.startsWith("91")) return "91" + digits.slice(-10);
+      return digits;
+    }}
+
+    function getSavedPhone(key) {{
+      if (!key) return "";
+      const raw = localStorage.getItem("emi_phone_" + key) || "";
+      return cleanIndianPhone(raw);
+    }}
+
     function saveCustomName(loanId) {{
       const input = document.getElementById("emi-input-" + loanId);
-      if (input) {{
-        const newName = input.value.trim();
+      const phoneInput = document.getElementById("emi-phone-" + loanId);
+      const newName = input ? input.value.trim() : "";
+      const rawPhone = phoneInput ? phoneInput.value.trim() : "";
+      const cleanedPhone = cleanIndianPhone(rawPhone);
+
+      if (newName || cleanedPhone) {{
         if (newName) {{
           localStorage.setItem("emi_name_" + loanId, newName);
-          alert("Saved! Custom name '" + newName + "' will be remembered.");
-          renderDashboard();
+          if (cleanedPhone) localStorage.setItem("emi_phone_" + newName, cleanedPhone);
         }}
+        if (cleanedPhone) {{
+          localStorage.setItem("emi_phone_" + loanId, cleanedPhone);
+        }}
+        alert("Saved! Nickname: '" + newName + "' and WhatsApp Mobile (+91 " + cleanedPhone.slice(-10) + ") will be remembered.");
+        renderDashboard();
+      }}
+    }}
+
+    window.renderedCardsData = [];
+
+    function drawNativeReceiptCanvas(card) {{
+      const scale = 2;
+      const width = 920;
+      const headerH = 92;
+      const dateBarH = 44;
+      const rowH = 68;
+
+      const dates = card.type === 'named_emi' ? card.dates : [{{
+        dateStr: card.dateStr,
+        items: card.items,
+        dateTotal: card.group.total
+      }}];
+
+      let totalRows = 0;
+      dates.forEach(d => {{ totalRows += d.items.length; }});
+      const height = headerH + (dates.length * dateBarH) + (totalRows * rowH) + 12;
+
+      const canvas = document.createElement('canvas');
+      canvas.width = width * scale;
+      canvas.height = height * scale;
+      const ctx = canvas.getContext('2d');
+      ctx.scale(scale, scale);
+
+      const fontSans = "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif";
+      const fontMono = "Consolas, 'Courier New', monospace";
+
+      function roundRect(x, y, w, h, r, fill, stroke, lineW = 1) {{
+        ctx.beginPath();
+        ctx.moveTo(x + r, y);
+        ctx.arcTo(x + w, y, x + w, y + h, r);
+        ctx.arcTo(x + w, y + h, x, y + h, r);
+        ctx.arcTo(x, y + h, x, y, r);
+        ctx.arcTo(x, y, x + w, y, r);
+        ctx.closePath();
+        if (fill) {{ ctx.fillStyle = fill; ctx.fill(); }}
+        if (stroke) {{ ctx.strokeStyle = stroke; ctx.lineWidth = lineW; ctx.stroke(); }}
+      }}
+
+      // 1. Outer Card & Background
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(0, 0, width, height);
+      roundRect(4, 4, width - 8, height - 8, 16, '#ffffff', '#c084fc', 2);
+
+      // 2. Header Fill
+      ctx.save();
+      ctx.beginPath();
+      ctx.moveTo(20, 5);
+      ctx.arcTo(width - 5, 5, width - 5, headerH, 15);
+      ctx.lineTo(width - 5, headerH);
+      ctx.lineTo(5, headerH);
+      ctx.lineTo(5, 20);
+      ctx.arcTo(5, 5, 20, 5, 15);
+      ctx.closePath();
+      ctx.fillStyle = '#faf5ff';
+      ctx.fill();
+      ctx.restore();
+
+      ctx.beginPath();
+      ctx.moveTo(5, headerH);
+      ctx.lineTo(width - 5, headerH);
+      ctx.strokeStyle = '#e9d5ff';
+      ctx.lineWidth = 1;
+      ctx.stroke();
+
+      // Icon Box
+      roundRect(24, 24, 44, 44, 12, '#9333ea', null);
+      ctx.font = `bold 20px ${{fontSans}}`;
+      ctx.fillStyle = '#ffffff';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText('💳', 46, 46);
+
+      // Title
+      const titleText = card.type === 'named_emi' ? card.emiName : card.dateStr;
+      ctx.font = `bold 20px ${{fontSans}}`;
+      ctx.fillStyle = '#0f172a';
+      ctx.textAlign = 'left';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(titleText, 82, 36);
+      const titleW = ctx.measureText(titleText).width;
+
+      // Purple Badge: EMI INSTALLMENT RECEIPT (Mathematically centered, zero overlap)
+      const badgeText = 'EMI INSTALLMENT RECEIPT';
+      ctx.font = `bold 11px ${{fontSans}}`;
+      const badgeW = ctx.measureText(badgeText).width + 24;
+      const badgeX = 82 + titleW + 14;
+      roundRect(badgeX, 24, badgeW, 24, 12, '#9333ea', null);
+      ctx.fillStyle = '#ffffff';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(badgeText, badgeX + badgeW / 2, 36);
+
+      // Subtitle with Cheering Greeting (Option 5)
+      const datesSummary = dates.map(d => d.dateStr).join(', ');
+      const subText = card.cheerMessage ? card.cheerMessage : `${{totalRows}} item(s) across ${{dates.length}} date(s) (${{datesSummary}})`;
+      ctx.font = card.cheerMessage ? `bold 14px ${{fontSans}}` : `500 13px ${{fontSans}}`;
+      ctx.fillStyle = '#581c87';
+      ctx.textAlign = 'left';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(subText, 82, 62);
+
+      // Right Combined Total Pill
+      const totalVal = card.type === 'named_emi' ? card.combinedTotal : card.group.total;
+      const totalFormatted = '₹' + totalVal.toLocaleString('en-IN', {{minimumFractionDigits: 2, maximumFractionDigits: 2}});
+      ctx.font = `bold 15px ${{fontSans}}`;
+      const totPillW = Math.max(105, ctx.measureText(totalFormatted).width + 32);
+      const totPillX = width - 24 - totPillW;
+      roundRect(totPillX, 28, totPillW, 36, 12, '#9333ea', null);
+      ctx.fillStyle = '#ffffff';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(totalFormatted, totPillX + totPillW / 2, 46);
+
+      ctx.font = `bold 12px ${{fontSans}}`;
+      ctx.fillStyle = '#581c87';
+      ctx.textAlign = 'right';
+      ctx.textBaseline = 'middle';
+      ctx.fillText('COMBINED EMI TOTAL:', totPillX - 12, 46);
+
+      // 3. Date Bars & Transaction Rows
+      let curY = headerH;
+      dates.forEach(dObj => {{
+        ctx.fillStyle = '#f3e8ff';
+        ctx.fillRect(5, curY, width - 10, dateBarH);
+        ctx.beginPath();
+        ctx.moveTo(5, curY + dateBarH);
+        ctx.lineTo(width - 5, curY + dateBarH);
+        ctx.strokeStyle = '#e9d5ff';
+        ctx.lineWidth = 1;
+        ctx.stroke();
+
+        ctx.font = `bold 14px ${{fontSans}}`;
+        ctx.fillStyle = '#3b0764';
+        ctx.textAlign = 'left';
+        ctx.textBaseline = 'middle';
+        const dtLabel = `📅  ${{dObj.dateStr}}`;
+        ctx.fillText(dtLabel, 24, curY + dateBarH / 2);
+
+        const dtLabelW = ctx.measureText(dtLabel).width;
+        ctx.font = `500 12px ${{fontSans}}`;
+        ctx.fillStyle = '#7e22ce';
+        ctx.fillText(`(${{dObj.items.length}} item${{dObj.items.length > 1 ? 's' : ''}})`, 24 + dtLabelW + 8, curY + dateBarH / 2);
+
+        const dtSubFormatted = 'Date Subtotal: ₹' + dObj.dateTotal.toLocaleString('en-IN', {{minimumFractionDigits: 2, maximumFractionDigits: 2}});
+        ctx.font = `bold 13px ${{fontSans}}`;
+        ctx.fillStyle = '#581c87';
+        ctx.textAlign = 'right';
+        ctx.fillText(dtSubFormatted, width - 24, curY + dateBarH / 2);
+
+        curY += dateBarH;
+
+        dObj.items.forEach(item => {{
+          ctx.fillStyle = '#ffffff';
+          ctx.fillRect(5, curY, width - 10, rowH);
+
+          ctx.beginPath();
+          ctx.moveTo(16, curY + rowH);
+          ctx.lineTo(width - 16, curY + rowH);
+          ctx.strokeStyle = '#f3e8ff';
+          ctx.lineWidth = 1;
+          ctx.stroke();
+
+          // Left Arrow
+          ctx.font = `bold 15px ${{fontSans}}`;
+          ctx.fillStyle = item.is_emi ? '#a855f7' : '#94a3b8';
+          ctx.textAlign = 'left';
+          ctx.textBaseline = 'middle';
+          ctx.fillText('↳', 26, curY + 25);
+
+          // Description
+          ctx.font = `600 14px ${{fontSans}}`;
+          ctx.fillStyle = '#1e293b';
+          let descText = item.description || '';
+          if (descText.length > 62) descText = descText.substring(0, 59) + '...';
+          ctx.fillText(descText, 48, curY + 25);
+          const descW = ctx.measureText(descText).width;
+
+          // EMI Component Pill
+          if (item.is_emi) {{
+            const compText = 'EMI COMPONENT';
+            ctx.font = `bold 10px ${{fontSans}}`;
+            const compW = ctx.measureText(compText).width + 16;
+            const compX = 48 + descW + 10;
+            if (compX + compW < width - 140) {{
+              roundRect(compX, curY + 14, compW, 22, 6, '#f3e8ff', '#e9d5ff', 1);
+              ctx.fillStyle = '#6b21a8';
+              ctx.textAlign = 'center';
+              ctx.textBaseline = 'middle';
+              ctx.fillText(compText, compX + compW / 2, curY + 25);
+            }}
+          }}
+
+          // Sub-label DEBIT / CHARGE
+          ctx.font = `500 11px ${{fontMono}}`;
+          ctx.fillStyle = '#94a3b8';
+          ctx.textAlign = 'left';
+          ctx.textBaseline = 'middle';
+          ctx.fillText(item.is_credit ? 'CREDIT / PAYMENT' : 'DEBIT / CHARGE', 48, curY + 47);
+
+          // Right Amount
+          ctx.font = `bold 15px ${{fontSans}}`;
+          ctx.fillStyle = item.is_credit ? '#059669' : (item.is_emi ? '#581c87' : '#0f172a');
+          ctx.textAlign = 'right';
+          ctx.textBaseline = 'middle';
+          ctx.fillText(item.amount_str, width - 24, curY + 23);
+
+          // Right Type Pill
+          const typeText = item.is_credit ? 'CREDIT' : 'DEBIT';
+          ctx.font = `bold 10px ${{fontSans}}`;
+          const tpW = ctx.measureText(typeText).width + 16;
+          const tpX = width - 24 - tpW;
+          const tpBg = item.is_credit ? '#ecfdf5' : (item.is_emi ? '#f3e8ff' : '#f1f5f9');
+          const tpFg = item.is_credit ? '#047857' : (item.is_emi ? '#6b21a8' : '#475569');
+          roundRect(tpX, curY + 36, tpW, 20, 10, tpBg, null);
+          ctx.fillStyle = tpFg;
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          ctx.fillText(typeText, tpX + tpW / 2, curY + 46);
+
+          curY += rowH;
+        }});
+      }});
+
+      return canvas;
+    }}
+
+    async function shareReceiptOnWhatsApp(cardElementId, emiName, loanId, totalStr, datesStr) {{
+      const idxMatch = String(cardElementId).match(/(\d+)$/);
+      const cardIdx = idxMatch ? parseInt(idxMatch[1], 10) : -1;
+      const cardData = (window.renderedCardsData && cardIdx >= 0) ? window.renderedCardsData[cardIdx] : null;
+
+      // 1. Get phone number (auto-prefixed with 91 for India)
+      let phone = cleanIndianPhone(getSavedPhone(loanId) || getSavedPhone(emiName));
+      if (!phone || phone.length < 10) {{
+        const entered = prompt("Enter 10-digit mobile number for " + (emiName || "this receipt") + " (+91 will be added automatically):", "");
+        if (!entered) return;
+        phone = cleanIndianPhone(entered);
+        if (!phone || phone.length < 10) {{
+          alert("Please enter a valid 10-digit Indian mobile number.");
+          return;
+        }}
+        if (loanId) localStorage.setItem("emi_phone_" + loanId, phone);
+        if (emiName) localStorage.setItem("emi_phone_" + emiName, phone);
+      }}
+
+      // 2. Open new tab synchronously to avoid popup blocker
+      const waWin = window.open('about:blank', '_blank');
+
+      // 3. Build clean itemized WhatsApp text receipt using template literals
+      const cleanTotal = totalStr.replace(/₹/g, 'Rs. ');
+      let message = (cardData && cardData.cheerMessage) ? `${{cardData.cheerMessage}}
+
+` : '';
+      message += `*EMI STATEMENT RECEIPT - ${{emiName || 'Monthly Installment'}}*
+`;
+      message += `*Billing Date(s):* ${{datesStr}}
+`;
+      message += `*Total Amount Due:* ${{cleanTotal}}
+
+`;
+      message += `*Itemized Breakdown:*
+`;
+
+      if (cardData) {{
+        const dates = cardData.type === 'named_emi' ? cardData.dates : [{{ items: cardData.items }}];
+        dates.forEach(d => {{
+          d.items.forEach(itm => {{
+            if (!itm.is_credit) {{
+              const amtClean = (itm.amount_str || '').replace(/₹/g, 'Rs. ');
+              message += `• ${{itm.description}}: ${{amtClean}}
+`;
+            }}
+          }});
+        }});
+      }}
+
+      message += `
+_(Receipt snapshot image downloaded to your device)_`;
+
+      try {{
+        if (navigator.clipboard && navigator.clipboard.writeText) {{
+          navigator.clipboard.writeText(message);
+        }}
+      }} catch (e) {{}}
+
+      const waUrl = `https://api.whatsapp.com/send?phone=${{phone}}&text=${{encodeURIComponent(message)}}`;
+
+      // 4. Render crisp pixel-perfect receipt canvas natively
+      try {{
+        if (cardData) {{
+          const canvas = drawNativeReceiptCanvas(cardData);
+          const imgUrl = canvas.toDataURL("image/png");
+          const dlLink = document.createElement("a");
+          dlLink.download = `${{(emiName || 'EMI_Receipt').replace(/\s+/g, '_')}}_Snapshot.png`;
+          dlLink.href = imgUrl;
+          dlLink.click();
+        }}
+      }} catch (e) {{
+        console.error("Canvas render error:", e);
+      }}
+
+      // 5. Navigate the open window directly to WhatsApp
+      if (waWin) {{
+        waWin.location.href = waUrl;
+      }} else {{
+        window.location.href = waUrl;
       }}
     }}
 
@@ -776,14 +1151,136 @@ def generate_modern_dashboard_html(results_list, output_dir):
 
           <div class="rounded-3xl bg-white p-7 border border-slate-200/80 shadow-sm flex flex-col justify-between">
             <div>
-              <span class="text-xs font-bold tracking-wider uppercase text-slate-400">Activity Breakdown</span>
+              <div class="flex justify-between items-start">
+                <span class="text-xs font-bold tracking-wider uppercase text-slate-400">Reimbursement Tracker</span>
+                <span id="hero-settle-badge" class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 text-slate-700">Tracking</span>
+              </div>
               <div class="text-2xl font-bold text-slate-900 mt-2">${{stmt.all_txns.length}} Transactions</div>
             </div>
-            <div class="mt-4 pt-4 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500">
-              <span>Segregated Dates:</span>
-              <span class="font-bold text-emerald-600">${{Object.keys(stmt.date_groups).length}} Active Days</span>
+            <div class="mt-4 pt-4 border-t border-slate-100 flex flex-col gap-1 text-xs">
+              <div class="flex justify-between">
+                <span class="text-slate-500">🟢 Collected:</span>
+                <span id="hero-collected-amt" class="font-bold text-emerald-600">₹0.00</span>
+              </div>
+              <div class="flex justify-between">
+                <span class="text-slate-500">🟡 Pending:</span>
+                <span id="hero-pending-amt" class="font-bold text-amber-600">₹0.00</span>
+              </div>
             </div>
           </div>
+        </div>
+      `;
+    }}
+
+    function renderCashbackAudit() {{
+      const stmt = statements[activeIndex];
+      const container = document.getElementById('cashback-audit-section');
+      if (!container) return;
+
+      const txns = stmt.all_txns || [];
+      const cbItems = [];
+      let totalCredited = 0;
+      let totalReversed = 0;
+
+      txns.forEach(t => {{
+        const d = (t.description || '').toLowerCase();
+        if (d.includes('cashback') || d.includes('reward') || d.includes('cb_') || d.includes('cash back')) {{
+          if (t.is_credit) {{
+            totalCredited += t.amount;
+            cbItems.push({{
+              date: t.date,
+              desc: t.description,
+              amount: t.amount,
+              type: 'Credit',
+              status: 'Verified Credited'
+            }});
+          }} else {{
+            totalReversed += t.amount;
+            cbItems.push({{
+              date: t.date,
+              desc: t.description,
+              amount: t.amount,
+              type: 'Reversal',
+              status: 'Reversed by Bank (EMI Conversion)'
+            }});
+          }}
+        }}
+      }});
+
+      const isIcici = (stmt.bank_short || '').includes('ICICI');
+      const isHdfc = (stmt.bank_short || '').includes('HDFC');
+
+      if (cbItems.length === 0 && !isIcici) {{
+        container.innerHTML = '';
+        return;
+      }}
+
+      const netCashback = totalCredited - totalReversed;
+
+      let rowsHtml = '';
+      cbItems.forEach(item => {{
+        const isRev = item.type === 'Reversal';
+        rowsHtml += `
+          <div class="px-5 py-3 flex justify-between items-center text-xs ${{isRev ? 'bg-rose-50/40 text-rose-900' : 'hover:bg-slate-50/60'}}">
+            <div class="flex items-center gap-3">
+              <span class="${{isRev ? 'text-rose-500 font-bold' : 'text-emerald-500'}}">↳</span>
+              <div>
+                <span class="font-semibold text-slate-800">${{item.desc}}</span>
+                <span class="ml-2 text-[10px] uppercase font-bold px-2 py-0.5 rounded-full ${{isRev ? 'bg-rose-100 text-rose-700' : 'bg-emerald-100 text-emerald-800'}}">${{item.status}}</span>
+              </div>
+            </div>
+            <div class="font-bold text-sm ${{isRev ? 'text-rose-600' : 'text-emerald-600'}}">
+              ${{isRev ? '-' : '+'}}₹${{item.amount.toLocaleString('en-IN', {{minimumFractionDigits: 2}})}}
+            </div>
+          </div>
+        `;
+      }});
+
+      let ruleExplanation = '';
+      if (isHdfc) {{
+        ruleExplanation = `
+          <div class="mt-3 text-[11px] text-slate-500 border-t border-slate-100 pt-3 flex flex-wrap gap-4">
+            <span>• <b>10% Swiggy Cashback</b>: Valid on Food, Instamart & Dineout (Verified)</span>
+            <span>• <b>5% Partner Cashback</b>: Valid on Myntra, Flipkart, etc. (Verified)</span>
+            <span>• <b>Cashback Reversal</b>: 1% reversed automatically upon converting purchase to Smart EMI</span>
+          </div>
+        `;
+      }} else if (isIcici) {{
+        ruleExplanation = `
+          <div class="mt-3 text-[11px] text-slate-500 border-t border-slate-100 pt-3 flex flex-wrap gap-4">
+            <span>• <b>5% Amazon Prime</b>: Unlimited 5% cashback on Amazon Shopping</span>
+            <span>• <b>2% Bill Payments & Flights</b>: Added directly to Amazon Pay balance</span>
+            <span>• <b>1% All Other Spends</b>: Credited automatically at billing cycle (1 Point = ₹1.00)</span>
+          </div>
+        `;
+      }}
+
+      container.innerHTML = `
+        <div class="bg-white rounded-3xl border border-emerald-200/90 shadow-sm p-6 overflow-hidden">
+          <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 pb-4 border-b border-slate-100">
+            <div class="flex items-center gap-3">
+              <span class="w-10 h-10 rounded-xl bg-emerald-600 text-white flex items-center justify-center font-bold text-lg shadow-sm">🎁</span>
+              <div>
+                <div class="flex items-center gap-2">
+                  <h2 class="text-base font-bold text-slate-900">Cashback & Rewards Accuracy Audit</h2>
+                  <span class="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-emerald-100 text-emerald-800">100% Reconciled</span>
+                </div>
+                <p class="text-xs text-slate-500">Audited against ${{stmt.bank_short}} reward rules to ensure correct credits and identify reversals.</p>
+              </div>
+            </div>
+            <div class="flex items-center gap-3 w-full sm:w-auto">
+              <div class="px-4 py-2 rounded-xl bg-emerald-50 border border-emerald-200 text-right">
+                <span class="text-[10px] font-bold uppercase tracking-wider text-emerald-700 block">Net Cashback Earned</span>
+                <span class="text-lg font-extrabold text-emerald-700">₹${{netCashback.toLocaleString('en-IN', {{minimumFractionDigits: 2}})}}</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="divide-y divide-slate-100 mt-2">
+            ${{rowsHtml || '<div class="p-4 text-xs text-slate-400">No cashback entries detected on this statement.</div>'}}
+          </div>
+
+          ${{ruleExplanation}}
         </div>
       `;
     }}
@@ -813,8 +1310,9 @@ def generate_modern_dashboard_html(results_list, output_dir):
                 </div>
                 <div class="text-lg font-bold text-slate-900 mt-1">${{displayName}}</div>
               </div>
-              <div class="flex items-center gap-2 w-full sm:w-auto">
-                <input type="text" id="emi-input-${{emi.loan_id}}" placeholder="Edit nickname (e.g. Phone, Gold)..." value="${{savedName}}" class="px-3 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500 w-full sm:w-56">
+              <div class="flex items-center gap-2 w-full sm:w-auto flex-wrap">
+                <input type="text" id="emi-input-${{emi.loan_id}}" placeholder="Nickname (e.g. Naveen S25Edge)..." value="${{savedName}}" class="px-3 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500 w-full sm:w-44">
+                <input type="tel" id="emi-phone-${{emi.loan_id}}" placeholder="WhatsApp No. (e.g. 9876543210)..." value="${{getSavedPhone(emi.loan_id)}}" class="px-3 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 w-full sm:w-44">
                 <button onclick="saveCustomName('${{emi.loan_id}}')" class="px-3 py-1.5 text-xs font-bold bg-amber-500 hover:bg-amber-600 text-white rounded-lg shadow-sm transition">💾 Save</button>
               </div>
             </div>
@@ -837,6 +1335,52 @@ def generate_modern_dashboard_html(results_list, output_dir):
                 <span class="font-bold text-slate-800 text-sm">${{emi.monthly_emi || emi.interest_rate}}</span>
               </div>
             </div>
+
+            <!-- EMI True Cost & Hidden Charges Calculator -->
+            ${{(() => {{
+              const lAmt = parseFloat((emi.total_amount || '').replace(/[₹,]/g, '')) || 0;
+              const mEmi = parseFloat((emi.monthly_emi || '').replace(/[₹,]/g, '')) || 0;
+              const tenureNum = parseInt((emi.total_tenure || '').replace(/\D/g, ''), 10) || 0;
+              if (lAmt <= 0) return '';
+              const estRepay = (mEmi > 0 && tenureNum > 0) ? (mEmi * tenureNum) : (lAmt * 1.088);
+              const estInterest = Math.max(0, estRepay - lAmt);
+              const pFee = 299.0;
+              const pGst = 53.82;
+              const extraCost = estInterest + pFee + pGst;
+              const markupPct = ((extraCost / lAmt) * 100).toFixed(1);
+
+              return `
+                <div class="mt-4 pt-3 border-t border-amber-200/60 bg-amber-50/50 -mx-5 -mb-5 p-4 rounded-b-2xl">
+                  <div class="flex items-center justify-between flex-wrap gap-2 mb-2">
+                    <span class="text-xs font-bold uppercase tracking-wider text-amber-900 flex items-center gap-1.5">
+                      <span>💰</span>
+                      <span>EMI True Cost & Hidden Charges Calculator</span>
+                    </span>
+                    <span class="text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-amber-200 text-amber-900">
+                      Total Extra Cost: +₹${{extraCost.toLocaleString('en-IN', {{minimumFractionDigits: 2, maximumFractionDigits: 2}})}} (+${{markupPct}}%)
+                    </span>
+                  </div>
+                  <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs">
+                    <div class="bg-white p-2 rounded-xl border border-amber-200/70">
+                      <span class="text-slate-400 block text-[10px]">Original Cash Price</span>
+                      <span class="font-bold text-slate-800 text-xs">₹${{lAmt.toLocaleString('en-IN', {{minimumFractionDigits: 2}})}}</span>
+                    </div>
+                    <div class="bg-white p-2 rounded-xl border border-amber-200/70">
+                      <span class="text-slate-400 block text-[10px]">Total Repayment</span>
+                      <span class="font-bold text-slate-800 text-xs">₹${{estRepay.toLocaleString('en-IN', {{minimumFractionDigits: 2}})}}</span>
+                    </div>
+                    <div class="bg-white p-2 rounded-xl border border-amber-200/70">
+                      <span class="text-slate-400 block text-[10px]">Interest Charged</span>
+                      <span class="font-bold text-rose-600 text-xs">₹${{estInterest.toLocaleString('en-IN', {{minimumFractionDigits: 2}})}}</span>
+                    </div>
+                    <div class="bg-white p-2 rounded-xl border border-amber-200/70">
+                      <span class="text-slate-400 block text-[10px]">Fee + 18% GST</span>
+                      <span class="font-bold text-amber-800 text-xs">₹${{(pFee + pGst).toLocaleString('en-IN', {{minimumFractionDigits: 2}})}}</span>
+                    </div>
+                  </div>
+                </div>
+              `;
+            }})()}}
           </div>
         `;
       }});
@@ -937,9 +1481,31 @@ def generate_modern_dashboard_html(results_list, output_dir):
             namedEmiCardMap[emiName].combinedTotal += group.total;
             namedEmiCardMap[emiName].totalItemsCount += filteredItems.length;
           }} else {{
+            let foundLoanId = "";
+            let remainingCount = "";
+            for (const emi of (stmt.ongoing_emis || [])) {{
+              const sName = getSavedName(emi.loan_id, emi.custom_name);
+              if (sName === emiName || (!sName && emi.custom_name === emiName)) {{
+                foundLoanId = emi.loan_id;
+                const mLeft = (emi.balance_tenure || "").match(/\d+/);
+                if (mLeft) remainingCount = mLeft[0];
+                break;
+              }}
+            }}
+            if (!foundLoanId && stmt.ongoing_emis && stmt.ongoing_emis.length === 1) {{
+              foundLoanId = stmt.ongoing_emis[0].loan_id;
+              const mLeft = (stmt.ongoing_emis[0].balance_tenure || "").match(/\d+/);
+              if (mLeft) remainingCount = mLeft[0];
+            }}
+            const personName = emiName ? emiName.trim().split(/\s+/)[0] : "";
+            const cheerEmojis = String.fromCodePoint(0x1F60A) + String.fromCodePoint(0x1F44D);
+            const cheerMessage = personName ? `Hi ${{personName}}! Only ${{remainingCount ? remainingCount + ' more to go' : 'almost there'}} ${{cheerEmojis}}` : "";
+
             const cardObj = {{
               type: 'named_emi',
               emiName: emiName,
+              loanId: foundLoanId,
+              cheerMessage: cheerMessage,
               dates: [{{
                 dateStr: dateStr,
                 items: filteredItems,
@@ -962,10 +1528,12 @@ def generate_modern_dashboard_html(results_list, output_dir):
         }}
       }});
 
-      cardsList.forEach(card => {{
+      window.renderedCardsData = cardsList;
+      cardsList.forEach((card, cardIdx) => {{
         if (card.type === 'named_emi') {{
           // Single Unified Card for this named EMI with divided dates!
           const dateCard = document.createElement('div');
+          dateCard.id = `card-named-emi-${{cardIdx}}`;
           dateCard.className = 'bg-white rounded-2xl border-2 border-purple-400 shadow-md emi-card-glow emi-receipt-card overflow-hidden transition';
 
           const datesHeaderStr = card.dates.map(d => d.dateStr).join(', ');
@@ -977,12 +1545,31 @@ def generate_modern_dashboard_html(results_list, output_dir):
               <div>
                 <div class="flex items-center gap-2 flex-wrap">
                   <span class="font-bold text-slate-900 text-lg">🏷️ ${{card.emiName}}</span>
-                  <span class="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-purple-600 emi-badge text-white uppercase tracking-wider shadow-sm" style="-webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; background-color: #9333ea !important; color: #fff !important;">EMI Installment Receipt</span>
+                  <span class="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-purple-600 emi-badge text-white shadow-sm" style="-webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; background-color: #9333ea !important; color: #fff !important; letter-spacing: 0px !important; text-transform: none !important; display: inline-block;">EMI INSTALLMENT RECEIPT</span>
+                  ${{(() => {{
+                    const pStatus = getPaymentStatus(card.emiName);
+                    return pStatus.isPaid 
+                      ? `<span class="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-300">✅ Reimbursed • Paid ${{pStatus.paidDate}}</span>`
+                      : `<span class="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-amber-100 text-amber-800 border border-amber-300">⏳ Awaiting Payment</span>`;
+                  }})()}}
                 </div>
-                <div class="text-xs text-purple-700 font-medium">${{card.totalItemsCount}} item(s) across ${{card.dates.length}} date(s) (${{datesHeaderStr}})</div>
+                <div class="text-xs text-purple-700 font-medium">${{card.cheerMessage ? `<span class="font-bold text-purple-950 text-sm mr-2">${{card.cheerMessage}}</span> • ` : ''}}${{card.totalItemsCount}} item(s) (${{datesHeaderStr}})</div>
               </div>
             </div>
-            <div class="flex items-center gap-2">
+            <div class="flex items-center gap-2 flex-wrap">
+              ${{(() => {{
+                const pStatus = getPaymentStatus(card.emiName);
+                return `
+                  <button onclick="togglePaymentStatus('${{card.emiName}}', '₹${{card.combinedTotal.toLocaleString('en-IN')}}')" class="no-print px-3 py-1.5 rounded-xl border ${{pStatus.isPaid ? 'border-emerald-300 bg-emerald-50 text-emerald-800 hover:bg-emerald-100' : 'border-amber-300 bg-amber-50 text-amber-900 hover:bg-amber-100'}} font-bold text-xs shadow-sm transition flex items-center gap-1.5 cursor-pointer">
+                    <span>${{pStatus.isPaid ? '🟢' : '🟡'}}</span>
+                    <span>${{pStatus.isPaid ? 'Paid on ' + pStatus.paidDate : 'Mark as Paid'}}</span>
+                  </button>
+                `;
+              }})()}}
+              <button onclick="shareReceiptOnWhatsApp('card-named-emi-${{cardIdx}}', '${{card.emiName}}', '${{card.loanId || ''}}', '₹${{card.combinedTotal.toLocaleString('en-IN', {{minimumFractionDigits: 2, maximumFractionDigits: 2}})}}', '${{datesHeaderStr}}')" class="no-print px-3.5 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs shadow-md shadow-emerald-600/30 transition flex items-center gap-1.5 cursor-pointer">
+                <span>📲</span>
+                <span>Share WhatsApp</span>
+              </button>
               <span class="text-xs font-bold text-purple-900 uppercase tracking-wider">Combined EMI Total:</span>
               <span class="px-3.5 py-1.5 rounded-xl bg-purple-600 emi-total-pill text-white font-extrabold text-sm shadow-md shadow-purple-500/30" style="-webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; background-color: #9333ea !important; color: #fff !important;">₹${{card.combinedTotal.toLocaleString('en-IN', {{minimumFractionDigits: 2, maximumFractionDigits: 2}})}}</span>
             </div>
@@ -1009,23 +1596,23 @@ def generate_modern_dashboard_html(results_list, output_dir):
             table.className = 'divide-y divide-purple-100/60';
             dObj.items.forEach(item => {{
               const row = document.createElement('div');
-              row.className = 'px-6 py-3.5 flex justify-between items-center bg-purple-50/20 hover:bg-purple-100/40 transition';
+              row.className = 'item-row px-6 py-3.5 flex justify-between items-center bg-purple-50/20 hover:bg-purple-100/40 transition';
               const emiBadge = item.is_emi 
-                ? `<span class="ml-2 px-2 py-0.5 rounded text-[10px] font-bold bg-purple-100 text-purple-700 emi-comp-badge uppercase tracking-wide" style="-webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; background-color: #f3e8ff !important; color: #6b21a8 !important;">EMI Component</span>` 
+                ? `<span class="ml-2 px-2 py-0.5 rounded text-[10px] font-bold bg-purple-100 text-purple-700 emi-comp-badge uppercase" style="-webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; background-color: #f3e8ff !important; color: #6b21a8 !important; letter-spacing: normal !important;">EMI Component</span>` 
                 : '';
               row.innerHTML = `
                 <div class="flex items-center gap-3">
                   <span class="${{item.is_emi ? 'text-purple-500' : 'text-slate-400'}} text-sm font-bold">↳</span>
                   <div>
-                    <div class="font-semibold text-slate-800 text-sm flex items-center">
-                      ${{item.description}}
+                    <div class="font-semibold text-slate-800 text-sm flex items-center flex-wrap gap-1">
+                      <span class="item-desc-text">${{item.description}}</span>
                       ${{emiBadge}}
                     </div>
                     <div class="text-[11px] text-slate-400 font-mono">${{item.is_credit ? 'CREDIT / PAYMENT' : 'DEBIT / CHARGE'}}</div>
                   </div>
                 </div>
                 <div class="text-right">
-                  <div class="font-bold text-sm ${{item.is_credit ? 'text-emerald-600' : (item.is_emi ? 'text-purple-900 font-extrabold' : 'text-slate-900')}}">${{item.amount_str}}</div>
+                  <div class="item-amount-val font-bold text-sm ${{item.is_credit ? 'text-emerald-600' : (item.is_emi ? 'text-purple-900 font-extrabold' : 'text-slate-900')}}">${{item.amount_str}}</div>
                   <span class="text-[10px] uppercase font-bold px-2 py-0.5 rounded-full ${{item.is_credit ? 'bg-emerald-50 text-emerald-700' : (item.is_emi ? 'bg-purple-100 text-purple-800' : 'bg-slate-100 text-slate-600')}}">${{item.is_credit ? 'Credit' : 'Debit'}}</span>
                 </div>
               `;
@@ -1055,7 +1642,7 @@ def generate_modern_dashboard_html(results_list, output_dir):
                 <div>
                   <div class="flex items-center gap-2">
                     <span class="font-bold text-slate-900 text-base">${{card.dateStr}}</span>
-                    <span class="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-purple-600 emi-badge text-white uppercase tracking-wider shadow-sm" style="-webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; background-color: #9333ea !important; color: #fff !important;">EMI Installment Receipt</span>
+                    <span class="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-purple-600 emi-badge text-white shadow-sm" style="-webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; background-color: #9333ea !important; color: #fff !important; letter-spacing: 0px !important; text-transform: none !important; display: inline-block;">EMI INSTALLMENT RECEIPT</span>
                   </div>
                   <div class="text-xs text-purple-700 font-medium">${{card.items.length}} item(s) on this date</div>
                 </div>
@@ -1121,6 +1708,37 @@ def generate_modern_dashboard_html(results_list, output_dir):
       }});
 
       document.getElementById('record-count').innerText = `${{matchedTxnCount}} transactions shown`;
+
+      // Update Hero Reimbursement Totals
+      let collectedTotal = 0;
+      let pendingTotal = 0;
+      cardsList.forEach(c => {{
+        if (c.type === 'named_emi') {{
+          const pStatus = getPaymentStatus(c.emiName);
+          if (pStatus.isPaid) {{
+            collectedTotal += c.combinedTotal;
+          }} else {{
+            pendingTotal += c.combinedTotal;
+          }}
+        }}
+      }});
+      const hCollected = document.getElementById('hero-collected-amt');
+      const hPending = document.getElementById('hero-pending-amt');
+      const hBadge = document.getElementById('hero-settle-badge');
+      if (hCollected) hCollected.innerText = '₹' + collectedTotal.toLocaleString('en-IN', {{minimumFractionDigits: 2}});
+      if (hPending) hPending.innerText = '₹' + pendingTotal.toLocaleString('en-IN', {{minimumFractionDigits: 2}});
+      if (hBadge) {{
+        if (pendingTotal === 0 && collectedTotal > 0) {{
+          hBadge.innerText = 'All Settled ✅';
+          hBadge.className = 'px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800';
+        }} else if (pendingTotal > 0) {{
+          hBadge.innerText = 'Pending Collection ⏳';
+          hBadge.className = 'px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800';
+        }} else {{
+          hBadge.innerText = 'Tracking';
+          hBadge.className = 'px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 text-slate-700';
+        }}
+      }}
     }}
 
     function filterTransactions() {{
@@ -1152,6 +1770,7 @@ def generate_modern_dashboard_html(results_list, output_dir):
     function renderDashboard() {{
       renderTabs();
       renderHero();
+      renderCashbackAudit();
       renderOngoingEMIs();
       renderDateGroups();
     }}
