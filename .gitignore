@@ -1,0 +1,15 @@
+# Sensitive Bank Passwords (NEVER commit to GitHub)
+passwords.json
+emi_names.json
+*.env
+
+# Statement PDFs & Output Folders
+*.pdf
+Statements_*/
+test_*/
+*.csv
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
