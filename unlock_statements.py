@@ -1504,15 +1504,137 @@ def generate_modern_dashboard_html(results_list, output_dir=".", write_to_disk=T
       return canvas;
     }}
 
+    async function showClipboardToast(msg, isSuccess = true) {{
+      let toast = document.getElementById('apple-clipboard-toast');
+      if (!toast) {{
+        toast = document.createElement('div');
+        toast.id = 'apple-clipboard-toast';
+        toast.style.cssText = 'position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%) translateY(20px); z-index: 9999; padding: 12px 22px; border-radius: 9999px; font-size: 13px; font-weight: 800; color: #fff; box-shadow: 0 12px 30px rgba(0,0,0,0.25); transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1); opacity: 0; pointer-events: none; display: flex; align-items: center; gap: 8px; backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);';
+        document.body.appendChild(toast);
+      }}
+      toast.style.background = isSuccess ? 'rgba(15, 23, 42, 0.92)' : 'rgba(185, 28, 28, 0.92)';
+      toast.style.border = isSuccess ? '1px solid rgba(16, 185, 129, 0.5)' : '1px solid rgba(248, 113, 113, 0.5)';
+      toast.innerHTML = `<span>${{isSuccess ? '📋✅' : '⚠️'}}</span><span>${{msg}}</span>`;
+      requestAnimationFrame(() => {{
+        toast.style.opacity = '1';
+        toast.style.transform = 'translateX(-50%) translateY(0)';
+      }});
+      clearTimeout(window._toastTimer);
+      window._toastTimer = setTimeout(() => {{
+        toast.style.opacity = '0';
+        toast.style.transform = 'translateX(-50%) translateY(20px)';
+      }}, 3800);
+    }}
+
+    function canvasToPngBlobPromise(canvas) {{
+      return new Promise((resolve, reject) => {{
+        if (canvas.toBlob) {{
+          canvas.toBlob((blob) => {{
+            if (blob) resolve(blob);
+            else reject(new Error("Canvas toBlob failed"));
+          }}, "image/png");
+        }} else {{
+          try {{
+            const dataURI = canvas.toDataURL("image/png");
+            const byteString = atob(dataURI.split(',')[1]);
+            const ab = new ArrayBuffer(byteString.length);
+            const ia = new Uint8Array(ab);
+            for (let i = 0; i < byteString.length; i++) ia[i] = byteString.charCodeAt(i);
+            resolve(new Blob([ab], {{ type: "image/png" }}));
+          }} catch (err) {{
+            reject(err);
+          }}
+        }}
+      }});
+    }}
+
+    async function copyCanvasSnapshotToClipboard(cardData, emiName) {{
+      if (!cardData) return false;
+      const canvas = drawNativeReceiptCanvas(cardData);
+      window.focus();
+
+      // Synchronous Promise pass to ClipboardItem preserves Mobile Safari (iOS) & Android Chrome user-gesture activation!
+      if (navigator.clipboard && window.ClipboardItem && navigator.clipboard.write) {{
+        try {{
+          const blobPromise = canvasToPngBlobPromise(canvas);
+          const clipItem = new ClipboardItem({{ "image/png": blobPromise }});
+          await navigator.clipboard.write([clipItem]);
+          showClipboardToast(`Receipt Snapshot copied to clipboard! Paste in WhatsApp (Ctrl+V or Long-Press -> Paste)`);
+          return true;
+        }} catch (firstErr) {{
+          try {{
+            const resolvedBlob = await canvasToPngBlobPromise(canvas);
+            const fallbackItem = new ClipboardItem({{ "image/png": resolvedBlob }});
+            await navigator.clipboard.write([fallbackItem]);
+            showClipboardToast(`Receipt Snapshot copied to clipboard! Paste in WhatsApp`);
+            return true;
+          }} catch (secondErr) {{
+            console.warn("Direct clipboard image write restricted by browser/iframe:", secondErr);
+          }}
+        }}
+      }}
+
+      // Mobile Native Web Share Sheet Fallback (Android / iOS "Copy Image" or direct WhatsApp share)
+      try {{
+        const blob = await canvasToPngBlobPromise(canvas);
+        const fileName = `${{(emiName || 'EMI_Receipt').replace(/\s+/g, '_')}}_Snapshot.png`;
+        const file = new File([blob], fileName, {{ type: "image/png" }});
+        if (navigator.canShare && navigator.canShare({{ files: [file] }})) {{
+          await navigator.share({{
+            files: [file],
+            title: `${{emiName || 'EMI'}} Receipt Snapshot`,
+          }});
+          showClipboardToast(`Shared Receipt Snapshot!`);
+          return true;
+        }}
+      }} catch (shareErr) {{}}
+
+      return false;
+    }}
+
+    async function copySnapshotOnly(cardElementId, emiName) {{
+      const idxMatch = String(cardElementId).match(/(\d+)$/);
+      const cardIdx = idxMatch ? parseInt(idxMatch[1], 10) : -1;
+      const cardData = (window.renderedCardsData && cardIdx >= 0) ? window.renderedCardsData[cardIdx] : null;
+      if (!cardData) return;
+
+      const copied = await copyCanvasSnapshotToClipboard(cardData, emiName);
+      const canvas = drawNativeReceiptCanvas(cardData);
+      const imgUrl = canvas.toDataURL("image/png");
+      const dlLink = document.createElement("a");
+      dlLink.download = `${{(emiName || 'EMI_Receipt').replace(/\s+/g, '_')}}_Snapshot.png`;
+      dlLink.href = imgUrl;
+      dlLink.click();
+
+      if (!copied) {{
+        showClipboardToast(`Snapshot downloaded! (Press & hold image to copy/share on mobile)`, true);
+      }}
+    }}
+
     async function shareReceiptOnWhatsApp(cardElementId, emiName, loanId, totalStr, datesStr) {{
       const idxMatch = String(cardElementId).match(/(\d+)$/);
       const cardIdx = idxMatch ? parseInt(idxMatch[1], 10) : -1;
       const cardData = (window.renderedCardsData && cardIdx >= 0) ? window.renderedCardsData[cardIdx] : null;
 
-      // 1. Get phone number (auto-prefixed with 91 for India)
+      // 1. Copy Snapshot PNG Image to Clipboard FIRST (while user gesture is active & document is focused!)
+      if (cardData) {{
+        await copyCanvasSnapshotToClipboard(cardData, emiName);
+        try {{
+          const canvas = drawNativeReceiptCanvas(cardData);
+          const imgUrl = canvas.toDataURL("image/png");
+          const dlLink = document.createElement("a");
+          dlLink.download = `${{(emiName || 'EMI_Receipt').replace(/\s+/g, '_')}}_Snapshot.png`;
+          dlLink.href = imgUrl;
+          dlLink.click();
+        }} catch (e) {{
+          console.error("Canvas download error:", e);
+        }}
+      }}
+
+      // 2. Get phone number (auto-prefixed with 91 for India)
       let phone = cleanIndianPhone(getSavedPhone(loanId) || getSavedPhone(emiName));
       if (!phone || phone.length < 10) {{
-        const entered = prompt("Enter 10-digit mobile number for " + (emiName || "this receipt") + " (+91 will be added automatically):", "");
+        const entered = prompt("Snapshot copied to clipboard! Enter 10-digit WhatsApp mobile number for " + (emiName || "this receipt") + " (+91 added automatically):", "");
         if (!entered) return;
         phone = cleanIndianPhone(entered);
         if (!phone || phone.length < 10) {{
@@ -1523,23 +1645,13 @@ def generate_modern_dashboard_html(results_list, output_dir=".", write_to_disk=T
         if (emiName) localStorage.setItem("emi_phone_" + emiName, phone);
       }}
 
-      // 2. Open new tab synchronously to avoid popup blocker
-      const waWin = window.open('about:blank', '_blank');
-
-      // 3. Build clean itemized WhatsApp text receipt using template literals
+      // 3. Build clean itemized WhatsApp text receipt
       const cleanTotal = totalStr.replace(/₹/g, 'Rs. ');
-      let message = (cardData && cardData.cheerMessage) ? `${{cardData.cheerMessage}}
-
-` : '';
-      message += `*EMI STATEMENT RECEIPT - ${{emiName || 'Monthly Installment'}}*
-`;
-      message += `*Billing Date(s):* ${{datesStr}}
-`;
-      message += `*Total Amount Due:* ${{cleanTotal}}
-
-`;
-      message += `*Itemized Breakdown:*
-`;
+      let message = (cardData && cardData.cheerMessage) ? `${{cardData.cheerMessage}}\n\n` : '';
+      message += `*EMI STATEMENT RECEIPT - ${{emiName || 'Monthly Installment'}}*\n`;
+      message += `*Billing Date(s):* ${{datesStr}}\n`;
+      message += `*Total Amount Due:* ${{cleanTotal}}\n\n`;
+      message += `*Itemized Breakdown:*\n`;
 
       if (cardData) {{
         const dates = cardData.type === 'named_emi' ? cardData.dates : [{{ items: cardData.items }}];
@@ -1547,61 +1659,20 @@ def generate_modern_dashboard_html(results_list, output_dir=".", write_to_disk=T
           d.items.forEach(itm => {{
             if (!itm.is_credit) {{
               const amtClean = (itm.amount_str || '').replace(/₹/g, 'Rs. ');
-              message += `• ${{itm.description}}: ${{amtClean}}
-`;
+              message += `• ${{itm.description}}: ${{amtClean}}\n`;
             }}
           }});
         }});
       }}
 
-      message += `
-_(Receipt snapshot image copied to clipboard - press Ctrl+V to paste! / saved to device)_`;
-
-      try {{
-        if (navigator.clipboard && navigator.clipboard.writeText) {{
-          navigator.clipboard.writeText(message);
-        }}
-      }} catch (e) {{}}
+      message += `\n_(Receipt snapshot image copied to clipboard — press Ctrl+V on PC or Long-Press -> Paste in WhatsApp chat!)_`;
 
       const waUrl = `https://api.whatsapp.com/send?phone=${{phone}}&text=${{encodeURIComponent(message)}}`;
 
-      // 4. Render crisp pixel-perfect receipt canvas natively & copy image to clipboard
-      try {{
-        if (cardData) {{
-          const canvas = drawNativeReceiptCanvas(cardData);
-
-          // Copy PNG image blob to Clipboard (for instant Ctrl+V paste into WhatsApp!)
-          if (canvas.toBlob) {{
-            canvas.toBlob(async (blob) => {{
-              if (blob && navigator.clipboard && window.ClipboardItem && navigator.clipboard.write) {{
-                try {{
-                  const item = new ClipboardItem({{ "image/png": blob }});
-                  await navigator.clipboard.write([item]);
-                  console.log("Snapshot image copied to clipboard successfully!");
-                }} catch (clipErr) {{
-                  console.warn("Could not copy image to clipboard:", clipErr);
-                }}
-              }}
-            }}, "image/png");
-          }}
-
-          // Also download PNG file to device
-          const imgUrl = canvas.toDataURL("image/png");
-          const dlLink = document.createElement("a");
-          dlLink.download = `${{(emiName || 'EMI_Receipt').replace(/\s+/g, '_')}}_Snapshot.png`;
-          dlLink.href = imgUrl;
-          dlLink.click();
-        }}
-      }} catch (e) {{
-        console.error("Canvas render error:", e);
-      }}
-
-      // 5. Navigate the open window directly to WhatsApp
-      if (waWin) {{
-        waWin.location.href = waUrl;
-      }} else {{
-        window.location.href = waUrl;
-      }}
+      // 4. Open WhatsApp after image is safely on the clipboard
+      setTimeout(() => {{
+        window.open(waUrl, '_blank');
+      }}, 350);
     }}
 
     function getActiveStatement() {{
@@ -2334,7 +2405,11 @@ _(Receipt snapshot image copied to clipboard - press Ctrl+V to paste! / saved to
                       </button>
                     `;
                   }})()}}
-                  <button onclick="shareReceiptOnWhatsApp('card-named-emi-${{cardIdx}}', '${{card.emiName}}', '${{card.loanId || ''}}', '₹${{card.combinedTotal.toLocaleString('en-IN', {{minimumFractionDigits: 2, maximumFractionDigits: 2}})}}', '${{datesHeaderStr}}')" class="no-print px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs shadow-md shadow-emerald-600/30 transition flex items-center gap-1.5 cursor-pointer">
+                  <button onclick="copySnapshotOnly('card-named-emi-${{cardIdx}}', '${{card.emiName}}')" class="no-print px-3.5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs shadow-md shadow-indigo-600/25 transition flex items-center gap-1.5 cursor-pointer active:scale-95" title="Copy high-res PNG receipt image to clipboard (PC & Mobile)">
+                    <span>📋</span>
+                    <span>Copy Snapshot</span>
+                  </button>
+                  <button onclick="shareReceiptOnWhatsApp('card-named-emi-${{cardIdx}}', '${{card.emiName}}', '${{card.loanId || ''}}', '₹${{card.combinedTotal.toLocaleString('en-IN', {{minimumFractionDigits: 2, maximumFractionDigits: 2}})}}', '${{datesHeaderStr}}')" class="no-print px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs shadow-md shadow-emerald-600/30 transition flex items-center gap-1.5 cursor-pointer active:scale-95">
                     <span>📲</span>
                     <span>Share WhatsApp</span>
                   </button>

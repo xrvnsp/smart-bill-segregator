@@ -18,6 +18,11 @@ test_*/
 *.csv
 Statement_Dashboard.html
 
+# Local Deployment & Sync Scripts
+copy_and_push_to_git.bat
+copy_to_project.bat
+push_to_github.bat
+
 # Python Virtual Environments
 .venv/
 env/

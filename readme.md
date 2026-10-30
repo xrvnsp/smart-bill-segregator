@@ -34,12 +34,14 @@ An Apple-inspired interactive web dashboard, Streamlit web app ([smartbills.stre
 git clone https://github.com/xrvnsp/smart-bill-segregator.git
 cd smart-bill-segregator
 
+
 ```
 
 ### 2. Install Dependencies
 
 ```
 pip install -r requirements.txt
+
 
 ```
 
@@ -51,6 +53,7 @@ Double-click `run_streamlit.bat` on Windows, or run:
 
 ```
 streamlit run app.py
+
 
 ```
 
@@ -65,12 +68,14 @@ Double-click `run_web_server.bat` or run:
 ```
 python web_server.py
 
+
 ```
 
 #### Option C: Desktop GUI Launcher (Windows)
 
 ```
 python unlock_statements.py
+
 
 ```
 
@@ -102,6 +107,7 @@ Save your passwords once in the sidebar (**💾 Save Passwords on This Device**)
 ├── passwords.json.example   # Example template for offline desktop configuration
 ├── .gitignore               # Blocks all PDFs, credentials, and personal artifacts from Git
 └── README.md                # Project documentation
+
 
 ```
 
