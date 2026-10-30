@@ -476,7 +476,7 @@ def parse_hdfc_statement(reader, file_path, saved_names):
   }
 
 
-def process_statement_file(file_path, base_downloads_dir=None):
+def process_statement_file(file_path, base_downloads_dir=None, custom_passwords=None):
   """Unlocks the file and stores inside the standardized unified month folder."""
   try:
     from pypdf import PdfReader, PdfWriter
@@ -500,7 +500,14 @@ def process_statement_file(file_path, base_downloads_dir=None):
       ordered_banks = list(KNOWN_BANKS)
 
     parent_folder = base_downloads_dir or os.path.dirname(file_path) or "."
-    stored_pwds = load_stored_passwords(parent_folder)
+    if custom_passwords:
+      stored_pwds = {
+          "hdfc": str(custom_passwords.get("hdfc", "")).strip(),
+          "icici": str(custom_passwords.get("icici", "")).strip(),
+          "sheets_webhook_url": str(custom_passwords.get("sheets_webhook_url", "")).strip()
+      }
+    else:
+      stored_pwds = load_stored_passwords(parent_folder)
     was_encrypted = bool(reader.is_encrypted)
 
     if was_encrypted:

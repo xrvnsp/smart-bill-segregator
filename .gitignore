@@ -10,12 +10,13 @@ emi_names.json
 *.env
 .env.*
 
-# Financial Statements & Temporary Uploads (NEVER commit financial data!)
+# Financial Statements & Generated Dashboards with Personal Data
 *.pdf
 Statements_*/
 temp_uploaded_statements/
 test_*/
 *.csv
+Statement_Dashboard.html
 
 # Python Virtual Environments
 .venv/

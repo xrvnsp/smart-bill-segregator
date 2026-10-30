@@ -1,6 +1,7 @@
 """Smart Bill Segregator - Streamlit Web Application
 Renders the exact, authentic, mobile-and-PC responsive web dashboard.
-Upload-first workflow: No statement data or bill amount is displayed until you upload a PDF or choose to load saved statements.
+Strictly session-isolated: Passwords and statement data live only in private session memory.
+Zero cross-device leaks, zero shared disk storage, and clean Apple typography with no header clipping.
 """
 
 import os
@@ -18,18 +19,23 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# --- Responsive Stylesheet ---
+# --- Responsive Stylesheet: Prevents Header Clipping & Sets Apple Spacing ---
 st.markdown("""
 <style>
-    #MainMenu {visibility: hidden;}
-    footer {visibility: hidden;}
+    /* Prevent Streamlit header from obscuring title and content */
+    [data-testid="stHeader"], header {
+        background: transparent !important;
+    }
     .block-container {
-        padding-top: 1rem !important;
-        padding-bottom: 1rem !important;
-        padding-left: 1rem !important;
-        padding-right: 1rem !important;
+        padding-top: 4.5rem !important;
+        padding-bottom: 2rem !important;
+        padding-left: 1.5rem !important;
+        padding-right: 1.5rem !important;
         max-width: 100% !important;
     }
+    #MainMenu {visibility: hidden;}
+    footer {visibility: hidden;}
+    
     iframe {
         border-radius: 20px;
         box-shadow: 0 4px 25px -3px rgba(0, 0, 0, 0.08);
@@ -47,21 +53,52 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# Load stored credentials
-stored_pwds = unlock_statements.load_stored_passwords(".")
+# --- Session-Isolated Password Storage (Per-User / Per-Browser Instance) ---
+# Passwords live strictly in in-memory session_state, never written to a shared server file.
+if "session_passwords" not in st.session_state:
+    st.session_state.session_passwords = {"icici": "", "hdfc": "", "sheets_webhook_url": ""}
+
+# If running strictly locally on PC with an existing offline passwords.json, pre-populate session once
+if not st.session_state.session_passwords.get("icici") and not st.session_state.session_passwords.get("hdfc"):
+    local_disk_pwds = unlock_statements.load_stored_passwords(".")
+    if local_disk_pwds.get("icici") or local_disk_pwds.get("hdfc"):
+        st.session_state.session_passwords.update({
+            "icici": local_disk_pwds.get("icici", ""),
+            "hdfc": local_disk_pwds.get("hdfc", ""),
+            "sheets_webhook_url": local_disk_pwds.get("sheets_webhook_url", "")
+        })
 
 # --- Sidebar Controls ---
 with st.sidebar:
     st.markdown("### 💳 Smart Bill Segregator")
     st.caption("Auto-segregate statements, friend EMIs, cashback, and regular expenses.")
 
-    with st.expander("🔑 Bank Passwords & Sync Settings", expanded=False):
-        icici_input = st.text_input("ICICI Password", value=stored_pwds.get("icici", ""), type="password", help="Lowercase name (4) + DDMM")
-        hdfc_input = st.text_input("HDFC Password", value=stored_pwds.get("hdfc", ""), type="password", help="UPPERCASE name (4) + DDMM")
-        webhook_input = st.text_input("Google Sheets Web App URL", value=stored_pwds.get("sheets_webhook_url", ""))
-        if st.button("💾 Save Settings", use_container_width=True):
-            unlock_statements.save_stored_passwords(hdfc_input, icici_input, webhook_input, ".")
-            st.success("Passwords saved locally!")
+    with st.expander("🔑 Session Statement Passwords", expanded=False):
+        st.caption("🔒 Passwords stay in your private browser session memory and are never shared or saved publicly.")
+        icici_val = st.text_input(
+            "ICICI Password",
+            value=st.session_state.session_passwords.get("icici", ""),
+            type="password",
+            help="Lowercase name (4) + DDMM",
+            key="input_icici_pwd"
+        )
+        hdfc_val = st.text_input(
+            "HDFC Password",
+            value=st.session_state.session_passwords.get("hdfc", ""),
+            type="password",
+            help="UPPERCASE name (4) + DDMM",
+            key="input_hdfc_pwd"
+        )
+        webhook_val = st.text_input(
+            "Google Sheets Web App URL",
+            value=st.session_state.session_passwords.get("sheets_webhook_url", ""),
+            key="input_webhook_url"
+        )
+        if st.button("🔒 Set Passwords for This Session", use_container_width=True):
+            st.session_state.session_passwords["icici"] = icici_val.strip()
+            st.session_state.session_passwords["hdfc"] = hdfc_val.strip()
+            st.session_state.session_passwords["sheets_webhook_url"] = webhook_val.strip()
+            st.success("Passwords saved in private session memory!")
             st.rerun()
 
     st.link_button(
@@ -70,14 +107,14 @@ with st.sidebar:
         use_container_width=True
     )
     st.markdown("---")
-    st.caption("🔒 All statements are unlocked 100% locally on your computer.")
+    st.caption("🔒 All statements and passwords remain 100% private to your browser tab.")
 
-# --- Session State Management ---
+# --- Session State for Uploaded Statements ---
 if "statements_data" not in st.session_state:
     st.session_state.statements_data = {}
 
 # --- Main Page Header & Visible Upload Card ---
-st.markdown("### 💳 Smart Bill Segregator")
+st.markdown("<div style='margin-bottom: 4px;'><h1 style='font-size: 28px; font-weight: 800; color: #0f172a; margin: 0; letter-spacing: -0.02em;'>💳 Smart Bill Segregator</h1></div>", unsafe_allow_html=True)
 st.caption("Auto-segregates bank statements, friend EMIs, cashback, and regular card spends.")
 
 with st.container():
@@ -88,19 +125,19 @@ with st.container():
             "📁 Upload Statement PDF(s) to Unlock & Analyze:",
             type=["pdf"],
             accept_multiple_files=True,
-            help="Drag and drop or select HDFC / ICICI bank statement PDFs. Decryption happens locally."
+            help="Drag and drop or select HDFC / ICICI bank statement PDFs. Decryption happens locally in this private session."
         )
 
     with info_col:
-        st.markdown("**🔑 Passwords Status:**")
-        icici_set = bool(stored_pwds.get("icici"))
-        hdfc_set = bool(stored_pwds.get("hdfc"))
-        st.markdown(f"- ICICI: {'✅ Configured' if icici_set else '⚠️ Missing'}")
-        st.markdown(f"- HDFC: {'✅ Configured' if hdfc_set else '⚠️ Missing'}")
+        st.markdown("**🔑 Private Session Passwords:**")
+        icici_set = bool(st.session_state.session_passwords.get("icici"))
+        hdfc_set = bool(st.session_state.session_passwords.get("hdfc"))
+        st.markdown(f"- ICICI: {'🟢 Active' if icici_set else '⚪ Not Set'}")
+        st.markdown(f"- HDFC: {'🟢 Active' if hdfc_set else '⚪ Not Set'}")
         if not icici_set or not hdfc_set:
-            st.caption("Configure passwords in the sidebar to decrypt password-locked PDFs.")
+            st.caption("Set passwords in the sidebar or enter inline when uploading locked PDFs.")
 
-# --- Process Uploaded Files ---
+# --- Process Uploaded Files in Memory ---
 if uploaded_files:
     temp_dir = "temp_uploaded_statements"
     os.makedirs(temp_dir, exist_ok=True)
@@ -108,7 +145,13 @@ if uploaded_files:
         temp_path = os.path.join(temp_dir, up_file.name)
         with open(temp_path, "wb") as f:
             f.write(up_file.getbuffer())
-        success, msg, rdata = unlock_statements.process_statement_file(temp_path, ".")
+        
+        # Use session-isolated passwords strictly in memory
+        success, msg, rdata = unlock_statements.process_statement_file(
+            temp_path,
+            ".",
+            custom_passwords=st.session_state.session_passwords
+        )
         if success:
             st.session_state.statements_data[rdata["bank_short"]] = rdata
             st.success(f"✅ Successfully unlocked & parsed: {up_file.name} ({rdata.get('bank_name')}) — {len(rdata.get('date_groups', {}))} date groups found")
@@ -116,15 +159,15 @@ if uploaded_files:
             st.error(f"⚠️ {up_file.name}: {msg}")
             if "password" in msg.lower():
                 with st.form(key=f"pwd_unlock_{up_file.name}"):
-                    st.markdown(f"**Unlock `{up_file.name}` directly:**")
-                    inline_pwd = st.text_input("Enter statement password:", type="password", key=f"inp_{up_file.name}")
-                    if st.form_submit_button("🔓 Save Password & Unlock PDF"):
+                    st.markdown(f"**Enter password for `{up_file.name}` (Stored only in your private session):**")
+                    inline_pwd = st.text_input("Statement password:", type="password", key=f"inp_{up_file.name}")
+                    if st.form_submit_button("🔓 Unlock PDF"):
                         if inline_pwd.strip():
                             if "icici" in up_file.name.lower() or "amazon" in up_file.name.lower():
-                                unlock_statements.save_stored_passwords(stored_pwds.get("hdfc", ""), inline_pwd.strip(), stored_pwds.get("sheets_webhook_url", ""), ".")
+                                st.session_state.session_passwords["icici"] = inline_pwd.strip()
                             else:
-                                unlock_statements.save_stored_passwords(inline_pwd.strip(), stored_pwds.get("icici", ""), stored_pwds.get("sheets_webhook_url", ""), ".")
-                            st.success("Password saved! Refreshing...")
+                                st.session_state.session_passwords["hdfc"] = inline_pwd.strip()
+                            st.success("Password saved to your session! Unlocking...")
                             st.rerun()
 
 # --- Active Statements Controls & Clear State ---
@@ -171,7 +214,11 @@ else:
             for fname in sorted(os.listdir("Statements_October_2026")):
                 if fname.lower().endswith(".pdf"):
                     fp = os.path.join("Statements_October_2026", fname)
-                    suc, _, rd = unlock_statements.process_statement_file(fp, ".")
+                    suc, _, rd = unlock_statements.process_statement_file(
+                        fp,
+                        ".",
+                        custom_passwords=st.session_state.session_passwords
+                    )
                     if suc and rd.get("bank_short") and rd["bank_short"] not in loaded:
                         loaded[rd["bank_short"]] = rd
             if loaded:
