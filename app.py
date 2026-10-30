@@ -1,6 +1,6 @@
 """Smart Bill Segregator - Streamlit Web Application
 Renders the exact, authentic, mobile-and-PC responsive web dashboard.
-Auto-loads existing unlocked statements immediately with visible controls and robust PDF upload handling.
+Upload-first workflow: No statement data or bill amount is displayed until you upload a PDF or choose to load saved statements.
 """
 
 import os
@@ -31,27 +31,18 @@ st.markdown("""
         max-width: 100% !important;
     }
     iframe {
-        border-radius: 16px;
-        box-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.08);
+        border-radius: 20px;
+        box-shadow: 0 4px 25px -3px rgba(0, 0, 0, 0.08);
         border: 1px solid #e2e8f0;
         width: 100% !important;
     }
     .uploader-card {
         background: #ffffff;
-        border-radius: 16px;
-        padding: 18px 22px;
+        border-radius: 20px;
+        padding: 20px 24px;
         border: 1px solid #e2e8f0;
         margin-bottom: 16px;
-        box-shadow: 0 2px 10px rgba(0,0,0,0.03);
-    }
-    .status-badge {
-        display: inline-flex;
-        align-items: center;
-        gap: 6px;
-        padding: 4px 12px;
-        border-radius: 9999px;
-        font-size: 12px;
-        font-weight: 700;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.03);
     }
 </style>
 """, unsafe_allow_html=True)
@@ -85,40 +76,29 @@ with st.sidebar:
 if "statements_data" not in st.session_state:
     st.session_state.statements_data = {}
 
-# Auto-discover and load existing unlocked statements from disk on first launch
-if not st.session_state.statements_data:
-    for folder in ["Statements_October_2026", "."]:
-        if os.path.exists(folder):
-            for fname in sorted(os.listdir(folder)):
-                if fname.lower().endswith(".pdf"):
-                    fp = os.path.join(folder, fname)
-                    suc, _, rd = unlock_statements.process_statement_file(fp, ".")
-                    if suc and rd.get("bank_short") and rd["bank_short"] not in st.session_state.statements_data:
-                        st.session_state.statements_data[rd["bank_short"]] = rd
-
 # --- Main Page Header & Visible Upload Card ---
-with st.container():
-    st.markdown("### 💳 Smart Bill Segregator")
-    st.caption("Auto-segregates bank statements, friend EMIs, cashback, and regular card spends.")
+st.markdown("### 💳 Smart Bill Segregator")
+st.caption("Auto-segregates bank statements, friend EMIs, cashback, and regular card spends.")
 
+with st.container():
     up_col, info_col = st.columns([3, 1])
 
     with up_col:
         uploaded_files = st.file_uploader(
-            "📁 Upload New Statement PDF(s) to Parse & Unlock:",
+            "📁 Upload Statement PDF(s) to Unlock & Analyze:",
             type=["pdf"],
             accept_multiple_files=True,
-            help="Drag and drop or select HDFC / ICICI bank statement PDFs. They will be decrypted and segregated instantly."
+            help="Drag and drop or select HDFC / ICICI bank statement PDFs. Decryption happens locally."
         )
 
     with info_col:
-        st.markdown("**🔑 Configured Passwords:**")
+        st.markdown("**🔑 Passwords Status:**")
         icici_set = bool(stored_pwds.get("icici"))
         hdfc_set = bool(stored_pwds.get("hdfc"))
         st.markdown(f"- ICICI: {'✅ Configured' if icici_set else '⚠️ Missing'}")
         st.markdown(f"- HDFC: {'✅ Configured' if hdfc_set else '⚠️ Missing'}")
         if not icici_set or not hdfc_set:
-            st.caption("Set passwords in the sidebar to auto-unlock encrypted statements.")
+            st.caption("Configure passwords in the sidebar to decrypt password-locked PDFs.")
 
 # --- Process Uploaded Files ---
 if uploaded_files:
@@ -147,31 +127,56 @@ if uploaded_files:
                             st.success("Password saved! Refreshing...")
                             st.rerun()
 
-# --- Active Statements Status Bar ---
+# --- Active Statements Controls & Clear State ---
 if st.session_state.statements_data:
-    status_cols = st.columns([4, 1])
+    status_cols = st.columns([3, 1, 1])
     with status_cols[0]:
         badge_html = " ".join([
-            f'<span style="background-color: #f1f5f9; color: #334155; padding: 4px 10px; border-radius: 8px; font-size: 12px; font-weight: bold; border: 1px solid #cbd5e1; margin-right: 8px;">🏛️ {s.get("bank_name", k)} ({len(s.get("date_groups", {}))} date groups)</span>'
+            f'<span style="background-color: #f1f5f9; color: #334155; padding: 4px 12px; border-radius: 12px; font-size: 12px; font-weight: 800; border: 1px solid #cbd5e1; margin-right: 8px;">🏛️ {s.get("bank_name", k)} ({len(s.get("date_groups", {}))} date groups)</span>'
             for k, s in st.session_state.statements_data.items()
         ])
-        st.markdown(f"<div style='margin-bottom: 12px; display: flex; align-items: center; flex-wrap: wrap; gap: 6px;'><span style='font-size: 12px; font-weight: bold; color: #64748b; text-transform: uppercase;'>Active Statements:</span> {badge_html}</div>", unsafe_allow_html=True)
+        st.markdown(f"<div style='margin-bottom: 12px; display: flex; align-items: center; flex-wrap: wrap; gap: 6px;'><span style='font-size: 11px; font-weight: 800; color: #64748b; text-transform: uppercase; letter-spacing: 0.05em;'>Active Statements:</span> {badge_html}</div>", unsafe_allow_html=True)
     with status_cols[1]:
         if st.button("🔄 Refresh Data", use_container_width=True):
             st.rerun()
+    with status_cols[2]:
+        if st.button("🗑️ Clear Dashboard", use_container_width=True, help="Reset dashboard to upload new statements"):
+            st.session_state.statements_data = {}
+            st.rerun()
 
-# --- Render the Authentic Web Dashboard ---
-dashboard_html = None
-
+# --- Render the Authentic Web Dashboard or Clean Welcome State ---
 if st.session_state.statements_data:
     dashboard_path = unlock_statements.generate_modern_dashboard_html(list(st.session_state.statements_data.values()), ".")
     with open(dashboard_path, "r", encoding="utf-8") as f:
         dashboard_html = f.read()
-elif os.path.exists("Statement_Dashboard.html"):
-    with open("Statement_Dashboard.html", "r", encoding="utf-8") as f:
-        dashboard_html = f.read()
-
-if dashboard_html:
     components.html(dashboard_html, height=1450, scrolling=True)
 else:
-    st.info("👋 Welcome to Smart Bill Segregator! Please upload your HDFC or ICICI bank statement PDF above to view your interactive dashboard.")
+    # Clean Initial State: Do NOT show any bill amount or cached statements until files are uploaded!
+    st.markdown("""
+    <div style="background: rgba(255, 255, 255, 0.75); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); border-radius: 24px; padding: 48px 32px; border: 1px solid #e2e8f0; text-align: center; margin-top: 16px; box-shadow: 0 10px 30px -5px rgba(0,0,0,0.03);">
+        <div style="font-size: 48px; margin-bottom: 12px;">💳</div>
+        <h2 style="font-size: 22px; font-weight: 800; color: #0f172a; margin-bottom: 6px; letter-spacing: -0.02em;">No Statement Loaded Yet</h2>
+        <p style="font-size: 14px; color: #64748b; max-width: 520px; margin: 0 auto 20px auto; line-height: 1.5;">
+            Please upload your <b>HDFC Bank (Swiggy)</b> or <b>ICICI Bank (Amazon Pay)</b> statement PDF above to view your interactive Apple-style dashboard, friend EMI receipts, and cashback reconciliation.
+        </p>
+    </div>
+    """, unsafe_allow_html=True)
+
+    # Optional helper for local usage: button to load previously unlocked statements from disk
+    has_local_folder = os.path.exists("Statements_October_2026")
+    if has_local_folder:
+        st.markdown("<div style='text-align: center; margin-top: 14px;'>", unsafe_allow_html=True)
+        if st.button("📂 Load Previously Processed Statements from Local Folder (October 2026)"):
+            loaded = {}
+            for fname in sorted(os.listdir("Statements_October_2026")):
+                if fname.lower().endswith(".pdf"):
+                    fp = os.path.join("Statements_October_2026", fname)
+                    suc, _, rd = unlock_statements.process_statement_file(fp, ".")
+                    if suc and rd.get("bank_short") and rd["bank_short"] not in loaded:
+                        loaded[rd["bank_short"]] = rd
+            if loaded:
+                st.session_state.statements_data = loaded
+                st.rerun()
+            else:
+                st.warning("No valid statements found in Statements_October_2026.")
+        st.markdown("</div>", unsafe_allow_html=True)
