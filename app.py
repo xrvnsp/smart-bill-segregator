@@ -139,7 +139,7 @@ with st.sidebar:
         use_container_width=True
     )
     st.markdown("---")
-    st.caption("🔒 Zero-Disk Policy: PDFs are parsed 100% in RAM and never written to server storage.")
+    st.caption("🔒 100% Zero-Disk Privacy: Statements are processed in RAM & never stored on the server — also I don't have money to buy a server 😜")
 
 # --- Session State for Uploaded Statements ---
 if "statements_data" not in st.session_state:
@@ -236,7 +236,14 @@ else:
         </p>
         <div style="display: inline-flex; align-items: center; gap: 6px; padding: 6px 14px; border-radius: 9999px; background: #f0fdf4; border: 1px solid #bbf7d0; color: #166534; font-size: 12px; font-weight: 700;">
             <span>🔒</span>
-            <span>100% Zero-Disk Privacy: Statements are processed in RAM & never stored on the server</span>
+            <span>100% Zero-Disk Privacy: Statements are processed in RAM & never stored on the server — also I don't have money to buy a server 😜</span>
         </div>
     </div>
     """, unsafe_allow_html=True)
+
+# --- Friendly Footer ---
+st.markdown("""
+<div style="text-align: center; margin-top: 36px; padding: 18px 16px; border-top: 1px solid rgba(226, 232, 240, 0.5); color: #64748b; font-size: 13px; font-weight: 600;">
+    Made with ❤️ for friends — because splitting EMIs shouldn't ruin friendships (or give you a migraine) 🍕💳
+</div>
+""", unsafe_allow_html=True)

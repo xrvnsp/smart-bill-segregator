@@ -935,6 +935,12 @@ def generate_modern_dashboard_html(results_list, output_dir=".", write_to_disk=T
     <!-- Date-Wise Segregated Breakdown -->
     <div class="space-y-5" id="date-breakdown-container"></div>
 
+    <!-- Friendly Footer -->
+    <footer class="mt-14 pt-6 pb-8 border-t border-slate-200/80 text-center text-xs font-semibold text-slate-500 flex flex-col items-center gap-1.5">
+      <div>Made with ❤️ for friends — because splitting EMIs shouldn't ruin friendships (or give you a migraine) 🍕💳</div>
+      <div class="text-[11px] text-slate-400">🔒 100% Zero-Disk Privacy: Statements are processed in RAM & never stored on the server — also I don't have money to buy a server 😜</div>
+    </footer>
+
   </main>
 
   <script>

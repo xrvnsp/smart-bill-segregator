@@ -84,6 +84,12 @@ cd /d "%TARGET_DIR%"
 echo   Current Working Directory: %CD%
 echo.
 
+:: Clean up old standalone bat files in target folder if they still exist from earlier runs
+if exist "copy_to_project.bat" del /f /q "copy_to_project.bat" 2>nul
+if exist "push_to_github.bat" del /f /q "push_to_github.bat" 2>nul
+if exist "Statements_October_2026" rmdir /s /q "Statements_October_2026" 2>nul
+if exist "temp_uploaded_statements" rmdir /s /q "temp_uploaded_statements" 2>nul
+
 :: ----------------------------------------------------------------------
 :: STEP 5: Verify Git Installation
 :: ----------------------------------------------------------------------
@@ -112,29 +118,17 @@ if not exist ".git" (
 :: ----------------------------------------------------------------------
 echo [2/3] Checking security guard and credentials protection...
 
-:: Remove any tracked sensitive files from Git cache
+:: Remove any tracked sensitive or obsolete files from Git cache
 git rm --cached passwords.json >nul 2>&1
 git rm --cached Statement_Dashboard.html >nul 2>&1
-
-:: Ensure passwords.json is empty template on disk
-if exist "passwords.json" (
-    findstr /C:"sara" "passwords.json" >nul 2>&1
-    if !ERRORLEVEL! equ 0 (
-        echo [SECURITY] Clearing sensitive credentials from passwords.json...
-        (
-            echo {
-            echo   "hdfc": "",
-            echo   "icici": ""
-            echo }
-        ) > passwords.json
-    )
-)
+git rm --cached copy_to_project.bat >nul 2>&1
+git rm --cached push_to_github.bat >nul 2>&1
 
 :: ----------------------------------------------------------------------
 :: STEP 8: Prompt for Commit Message or Use Comprehensive Default
 :: ----------------------------------------------------------------------
 echo.
-set "COMMIT_MSG=Apple Design System UI, 3D card tilt & facia graphics, in-memory session security & header padding fix"
+set "COMMIT_MSG=Enforce 100% zero-disk RAM privacy, client browser storage, updated README & playful footer"
 echo Default Commit Message:
 echo   "!COMMIT_MSG!"
 echo.
@@ -148,7 +142,7 @@ if defined USER_MSG (
 :: ----------------------------------------------------------------------
 echo.
 echo [3/3] Staging and pushing to GitHub repository from "%TARGET_DIR%"...
-git add .
+git add -A
 
 :: Commit
 git commit -m "!COMMIT_MSG!"
