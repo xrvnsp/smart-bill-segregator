@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Smart Bill Local Storage Bridge</title>
+  <script>
+    function sendToStreamlit(type, data) {
+      window.parent.postMessage({
+        isStreamlitMessage: true,
+        type: type,
+        ...data
+      }, "*");
+    }
+
+    function setFrameHeight(height) {
+      sendToStreamlit("streamlit:setFrameHeight", { height: height || 0 });
+    }
+
+    function setComponentValue(val) {
+      sendToStreamlit("streamlit:setComponentValue", { value: val });
+    }
+
+    function onRender(event) {
+      const args = (event.data && event.data.args) ? event.data.args : {};
+
+      // 1. If Python instructed to save passwords locally to this device's browser
+      if (args.save_passwords && typeof args.save_passwords === "object") {
+        try {
+          localStorage.setItem("smartbill_browser_vault", JSON.stringify(args.save_passwords));
+        } catch(e) {}
+      } else if (args.clear_passwords) {
+        try {
+          localStorage.removeItem("smartbill_browser_vault");
+        } catch(e) {}
+      }
+
+      // 2. Read stored credentials from this device's browser localStorage
+      let stored = null;
+      try {
+        const raw = localStorage.getItem("smartbill_browser_vault");
+        if (raw) stored = JSON.parse(raw);
+      } catch(e) {}
+
+      // 3. Return stored credentials back to Streamlit session
+      setComponentValue(stored || {});
+      setFrameHeight(0);
+    }
+
+    window.addEventListener("message", function(event) {
+      if (event.data && event.data.type === "streamlit:render") {
+        onRender(event);
+      }
+    });
+
+    // Notify Streamlit that component is ready
+    sendToStreamlit("streamlit:componentReady", { apiVersion: 1 });
+    setFrameHeight(0);
+  </script>
+</head>
+<body style="margin: 0; padding: 0; height: 0; overflow: hidden; background: transparent;">
+</body>
+</html>
