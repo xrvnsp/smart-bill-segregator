@@ -54,14 +54,14 @@ echo.
 :: /XD .git : Do not overwrite the target's .git repository folder
 robocopy "%SOURCE_DIR%" "%TARGET_DIR%" /E /IS /IT /R:2 /W:1 /XD ".git"
 
-if %ERRORLEVEL% LEQ 7 (
+if !ERRORLEVEL! LEQ 7 (
     echo.
     echo   [OK] All project files successfully copied to "%TARGET_DIR%".
 ) else (
     echo.
-    echo   [NOTICE] Robocopy code %ERRORLEVEL%. Running fallback xcopy...
+    echo   [NOTICE] Robocopy code !ERRORLEVEL!. Running fallback xcopy...
     xcopy "%SOURCE_DIR%\*" "%TARGET_DIR%\" /E /H /Y /C /R /Q
-    if %ERRORLEVEL% EQU 0 (
+    if !ERRORLEVEL! EQU 0 (
         echo   [OK] Files copied successfully via xcopy.
     ) else (
         color 0C
@@ -88,7 +88,7 @@ echo.
 :: STEP 5: Verify Git Installation
 :: ----------------------------------------------------------------------
 where git >nul 2>&1
-if %ERRORLEVEL% neq 0 (
+if !ERRORLEVEL! neq 0 (
     color 0C
     echo [ERROR] Git is not installed or not in your Windows PATH.
     echo Please install Git for Windows from: https://git-scm.com/download/win
@@ -131,11 +131,14 @@ if exist "passwords.json" (
 )
 
 :: ----------------------------------------------------------------------
-:: STEP 8: Prompt for Commit Message or Use Default
+:: STEP 8: Prompt for Commit Message or Use Comprehensive Default
 :: ----------------------------------------------------------------------
 echo.
-set "COMMIT_MSG=Update Smart Bill Segregator: Apple Design System, card facia graphics, multi-bank Streamlit app & private session security"
-set /p "USER_MSG=Enter commit message (Press ENTER for default): "
+set "COMMIT_MSG=Apple Design System UI, 3D card tilt & facia graphics, in-memory session security & header padding fix"
+echo Default Commit Message:
+echo   "!COMMIT_MSG!"
+echo.
+set /p "USER_MSG=Enter custom commit message (or press ENTER to use default): "
 if defined USER_MSG (
     if not "!USER_MSG!"=="" set "COMMIT_MSG=!USER_MSG!"
 )
@@ -149,8 +152,8 @@ git add .
 
 :: Commit
 git commit -m "!COMMIT_MSG!"
-if %ERRORLEVEL% neq 0 (
-    echo [NOTE] No uncommitted changes detected. Proceeding to push branch...
+if !ERRORLEVEL! neq 0 (
+    echo [NOTE] Working tree clean or already committed. Proceeding to push branch...
 )
 
 :: Set main branch and remote URL
@@ -162,7 +165,7 @@ git remote set-url origin https://github.com/xrvnsp/smart-bill-segregator.git
 echo Pushing to origin main...
 git push -u origin main
 
-if %ERRORLEVEL% equ 0 (
+if !ERRORLEVEL! equ 0 (
     echo.
     echo ======================================================================
     echo   SUCCESS! Project updated and pushed to GitHub:
@@ -174,10 +177,10 @@ if %ERRORLEVEL% equ 0 (
     echo [NOTICE] Push rejected due to remote updates. Attempting rebase...
     git pull --rebase origin main
     git push -u origin main
-    if %ERRORLEVEL% equ 0 (
+    if !ERRORLEVEL! equ 0 (
         echo.
         echo ======================================================================
-        echo   SUCCESS! Synced and pushed to GitHub.
+        echo   SUCCESS! Synced and pushed to GitHub after rebase.
         echo   Live App: https://smartbills.streamlit.app
         echo ======================================================================
     ) else (
