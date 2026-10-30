@@ -476,22 +476,22 @@ def parse_hdfc_statement(reader, file_path, saved_names):
   }
 
 
-def process_statement_file(file_path, base_downloads_dir=None, custom_passwords=None):
-  """Unlocks the file and stores inside the standardized unified month folder."""
+def process_statement_file(file_path, base_downloads_dir=None, custom_passwords=None, file_obj=None, save_to_disk=True):
+  """Unlocks the file and optionally stores inside the standardized unified month folder (or keeps 100% in memory if save_to_disk=False)."""
   try:
     from pypdf import PdfReader, PdfWriter
   except ImportError:
     return False, "Missing 'pypdf'. Please run: pip install pypdf", None
 
-  if not os.path.exists(file_path):
+  if file_obj is None and not os.path.exists(file_path):
     return False, f"File does not exist: {file_path}", None
 
   try:
-    reader = PdfReader(file_path)
+    reader = PdfReader(file_obj if file_obj is not None else file_path)
     unlocked_bank_key = None
     accepted_pwd = None
 
-    fname_lower = os.path.basename(file_path).lower()
+    fname_lower = os.path.basename(str(file_path)).lower()
     if "4315" in fname_lower or "amazon" in fname_lower or "icici" in fname_lower:
       ordered_banks = [b for b in KNOWN_BANKS if b["key"] == "icici"]
     elif "5268" in fname_lower or "hdfc" in fname_lower or "swiggy" in fname_lower:
@@ -499,8 +499,8 @@ def process_statement_file(file_path, base_downloads_dir=None, custom_passwords=
     else:
       ordered_banks = list(KNOWN_BANKS)
 
-    parent_folder = base_downloads_dir or os.path.dirname(file_path) or "."
-    if custom_passwords:
+    parent_folder = base_downloads_dir or os.path.dirname(str(file_path)) or "."
+    if custom_passwords is not None:
       stored_pwds = {
           "hdfc": str(custom_passwords.get("hdfc", "")).strip(),
           "icici": str(custom_passwords.get("icici", "")).strip(),
@@ -551,26 +551,27 @@ def process_statement_file(file_path, base_downloads_dir=None, custom_passwords=
     else:
       fin = parse_hdfc_statement(reader, file_path, saved_emi_names)
 
-    # Standardized unified month folder: ALWAYS 'Statements_October_2026'
     safe_month_folder = f"Statements_{fin['statement_month'].replace(' ', '_')}"
     month_folder_path = os.path.join(parent_folder, safe_month_folder)
-    os.makedirs(month_folder_path, exist_ok=True)
-
     clean_target_name = f"{bank_short} {fin['statement_month']}.pdf"
     output_path = os.path.join(month_folder_path, clean_target_name)
 
-    counter = 1
-    base_no_ext = f"{bank_short} {fin['statement_month']}"
-    while os.path.exists(output_path):
-      output_path = os.path.join(month_folder_path, f"{base_no_ext} ({counter}).pdf")
-      counter += 1
+    if save_to_disk:
+      os.makedirs(month_folder_path, exist_ok=True)
+      counter = 1
+      base_no_ext = f"{bank_short} {fin['statement_month']}"
+      while os.path.exists(output_path):
+        output_path = os.path.join(month_folder_path, f"{base_no_ext} ({counter}).pdf")
+        counter += 1
 
-    writer = PdfWriter()
-    for page in reader.pages:
-      writer.add_page(page)
+      writer = PdfWriter()
+      for page in reader.pages:
+        writer.add_page(page)
 
-    with open(output_path, "wb") as f:
-      writer.write(f)
+      with open(output_path, "wb") as f:
+        writer.write(f)
+    else:
+      output_path = f"Memory Session ({clean_target_name})" 
 
     result_data = {
         "file_name": os.path.basename(file_path),
@@ -598,7 +599,7 @@ def process_statement_file(file_path, base_downloads_dir=None, custom_passwords=
     return False, f"Error: {err_str}", None
 
 
-def generate_modern_dashboard_html(results_list, output_dir):
+def generate_modern_dashboard_html(results_list, output_dir=".", write_to_disk=True):
   """Generates a high-quality modern interactive HTML dashboard with EMI receipt highlighting."""
   import base64
   html_path = os.path.join(output_dir, "Statement_Dashboard.html")
@@ -2684,10 +2685,11 @@ _(Receipt snapshot image copied to clipboard - press Ctrl+V to paste! / saved to
 </body>
 </html>"""
 
-  with open(html_path, "w", encoding="utf-8") as f:
-    f.write(html_content)
-
-  return html_path
+  if write_to_disk:
+    with open(html_path, "w", encoding="utf-8") as f:
+      f.write(html_content)
+    return html_path
+  return html_content
 
 
 def launch_gui():
