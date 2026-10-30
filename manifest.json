@@ -1,0 +1,18 @@
+{
+  "name": "Smart Bill Segregator",
+  "short_name": "BillSegregator",
+  "description": "Analyze credit card statements, track ongoing EMIs, and segregate friend reimbursements with 1-click WhatsApp sharing.",
+  "start_url": "./Statement_Dashboard.html",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#0f172a",
+  "theme_color": "#9333ea",
+  "icons": [
+    {
+      "src": "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='20' fill='%239333ea'/><text x='50%' y='55%' font-size='50' font-weight='bold' fill='white' text-anchor='middle' dominant-baseline='middle'>💳</text></svg>",
+      "sizes": "192x192 512x512",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

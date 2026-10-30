@@ -1,0 +1,1751 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Bank Statement Dashboard</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    body { font-family: 'Plus Jakarta Sans', sans-serif; }
+    .emi-card-glow { box-shadow: 0 4px 20px -2px rgba(124, 58, 237, 0.15); }
+
+    /* Fix color mismatch in Print / Save to PDF */
+    * {
+      -webkit-print-color-adjust: exact !important;
+      print-color-adjust: exact !important;
+      color-adjust: exact !important;
+    }
+
+    @media print {
+      * {
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+        color-adjust: exact !important;
+      }
+      body {
+        background-color: #f8fafc !important;
+      }
+      header {
+        position: static !important;
+        box-shadow: none !important;
+      }
+      header button, #search-input, .no-print {
+        display: none !important;
+      }
+      .emi-receipt-card {
+        border: 2px solid #c084fc !important;
+        background-color: #ffffff !important;
+        break-inside: avoid;
+      }
+      .emi-receipt-header {
+        background-color: #faf5ff !important;
+        border-bottom: 1px solid #e9d5ff !important;
+      }
+      .emi-badge {
+        background-color: #9333ea !important;
+        color: #ffffff !important;
+      }
+      .emi-total-pill {
+        background-color: #9333ea !important;
+        color: #ffffff !important;
+      }
+      .emi-icon-box {
+        background-color: #9333ea !important;
+        color: #ffffff !important;
+      }
+      .emi-nickname-tag {
+        background-color: #f3e8ff !important;
+        color: #6b21a8 !important;
+        border: 1px solid #d8b4fe !important;
+      }
+      .emi-comp-badge {
+        background-color: #f3e8ff !important;
+        color: #6b21a8 !important;
+      }
+      .bg-purple-600 {
+        background-color: #9333ea !important;
+        color: #ffffff !important;
+      }
+      .bg-purple-50\/80, .bg-purple-50, .bg-purple-50\/30 {
+        background-color: #faf5ff !important;
+      }
+      .bg-blue-600 {
+        background-color: #2563eb !important;
+        color: #ffffff !important;
+      }
+      .bg-emerald-600 {
+        background-color: #059669 !important;
+        color: #ffffff !important;
+      }
+      .bg-amber-100 {
+        background-color: #fef3c7 !important;
+        color: #92400e !important;
+      }
+      .bg-slate-900 {
+        background-color: #0f172a !important;
+        color: #ffffff !important;
+      }
+      .emi-receipt-footer {
+        background-color: #3b0764 !important;
+        background: #3b0764 !important;
+        color: #ffffff !important;
+        border-top: 2px solid #a855f7 !important;
+        display: flex !important;
+        flex-direction: row !important;
+        justify-content: space-between !important;
+        align-items: center !important;
+        width: 100% !important;
+        box-sizing: border-box !important;
+        padding: 16px 28px !important;
+        break-inside: avoid !important;
+        page-break-inside: avoid !important;
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+      }
+      .emi-receipt-footer * {
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+      }
+      .emi-footer-left {
+        display: flex !important;
+        flex-direction: row !important;
+        align-items: center !important;
+        gap: 12px !important;
+      }
+      .emi-footer-right {
+        display: flex !important;
+        flex-direction: row !important;
+        align-items: center !important;
+        gap: 12px !important;
+      }
+      .emi-footer-icon {
+        background-color: rgba(255, 255, 255, 0.2) !important;
+        color: #ffffff !important;
+        width: 44px !important;
+        height: 44px !important;
+        border-radius: 12px !important;
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        font-size: 20px !important;
+      }
+      .emi-footer-title {
+        color: #f3e8ff !important;
+        font-size: 13px !important;
+        font-weight: 900 !important;
+        text-transform: uppercase !important;
+        letter-spacing: 0.05em !important;
+      }
+      .emi-footer-subtitle {
+        color: #d8b4fe !important;
+        font-size: 11px !important;
+      }
+      .emi-footer-grand-label {
+        color: #e9d5ff !important;
+        font-size: 12px !important;
+        font-weight: 700 !important;
+        text-transform: uppercase !important;
+        letter-spacing: 0.05em !important;
+      }
+      .emi-footer-pill {
+        background-color: #9333ea !important;
+        background: #9333ea !important;
+        color: #ffffff !important;
+        border: 1.5px solid #c084fc !important;
+        padding: 8px 18px !important;
+        border-radius: 12px !important;
+        font-size: 20px !important;
+        font-weight: 900 !important;
+        display: inline-block !important;
+      }
+      .emi-credit-pill {
+        background-color: #dbeafe !important;
+        color: #1e40af !important;
+        border: 1px solid #93c5fd !important;
+        display: inline-block !important;
+      }
+      /* Punchy inheritance highlights for Print / Save to PDF */
+      .theme-row-interest {
+        background-color: #ede9fe !important;
+        border-left: 6px solid #7c3aed !important;
+      }
+      .theme-row-fee {
+        background-color: #fef3c7 !important;
+        border-left: 6px solid #d97706 !important;
+      }
+      .theme-row-credit {
+        background-color: #e0f2fe !important;
+        border-left: 6px solid #0284c7 !important;
+      }
+    }
+  </style>
+</head>
+<body class="bg-slate-50 text-slate-900 min-h-screen">
+
+  <header class="bg-slate-900 border-b border-slate-800 text-white sticky top-0 z-50 shadow-md">
+    <div class="max-w-7xl mx-auto px-6 py-4 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+      <div class="flex items-center gap-3">
+        <div class="w-10 h-10 rounded-xl bg-blue-600 flex items-center justify-center font-bold text-xl shadow-lg shadow-blue-500/30">💳</div>
+        <div>
+          <h1 class="text-xl font-bold tracking-tight">Statement Analytics Dashboard</h1>
+          <p class="text-xs text-slate-400">Total Bill Breakdown • EMI Receipt Highlighting • Date Segregation</p>
+        </div>
+      </div>
+      <div class="flex items-center gap-3 w-full sm:w-auto">
+        <a href="https://docs.google.com/spreadsheets/d/1j2xafoAYKAp_fnfomK59HDsXGArd_-gMKpwWnDesDAc/copy" target="_blank" class="px-3.5 py-2 text-xs font-semibold bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg transition shadow-md flex items-center gap-1.5 no-print">📊 Copy Google Sheet Template</a>
+        <button onclick="window.print()" class="px-4 py-2 text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-lg transition border border-slate-700">🖨️ Print / Save</button>
+        <button onclick="exportCSV()" class="px-4 py-2 text-xs font-semibold bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg shadow-lg shadow-emerald-600/20 transition">📊 Download CSV</button>
+      </div>
+    </div>
+  </header>
+
+  <main class="max-w-7xl mx-auto px-6 py-8">
+    
+    <div id="bank-tabs" class="flex gap-2 border-b border-slate-200 mb-8 overflow-x-auto pb-2"></div>
+    <div id="statement-hero" class="mb-8"></div>
+    <div id="cashback-audit-section" class="mb-8"></div>
+    <div id="ongoing-emi-section" class="mb-8"></div>
+
+    <!-- Search Bar & Filters -->
+    <div class="bg-white rounded-2xl border border-slate-200/80 p-4 shadow-sm mb-6 flex flex-col sm:flex-row justify-between items-center gap-4">
+      <div class="relative w-full sm:w-96">
+        <span class="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">🔍</span>
+        <input type="text" id="search-input" onkeyup="filterTransactions()" placeholder="Search merchant, category, or amount..." class="w-full pl-10 pr-4 py-2.5 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 transition">
+      </div>
+      <div class="flex items-center gap-4 text-xs font-semibold text-slate-500">
+        <div class="flex items-center gap-1.5">
+          <span class="w-3 h-3 rounded-full bg-purple-500"></span>
+          <span>Highlighted = EMI Receipt Section</span>
+        </div>
+        <div class="flex items-center gap-1.5">
+          <span class="w-2.5 h-2.5 rounded-full bg-emerald-500"></span>
+          <span id="record-count">Loading activity...</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Date-Wise Segregated Breakdown -->
+    <div class="space-y-5" id="date-breakdown-container"></div>
+
+  </main>
+
+  <script>
+    const statements = [{"bank_short": "ICICI Amazon", "bank_full_name": "ICICI Bank (Amazon Pay)", "statement_month": "October 2026", "statement_date": "12/10/2026", "due_date": "October 30, 2026", "total_due": "\u20b912,194.06", "min_due": "\u20b9610.00", "was_encrypted": true, "file_name": "ICICI Amazon October 2026.pdf", "saved_name": "ICICI Amazon October 2026.pdf", "month_folder": "Statements_October_2026", "month_folder_name": "Statements_October_2026", "ongoing_emis": [{"loan_id": "28/09/2026_44370.00", "custom_name": "Naveen S25Edge", "display_name": "Naveen S25Edge", "booked_date": "28/09/2026", "finish_date": "28/06/2027", "total_tenure": "9 Months", "total_amount": "\u20b944,370.00", "balance_tenure": "8 Months left", "balance_principal": "\u20b939,836.42", "monthly_emi": "\u20b95,723.50"}], "date_groups": {"28/09/2026": {"total": 5723.5, "has_emi": true, "items": [{"date": "28/09/2026", "description": "EZ TRADERS CHENNAI IN", "amount": 44370.0, "is_credit": true, "is_emi": false, "amount_str": "\u20b944,370.00 Cr"}, {"date": "28/09/2026", "description": "EZ TRADERS CHENNAI IN", "amount": 0.0, "is_credit": true, "is_emi": false, "amount_str": "\u20b90.00 Cr"}, {"date": "28/09/2026", "description": "Principal Amount Amortization - <1/9>EZ TRADERS", "amount": 4673.03, "is_credit": false, "is_emi": true, "amount_str": "\u20b94,673.03"}, {"date": "28/09/2026", "description": "Interest Amount Amortization - <1/9>EZ TRADERS", "amount": 591.23, "is_credit": false, "is_emi": true, "amount_str": "\u20b9591.23"}, {"date": "28/09/2026", "description": "IGST-CI@18%", "amount": 106.42, "is_credit": false, "is_emi": true, "amount_str": "\u20b9106.42"}, {"date": "28/09/2026", "description": "EZ TRADERS CHENNAI IN", "amount": 299.0, "is_credit": false, "is_emi": false, "amount_str": "\u20b9299.00"}, {"date": "28/09/2026", "description": "IGST-CI@18%", "amount": 53.82, "is_credit": false, "is_emi": true, "amount_str": "\u20b953.82"}]}, "09/10/2026": {"total": 2630.46, "has_emi": true, "items": [{"date": "09/10/2026", "description": "Principal Amount Amortization - <8/12>Flipkart Internet", "amount": 2433.94, "is_credit": false, "is_emi": true, "amount_str": "\u20b92,433.94"}, {"date": "09/10/2026", "description": "Interest Amount Amortization - <8/12>Flipkart Internet", "amount": 166.54, "is_credit": false, "is_emi": true, "amount_str": "\u20b9166.54"}, {"date": "09/10/2026", "description": "IGST-CI@18%", "amount": 29.98, "is_credit": false, "is_emi": true, "amount_str": "\u20b929.98"}]}}, "all_txns": [], "cashback": {"net_cashback": 972.0}}, {"file_name": "HDFC October 2026.pdf", "saved_path": "./Statements_October_2026/HDFC October 2026 (13).pdf", "saved_name": "HDFC October 2026 (13).pdf", "month_folder": "./Statements_October_2026", "month_folder_name": "Statements_October_2026", "bank_name": "HDFC Bank (Swiggy)", "bank_short": "HDFC", "statement_month": "October 2026", "total_due": "\u20b94,361.00", "due_date": "08 Nov 2026", "date_groups": {"19/09/2026": {"total": 22.5, "items": [{"date": "19/09/2026", "description": "CGST-VPS2726366256846-RATE 9.0 -33 (Ref# 09999999980919001041518)", "amount": 11.25, "is_credit": false, "is_emi": false, "amount_str": "\u20b911.25"}, {"date": "19/09/2026", "description": "SGST-VPS2726366256846-RATE 9.0 -33 (Ref# 09999999980919001041518)", "amount": 11.25, "is_credit": false, "is_emi": false, "amount_str": "\u20b911.25"}], "has_emi": false}, "28/09/2026": {"total": 279.0, "items": [{"date": "28/09/2026", "description": "RSP*SWIGGY PVT LTD FOBENGALURU", "amount": 279.0, "is_credit": false, "is_emi": false, "amount_str": "\u20b9279.00"}], "has_emi": false}, "30/09/2026": {"total": 0.0, "items": [{"date": "30/09/2026", "description": "10% Swiggy CashBack", "amount": 27.9, "is_credit": true, "is_emi": false, "amount_str": "\u20b927.90 Cr"}], "has_emi": false}, "07/10/2026": {"total": 0.0, "items": [{"date": "07/10/2026", "description": "BPPY PYMT DP216280YH3D8OSFRY32 (Ref# 817023752327103)", "amount": 10556.0, "is_credit": true, "is_emi": false, "amount_str": "\u20b910,556.00 Cr"}], "has_emi": false}, "08/10/2026": {"total": 472.0, "items": [{"date": "08/10/2026", "description": "PTM*MyntraBangalore", "amount": 472.0, "is_credit": false, "is_emi": false, "amount_str": "\u20b9472.00"}], "has_emi": false}, "09/10/2026": {"total": 24598.0, "items": [{"date": "09/10/2026", "description": "EMI FLIPKART PAYMENTSGURGAON", "amount": 24598.0, "is_credit": false, "is_emi": false, "amount_str": "\u20b924,598.00"}], "has_emi": false}, "10/10/2026": {"total": 0.0, "items": [{"date": "10/10/2026", "description": "5% Swiggy Cashback", "amount": 23.6, "is_credit": true, "is_emi": false, "amount_str": "\u20b923.60 Cr"}], "has_emi": false}, "11/10/2026": {"total": 0.0, "items": [{"date": "11/10/2026", "description": "5% Swiggy Cashback", "amount": 1229.9, "is_credit": true, "is_emi": false, "amount_str": "\u20b91,229.90 Cr"}], "has_emi": false}, "12/10/2026": {"total": 0.0, "items": [{"date": "12/10/2026", "description": "AGGREGATOR EMI - OFFUS CREDIT", "amount": 24598.0, "is_credit": true, "is_emi": false, "amount_str": "\u20b924,598.00 Cr"}], "has_emi": false}, "13/10/2026": {"total": 598.8, "items": [{"date": "13/10/2026", "description": "1% Swiggy CashBack_Reversal", "amount": 245.98, "is_credit": false, "is_emi": true, "amount_str": "\u20b9245.98"}, {"date": "13/10/2026", "description": "OFFUS EMI,PROCNG FEE,00000000001466 (Ref# 09999999981013001444911)", "amount": 299.0, "is_credit": false, "is_emi": true, "amount_str": "\u20b9299.00"}, {"date": "13/10/2026", "description": "CGST-VPS2728752795819-RATE 9.0 -33 (Ref# 09999999981013001444911)", "amount": 26.91, "is_credit": false, "is_emi": true, "amount_str": "\u20b926.91"}, {"date": "13/10/2026", "description": "SGST-VPS2728752795819-RATE 9.0 -33 (Ref# 09999999981013001444911)", "amount": 26.91, "is_credit": false, "is_emi": true, "amount_str": "\u20b926.91"}], "has_emi": true}, "19/10/2026": {"total": 4270.0, "items": [{"date": "19/10/2026", "description": "OFFUS EMI,PRIN NB:01,00000146608745 (Ref# 09999999981019000946467)", "amount": 3957.0, "is_credit": false, "is_emi": true, "amount_str": "\u20b93,957.00"}, {"date": "19/10/2026", "description": "OFFUS EMI,INT NBR:01,00000146608745 (Ref# 09999999981019000946475)", "amount": 313.0, "is_credit": false, "is_emi": true, "amount_str": "\u20b9313.00"}], "has_emi": true}}, "all_txns": [{"date": "19/09/2026", "description": "CGST-VPS2726366256846-RATE 9.0 -33 (Ref# 09999999980919001041518)", "amount": 11.25, "is_credit": false, "is_emi": false, "amount_str": "\u20b911.25"}, {"date": "19/09/2026", "description": "SGST-VPS2726366256846-RATE 9.0 -33 (Ref# 09999999980919001041518)", "amount": 11.25, "is_credit": false, "is_emi": false, "amount_str": "\u20b911.25"}, {"date": "28/09/2026", "description": "RSP*SWIGGY PVT LTD FOBENGALURU", "amount": 279.0, "is_credit": false, "is_emi": false, "amount_str": "\u20b9279.00"}, {"date": "30/09/2026", "description": "10% Swiggy CashBack", "amount": 27.9, "is_credit": true, "is_emi": false, "amount_str": "\u20b927.90 Cr"}, {"date": "07/10/2026", "description": "BPPY PYMT DP216280YH3D8OSFRY32 (Ref# 817023752327103)", "amount": 10556.0, "is_credit": true, "is_emi": false, "amount_str": "\u20b910,556.00 Cr"}, {"date": "08/10/2026", "description": "PTM*MyntraBangalore", "amount": 472.0, "is_credit": false, "is_emi": false, "amount_str": "\u20b9472.00"}, {"date": "09/10/2026", "description": "EMI FLIPKART PAYMENTSGURGAON", "amount": 24598.0, "is_credit": false, "is_emi": false, "amount_str": "\u20b924,598.00"}, {"date": "10/10/2026", "description": "5% Swiggy Cashback", "amount": 23.6, "is_credit": true, "is_emi": false, "amount_str": "\u20b923.60 Cr"}, {"date": "11/10/2026", "description": "5% Swiggy Cashback", "amount": 1229.9, "is_credit": true, "is_emi": false, "amount_str": "\u20b91,229.90 Cr"}, {"date": "12/10/2026", "description": "AGGREGATOR EMI - OFFUS CREDIT", "amount": 24598.0, "is_credit": true, "is_emi": false, "amount_str": "\u20b924,598.00 Cr"}, {"date": "13/10/2026", "description": "1% Swiggy CashBack_Reversal", "amount": 245.98, "is_credit": false, "is_emi": true, "amount_str": "\u20b9245.98"}, {"date": "13/10/2026", "description": "OFFUS EMI,PROCNG FEE,00000000001466 (Ref# 09999999981013001444911)", "amount": 299.0, "is_credit": false, "is_emi": true, "amount_str": "\u20b9299.00"}, {"date": "13/10/2026", "description": "CGST-VPS2728752795819-RATE 9.0 -33 (Ref# 09999999981013001444911)", "amount": 26.91, "is_credit": false, "is_emi": true, "amount_str": "\u20b926.91"}, {"date": "13/10/2026", "description": "SGST-VPS2728752795819-RATE 9.0 -33 (Ref# 09999999981013001444911)", "amount": 26.91, "is_credit": false, "is_emi": true, "amount_str": "\u20b926.91"}, {"date": "19/10/2026", "description": "OFFUS EMI,PRIN NB:01,00000146608745 (Ref# 09999999981019000946467)", "amount": 3957.0, "is_credit": false, "is_emi": true, "amount_str": "\u20b93,957.00"}, {"date": "19/10/2026", "description": "OFFUS EMI,INT NBR:01,00000146608745 (Ref# 09999999981019000946475)", "amount": 313.0, "is_credit": false, "is_emi": true, "amount_str": "\u20b9313.00"}], "ongoing_emis": [{"loan_id": "146608745", "custom_name": "", "display_name": "Smart EMI #146608745", "booked_date": "12/10/2026", "total_amount": "\u20b924,598.00", "total_tenure": "6 Months", "interest_rate": "17%", "balance_principal": "\u20b920,641.00", "balance_interest": "\u20b9885.00", "balance_tenure": "5 Months left", "type": "Smart EMI"}], "was_encrypted": false, "decryption_note": "Already unencrypted (no password needed)"}];
+    let activeIndex = 0;
+
+    function getSavedName(loanId, defaultName) {
+      return localStorage.getItem("emi_name_" + loanId) || defaultName || "";
+    }
+
+    function getPaymentStatus(key) {
+      if (!key) return { isPaid: false, paidDate: "" };
+      const val = localStorage.getItem("paid_status_" + key);
+      if (!val) return { isPaid: false, paidDate: "" };
+      try { return JSON.parse(val); } catch(e) { return { isPaid: val === "true", paidDate: "" }; }
+    }
+
+    function togglePaymentStatus(key, amountStr) {
+      if (!key) return;
+      const cur = getPaymentStatus(key);
+      if (cur.isPaid) {
+        localStorage.removeItem("paid_status_" + key);
+      } else {
+        const today = new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+        localStorage.setItem("paid_status_" + key, JSON.stringify({ isPaid: true, paidDate: today, amount: amountStr }));
+      }
+      renderDashboard();
+    }
+
+    function cleanIndianPhone(raw) {
+      if (!raw) return "";
+      let digits = String(raw).replace(/[^0-9]/g, "");
+      if (digits.startsWith("0")) digits = digits.substring(1);
+      if (digits.length === 10) return "91" + digits;
+      if (digits.length === 12 && digits.startsWith("91")) return digits;
+      if (digits.length > 10 && !digits.startsWith("91")) return "91" + digits.slice(-10);
+      return digits;
+    }
+
+    function getSavedPhone(key) {
+      if (!key) return "";
+      const raw = localStorage.getItem("emi_phone_" + key) || "";
+      return cleanIndianPhone(raw);
+    }
+
+    function saveCustomName(loanId) {
+      const input = document.getElementById("emi-input-" + loanId);
+      const phoneInput = document.getElementById("emi-phone-" + loanId);
+      const newName = input ? input.value.trim() : "";
+      const rawPhone = phoneInput ? phoneInput.value.trim() : "";
+      const cleanedPhone = cleanIndianPhone(rawPhone);
+
+      if (newName || cleanedPhone) {
+        if (newName) {
+          localStorage.setItem("emi_name_" + loanId, newName);
+          if (cleanedPhone) localStorage.setItem("emi_phone_" + newName, cleanedPhone);
+        }
+        if (cleanedPhone) {
+          localStorage.setItem("emi_phone_" + loanId, cleanedPhone);
+        }
+        alert("Saved! Nickname: '" + newName + "' and WhatsApp Mobile (+91 " + cleanedPhone.slice(-10) + ") will be remembered.");
+        renderDashboard();
+      }
+    }
+
+    window.renderedCardsData = [];
+
+    function enrichAndSortEmiItems(itemsList) {
+      const nonTaxCharges = itemsList.filter(it => {
+        const d = (it.description || '').toLowerCase();
+        const isTax = d.includes('gst') || d.includes('tax') || d.includes('cgst') || d.includes('sgst') || d.includes('igst');
+        return !it.is_credit && !isTax && it.amount > 0;
+      });
+
+      const enriched = itemsList.map(item => {
+        const d = (item.description || '').toLowerCase();
+        const isTax = d.includes('gst') || d.includes('tax') || d.includes('cgst') || d.includes('sgst') || d.includes('igst');
+        let taxInfo = null;
+        let groupTheme = null; // 'interest' | 'fee' | 'principal'
+        let groupRole = null;  // 'parent' | 'child'
+        let rank = 50;
+
+        if (item.is_credit) {
+          // 1. CREDITS ALWAYS ON TOP!
+          rank = 1;
+        } else if (isTax) {
+          for (const base of nonTaxCharges) {
+            const is18 = Math.abs(item.amount - (base.amount * 0.18)) <= 0.05;
+            const is9 = Math.abs(item.amount - (base.amount * 0.09)) <= 0.05;
+            if (is18 || is9) {
+              const rate = is18 ? '18%' : '9%';
+              const taxType = d.includes('cgst') ? 'CGST' : (d.includes('sgst') ? 'SGST' : 'IGST');
+              const isInt = base.description.toLowerCase().includes('int');
+              const isPrin = base.description.toLowerCase().includes('prin');
+              const baseName = isInt ? 'Interest' : (isPrin ? 'Principal' : 'Processing Fee');
+              groupTheme = isInt ? 'interest' : (isPrin ? 'principal' : 'fee');
+              groupRole = 'child';
+              taxInfo = {
+                rate: rate,
+                taxType: taxType,
+                baseName: baseName,
+                baseAmount: base.amount,
+                label: rate + ' ' + taxType + ' on ' + baseName + ' (₹' + base.amount.toFixed(2) + ')'
+              };
+              // Rank right after its parent charge!
+              rank = isPrin ? 15 : (isInt ? 25 : 35);
+              break;
+            }
+          }
+
+          if (!taxInfo) {
+            const impliedBase = Math.round((item.amount / 0.18) * 100) / 100;
+            taxInfo = {
+              rate: '18%',
+              taxType: 'GST',
+              baseName: 'Base Amount',
+              baseAmount: impliedBase,
+              label: '18% GST on ₹' + impliedBase.toFixed(2)
+            };
+            rank = 28;
+          }
+        } else {
+          if (d.includes('prin') || d.includes('principal') || (d.includes('amortization') && !d.includes('int'))) {
+            rank = 10; // Principal
+            groupTheme = 'principal';
+            groupRole = 'parent';
+          } else if (d.includes('int') || d.includes('interest')) {
+            rank = 20; // Interest
+            groupTheme = 'interest';
+            groupRole = 'parent';
+          } else if (d.includes('fee') || d.includes('procng') || item.amount <= 300) {
+            rank = 30; // Processing Fee
+            groupTheme = 'fee';
+            groupRole = 'parent';
+          } else if (d.includes('cashback') || d.includes('reversal')) {
+            rank = 40; // Reversal
+          } else {
+            rank = 32;
+          }
+        }
+
+        return Object.assign({}, item, { taxInfo: taxInfo, groupTheme: groupTheme, groupRole: groupRole, rank: rank });
+      });
+
+      enriched.sort((a, b) => {
+        if (a.rank !== b.rank) return a.rank - b.rank;
+        return b.amount - a.amount;
+      });
+
+      return enriched;
+    }
+
+    function compareEmiItems(a, b) {
+      const arr = enrichAndSortEmiItems([a, b]);
+      return arr[0] === a ? -1 : 1;
+    }
+
+    function drawNativeReceiptCanvas(card) {
+      const scale = 2;
+      const width = 920;
+      const cardX = 4;
+      const cardY = 4;
+      const cardW = width - 8;
+      const cardR = 16;
+      const headerH = 148;
+      const dateBarH = 44;
+      const rowH = 68;
+      const footerH = 68;
+
+      const dates = card.type === 'named_emi' ? card.dates : [{
+        dateStr: card.dateStr,
+        items: card.items,
+        dateTotal: card.group.total
+      }];
+
+      let totalRows = 0;
+      dates.forEach(d => { totalRows += d.items.length; });
+      const contentH = (dates.length * dateBarH) + (totalRows * rowH);
+      const cardH = headerH + contentH + footerH;
+      const height = cardH + 8;
+
+      const canvas = document.createElement('canvas');
+      canvas.width = width * scale;
+      canvas.height = height * scale;
+      const ctx = canvas.getContext('2d');
+      ctx.scale(scale, scale);
+
+      const fontSans = "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif";
+      const fontMono = "Consolas, 'Courier New', monospace";
+
+      function roundRect(x, y, w, h, r, fill, stroke, lineW = 1) {
+        ctx.beginPath();
+        ctx.moveTo(x + r, y);
+        ctx.arcTo(x + w, y, x + w, y + h, r);
+        ctx.arcTo(x + w, y + h, x, y + h, r);
+        ctx.arcTo(x, y + h, x, y, r);
+        ctx.arcTo(x, y, x + w, y, r);
+        ctx.closePath();
+        if (fill) { ctx.fillStyle = fill; ctx.fill(); }
+        if (stroke) { ctx.strokeStyle = stroke; ctx.lineWidth = lineW; ctx.stroke(); }
+      }
+
+      // 1. Transparent Canvas & Card Background
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(0, 0, width, height);
+      roundRect(cardX, cardY, cardW, cardH, cardR, '#ffffff', null);
+
+      // 2. Header Fill (Smoothly hugs the top corners of the card)
+      ctx.save();
+      ctx.beginPath();
+      ctx.moveTo(cardX + cardR, cardY);
+      ctx.lineTo(cardX + cardW - cardR, cardY);
+      ctx.arcTo(cardX + cardW, cardY, cardX + cardW, cardY + cardR, cardR);
+      ctx.lineTo(cardX + cardW, cardY + headerH);
+      ctx.lineTo(cardX, cardY + headerH);
+      ctx.lineTo(cardX, cardY + cardR);
+      ctx.arcTo(cardX, cardY, cardX + cardR, cardY, cardR);
+      ctx.closePath();
+      ctx.fillStyle = '#faf5ff';
+      ctx.fill();
+      ctx.restore();
+
+      ctx.beginPath();
+      ctx.moveTo(cardX, cardY + headerH);
+      ctx.lineTo(cardX + cardW, cardY + headerH);
+      ctx.strokeStyle = '#e9d5ff';
+      ctx.lineWidth = 1;
+      ctx.stroke();
+
+      // --- ROW 1: Identity on Left, Status Badge on Right ---
+      // Left Icon Box
+      roundRect(cardX + 24, cardY + 16, 46, 46, 12, '#9333ea', null);
+      ctx.font = `bold 22px ${fontSans}`;
+      ctx.fillStyle = '#ffffff';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText('🏷️', cardX + 47, cardY + 39);
+
+      // Title
+      const titleText = card.type === 'named_emi' ? card.emiName : card.dateStr;
+      ctx.font = `bold 22px ${fontSans}`;
+      ctx.fillStyle = '#0f172a';
+      ctx.textAlign = 'left';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(titleText, cardX + 82, cardY + 39);
+      const titleW = ctx.measureText(titleText).width;
+
+      // Badge: EMI INSTALLMENT RECEIPT
+      const badgeText = 'EMI INSTALLMENT RECEIPT';
+      ctx.font = `bold 11px ${fontSans}`;
+      const badgeW = ctx.measureText(badgeText).width + 22;
+      const badgeX = cardX + 82 + titleW + 12;
+      roundRect(badgeX, cardY + 27, badgeW, 24, 12, '#9333ea', null);
+      ctx.fillStyle = '#ffffff';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(badgeText, badgeX + badgeW / 2, cardY + 39);
+
+      // Top Right: Payment Status Badge (Flushed to right edge)
+      const pStatus = getPaymentStatus(card.emiName);
+      const statusText = pStatus.isPaid ? `✅ REIMBURSED • PAID ${pStatus.paidDate.toUpperCase()}` : `⏳ AWAITING PAYMENT`;
+      ctx.font = `bold 11px ${fontSans}`;
+      const statusW = ctx.measureText(statusText).width + 24;
+      const statusX = (cardX + cardW - 24) - statusW;
+      const statusBg = pStatus.isPaid ? '#dcfce7' : '#fef3c7';
+      const statusStroke = pStatus.isPaid ? '#86efac' : '#fde68a';
+      const statusFg = pStatus.isPaid ? '#15803d' : '#92400e';
+      roundRect(statusX, cardY + 27, statusW, 24, 12, statusBg, statusStroke, 1);
+      ctx.fillStyle = statusFg;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(statusText, statusX + statusW / 2, cardY + 39);
+
+      // --- ROW 2: 3 Evenly Spread KPI Tiles across the entire width ---
+      const tileGap = 12;
+      const availableTileW = cardW - 48; // padding 24 on left and right
+      const tileW = (availableTileW - (tileGap * 2)) / 3;
+      const tileY = cardY + 54;
+      const tileH = 44;
+
+      // Tile 1: Overall Loan Amount (Left)
+      const t1X = cardX + 24;
+      roundRect(t1X, tileY, tileW, tileH, 8, '#f3e8ff', '#d8b4fe', 1);
+      ctx.font = `bold 9px ${fontSans}`;
+      ctx.fillStyle = '#7e22ce';
+      ctx.textAlign = 'left';
+      ctx.textBaseline = 'middle';
+      ctx.fillText('OVERALL LOAN AMOUNT', t1X + 14, tileY + 14);
+      ctx.font = `bold 15px ${fontSans}`;
+      ctx.fillStyle = '#581c87';
+      ctx.fillText(card.overallLoanAmount || 'N/A', t1X + 14, tileY + 30);
+
+      // Tile 2: Billing Cycle (Center)
+      const t2X = t1X + tileW + tileGap;
+      roundRect(t2X, tileY, tileW, tileH, 8, '#e0e7ff', '#c7d2fe', 1);
+      ctx.font = `bold 9px ${fontSans}`;
+      ctx.fillStyle = '#4338ca';
+      ctx.textAlign = 'left';
+      ctx.textBaseline = 'middle';
+      ctx.fillText('BILLING CYCLE', t2X + 14, tileY + 14);
+      ctx.font = `bold 14px ${fontSans}`;
+      ctx.fillStyle = '#312e81';
+      ctx.fillText(card.monthInstallmentTitle || 'Current Cycle', t2X + 14, tileY + 30);
+
+      // Tile 3: Remaining Tenure (Right)
+      const t3X = t2X + tileW + tileGap;
+      roundRect(t3X, tileY, tileW, tileH, 8, '#ecfdf5', '#a7f3d0', 1);
+      ctx.font = `bold 9px ${fontSans}`;
+      ctx.fillStyle = '#047857';
+      ctx.textAlign = 'left';
+      ctx.textBaseline = 'middle';
+      ctx.fillText('REMAINING TENURE', t3X + 14, tileY + 14);
+      ctx.font = `bold 14px ${fontSans}`;
+      ctx.fillStyle = '#065f46';
+      ctx.fillText(card.remainingCount ? `${card.remainingCount} Installments Left` : 'Active Plan', t3X + 14, tileY + 30);
+
+      // --- ROW 3: Cheering message on Left, Item count & Date on Right ---
+      const cheerText = card.cheerMessage ? card.cheerMessage : `EMI Statement Breakdown`;
+      ctx.font = `bold 14px ${fontSans}`;
+      ctx.fillStyle = '#581c87';
+      ctx.textAlign = 'left';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(cheerText, cardX + 24, cardY + 120);
+
+      const datesSummary = dates.map(d => d.dateStr).join(', ');
+      ctx.font = `500 12px ${fontSans}`;
+      ctx.fillStyle = '#7e22ce';
+      ctx.textAlign = 'right';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(`${totalRows} charge item(s) • Billing Date: ${datesSummary}`, cardX + cardW - 24, cardY + 120);
+
+      // 3. Date Bars & Transaction Rows (With Matching Group Colors!)
+      let curY = cardY + headerH;
+      dates.forEach(dObj => {
+        ctx.fillStyle = '#f3e8ff';
+        ctx.fillRect(cardX, curY, cardW, dateBarH);
+        ctx.beginPath();
+        ctx.moveTo(cardX, curY + dateBarH);
+        ctx.lineTo(cardX + cardW, curY + dateBarH);
+        ctx.strokeStyle = '#e9d5ff';
+        ctx.lineWidth = 1;
+        ctx.stroke();
+
+        ctx.font = `bold 14px ${fontSans}`;
+        ctx.fillStyle = '#3b0764';
+        ctx.textAlign = 'left';
+        ctx.textBaseline = 'middle';
+        const dtLabel = `📅  ${dObj.dateStr}`;
+        ctx.fillText(dtLabel, cardX + 20, curY + dateBarH / 2);
+
+        const dtLabelW = ctx.measureText(dtLabel).width;
+        ctx.font = `500 12px ${fontSans}`;
+        ctx.fillStyle = '#7e22ce';
+        ctx.fillText(`(${dObj.items.length} item${dObj.items.length > 1 ? 's' : ''})`, cardX + 20 + dtLabelW + 8, curY + dateBarH / 2);
+
+        const dtSubFormatted = 'Date Subtotal: ₹' + dObj.dateTotal.toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+        ctx.font = `bold 13px ${fontSans}`;
+        ctx.fillStyle = '#581c87';
+        ctx.textAlign = 'right';
+        ctx.fillText(dtSubFormatted, cardX + cardW - 20, curY + dateBarH / 2);
+
+        curY += dateBarH;
+
+        // Enrich and sort items: Credits on TOP, parent-child tax pairing
+        const sortedItems = enrichAndSortEmiItems(dObj.items);
+
+        sortedItems.forEach(item => {
+          // Row background color based on inheritance group!
+          let rowBg = '#ffffff';
+          let borderAccentColor = null;
+
+          if (item.groupTheme === 'interest') {
+            rowBg = '#ede9fe'; // Punchy, vibrant Lavender/Indigo for Interest & its Tax!
+            borderAccentColor = '#7c3aed';
+          } else if (item.groupTheme === 'fee') {
+            rowBg = '#fef3c7'; // Punchy, rich Golden Amber for Fee & its Tax!
+            borderAccentColor = '#d97706';
+          } else if (item.is_credit) {
+            rowBg = '#e0f2fe'; // Punchy, crisp Sky Blue for Pre-EMI Credit!
+            borderAccentColor = '#0284c7';
+          }
+
+          ctx.fillStyle = rowBg;
+          ctx.fillRect(cardX, curY, cardW, rowH);
+
+          // Draw left vertical accent bar to visually connect parent & child!
+          if (borderAccentColor) {
+            ctx.fillStyle = borderAccentColor;
+            ctx.fillRect(cardX, curY, 6, rowH);
+          }
+
+          ctx.beginPath();
+          ctx.moveTo(cardX + 12, curY + rowH);
+          ctx.lineTo(cardX + cardW - 12, curY + rowH);
+          ctx.strokeStyle = '#f3e8ff';
+          ctx.lineWidth = 1;
+          ctx.stroke();
+
+          // Left Arrow
+          ctx.font = `bold 15px ${fontSans}`;
+          ctx.fillStyle = item.groupTheme === 'interest' ? '#4f46e5' : (item.groupTheme === 'fee' ? '#d97706' : (item.is_credit ? '#2563eb' : '#94a3b8'));
+          ctx.textAlign = 'left';
+          ctx.textBaseline = 'middle';
+          ctx.fillText('↳', item.taxInfo ? cardX + 32 : cardX + 22, curY + 25);
+
+          // Description
+          ctx.font = `600 14px ${fontSans}`;
+          ctx.fillStyle = item.taxInfo ? (item.groupTheme === 'interest' ? '#3730a3' : '#78350f') : '#1e293b';
+          let descText = item.description || '';
+          if (descText.length > 54) descText = descText.substring(0, 51) + '...';
+          ctx.fillText(descText, item.taxInfo ? cardX + 54 : cardX + 44, curY + 25);
+          const descW = ctx.measureText(descText).width;
+
+          // Matching Badge Pills (Parent & Child share matching theme colors!)
+          if (item.is_credit) {
+            const compText = 'BEFORE EMI CONVERSION CREDIT';
+            ctx.font = `bold 10px ${fontSans}`;
+            const compW = ctx.measureText(compText).width + 16;
+            const compX = cardX + 44 + descW + 10;
+            if (compX + compW < cardX + cardW - 140) {
+              roundRect(compX, curY + 14, compW, 22, 6, '#dbeafe', '#93c5fd', 1);
+              ctx.fillStyle = '#1e40af';
+              ctx.textAlign = 'center';
+              ctx.textBaseline = 'middle';
+              ctx.fillText(compText, compX + compW / 2, curY + 25);
+            }
+          } else if (item.groupTheme === 'interest') {
+            const compText = item.groupRole === 'parent' ? 'INTEREST BASE' : 'TAX ON INTEREST';
+            ctx.font = `bold 10px ${fontSans}`;
+            const compW = ctx.measureText(compText).width + 16;
+            const compX = (item.taxInfo ? cardX + 54 : cardX + 44) + descW + 10;
+            if (compX + compW < cardX + cardW - 140) {
+              roundRect(compX, curY + 14, compW, 22, 6, '#e0e7ff', '#c7d2fe', 1);
+              ctx.fillStyle = '#3730a3';
+              ctx.textAlign = 'center';
+              ctx.textBaseline = 'middle';
+              ctx.fillText(compText, compX + compW / 2, curY + 25);
+            }
+          } else if (item.groupTheme === 'fee') {
+            const compText = item.groupRole === 'parent' ? 'FEE BASE' : 'TAX ON FEE';
+            ctx.font = `bold 10px ${fontSans}`;
+            const compW = ctx.measureText(compText).width + 16;
+            const compX = (item.taxInfo ? cardX + 54 : cardX + 44) + descW + 10;
+            if (compX + compW < cardX + cardW - 140) {
+              roundRect(compX, curY + 14, compW, 22, 6, '#fef3c7', '#fde68a', 1);
+              ctx.fillStyle = '#92400e';
+              ctx.textAlign = 'center';
+              ctx.textBaseline = 'middle';
+              ctx.fillText(compText, compX + compW / 2, curY + 25);
+            }
+          } else if (item.is_emi) {
+            const compText = 'EMI COMPONENT';
+            ctx.font = `bold 10px ${fontSans}`;
+            const compW = ctx.measureText(compText).width + 16;
+            const compX = cardX + 44 + descW + 10;
+            if (compX + compW < cardX + cardW - 140) {
+              roundRect(compX, curY + 14, compW, 22, 6, '#f3e8ff', '#e9d5ff', 1);
+              ctx.fillStyle = '#6b21a8';
+              ctx.textAlign = 'center';
+              ctx.textBaseline = 'middle';
+              ctx.fillText(compText, compX + compW / 2, curY + 25);
+            }
+          }
+
+          // Sub-label: Show calculated arrow line for tax!
+          ctx.font = `500 11px ${fontMono}`;
+          ctx.textAlign = 'left';
+          ctx.textBaseline = 'middle';
+          if (item.taxInfo) {
+            ctx.fillStyle = item.groupTheme === 'interest' ? '#4f46e5' : '#d97706';
+            ctx.fillText('↳ ' + item.taxInfo.label, cardX + 54, curY + 47);
+          } else if (item.is_credit) {
+            ctx.fillStyle = '#1e40af';
+            ctx.fillText('CREDIT • BEFORE EMI CONVERSION (LOAN OFFSET)', cardX + 44, curY + 47);
+          } else if (item.groupTheme === 'interest') {
+            ctx.fillStyle = '#4f46e5';
+            ctx.fillText('DEBIT / CHARGE (MONTHLY EMI INTEREST)', cardX + 44, curY + 47);
+          } else if (item.groupTheme === 'fee') {
+            ctx.fillStyle = '#d97706';
+            ctx.fillText('DEBIT / CHARGE (LOAN SETUP PROCESSING FEE)', cardX + 44, curY + 47);
+          } else {
+            ctx.fillStyle = '#94a3b8';
+            ctx.fillText('DEBIT / CHARGE', cardX + 44, curY + 47);
+          }
+
+          // Right Amount
+          ctx.font = `bold 15px ${fontSans}`;
+          ctx.fillStyle = item.is_credit ? '#1d4ed8' : (item.groupTheme === 'interest' ? '#3730a3' : (item.groupTheme === 'fee' ? '#92400e' : '#0f172a'));
+          ctx.textAlign = 'right';
+          ctx.textBaseline = 'middle';
+          ctx.fillText(item.amount_str, cardX + cardW - 20, curY + 23);
+
+          // Right Type Pill
+          const typeText = item.is_credit ? 'CREDIT (PRE-EMI)' : (item.taxInfo ? 'TAX (GST)' : 'DEBIT');
+          ctx.font = `bold 10px ${fontSans}`;
+          const tpW = ctx.measureText(typeText).width + 16;
+          const tpX = cardX + cardW - 20 - tpW;
+          const tpBg = item.is_credit ? '#dbeafe' : (item.groupTheme === 'interest' ? '#e0e7ff' : (item.groupTheme === 'fee' ? '#fef3c7' : '#f1f5f9'));
+          const tpFg = item.is_credit ? '#1e40af' : (item.groupTheme === 'interest' ? '#3730a3' : (item.groupTheme === 'fee' ? '#92400e' : '#475569'));
+          roundRect(tpX, curY + 36, tpW, 20, 10, tpBg, null);
+          ctx.fillStyle = tpFg;
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          ctx.fillText(typeText, tpX + tpW / 2, curY + 46);
+
+          curY += rowH;
+        });
+      });
+
+      // 4. Bottom Grand Total Footer (ZERO GAP: perfectly hugs the bottom border of the card!)
+      const footerBottom = cardY + cardH;
+      ctx.save();
+      ctx.beginPath();
+      ctx.moveTo(cardX, curY);
+      ctx.lineTo(cardX + cardW, curY);
+      ctx.lineTo(cardX + cardW, footerBottom - cardR);
+      ctx.arcTo(cardX + cardW, footerBottom, cardX + cardW - cardR, footerBottom, cardR);
+      ctx.lineTo(cardX + cardR, footerBottom);
+      ctx.arcTo(cardX, footerBottom, cardX, footerBottom - cardR, cardR);
+      ctx.lineTo(cardX, curY);
+      ctx.closePath();
+      ctx.fillStyle = '#3b0764';
+      ctx.fill();
+      ctx.restore();
+
+      ctx.beginPath();
+      ctx.moveTo(cardX, curY);
+      ctx.lineTo(cardX + cardW, curY);
+      ctx.strokeStyle = '#a855f7';
+      ctx.lineWidth = 1.5;
+      ctx.stroke();
+
+      const totalVal = card.type === 'named_emi' ? card.combinedTotal : card.group.total;
+      const totalFormatted = '₹' + totalVal.toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+      const dueLabel = (card.monthDueLabel || 'Due to be Paid') + ' (Grand Total)';
+
+      ctx.font = `bold 16px ${fontSans}`;
+      ctx.fillStyle = '#ffffff';
+      ctx.textAlign = 'left';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(dueLabel, cardX + 24, curY + footerH / 2 - 10);
+
+      ctx.font = `500 12px ${fontSans}`;
+      ctx.fillStyle = '#e9d5ff';
+      ctx.fillText('Total monthly installment & charges to be reimbursed', cardX + 24, curY + footerH / 2 + 12);
+
+      // Right Grand Total Pill
+      ctx.font = `bold 20px ${fontSans}`;
+      const totPillW = Math.max(130, ctx.measureText(totalFormatted).width + 36);
+      const totPillX = cardX + cardW - 20 - totPillW;
+      roundRect(totPillX, curY + (footerH - 40) / 2, totPillW, 40, 12, '#9333ea', '#c084fc', 1.5);
+      ctx.fillStyle = '#ffffff';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(totalFormatted, totPillX + totPillW / 2, curY + footerH / 2);
+
+      // 5. STROKE OUTER CARD BORDER LAST (Guarantees crisp 2px border framing the entire card with 0 gaps!)
+      roundRect(cardX, cardY, cardW, cardH, cardR, null, '#c084fc', 2);
+
+      return canvas;
+    }
+
+    async function shareReceiptOnWhatsApp(cardElementId, emiName, loanId, totalStr, datesStr) {
+      const idxMatch = String(cardElementId).match(/(\d+)$/);
+      const cardIdx = idxMatch ? parseInt(idxMatch[1], 10) : -1;
+      const cardData = (window.renderedCardsData && cardIdx >= 0) ? window.renderedCardsData[cardIdx] : null;
+
+      // 1. Get phone number (auto-prefixed with 91 for India)
+      let phone = cleanIndianPhone(getSavedPhone(loanId) || getSavedPhone(emiName));
+      if (!phone || phone.length < 10) {
+        const entered = prompt("Enter 10-digit mobile number for " + (emiName || "this receipt") + " (+91 will be added automatically):", "");
+        if (!entered) return;
+        phone = cleanIndianPhone(entered);
+        if (!phone || phone.length < 10) {
+          alert("Please enter a valid 10-digit Indian mobile number.");
+          return;
+        }
+        if (loanId) localStorage.setItem("emi_phone_" + loanId, phone);
+        if (emiName) localStorage.setItem("emi_phone_" + emiName, phone);
+      }
+
+      // 2. Open new tab synchronously to avoid popup blocker
+      const waWin = window.open('about:blank', '_blank');
+
+      // 3. Build clean itemized WhatsApp text receipt using template literals
+      const cleanTotal = totalStr.replace(/₹/g, 'Rs. ');
+      let message = (cardData && cardData.cheerMessage) ? `${cardData.cheerMessage}
+
+` : '';
+      message += `*EMI STATEMENT RECEIPT - ${emiName || 'Monthly Installment'}*
+`;
+      message += `*Billing Date(s):* ${datesStr}
+`;
+      message += `*Total Amount Due:* ${cleanTotal}
+
+`;
+      message += `*Itemized Breakdown:*
+`;
+
+      if (cardData) {
+        const dates = cardData.type === 'named_emi' ? cardData.dates : [{ items: cardData.items }];
+        dates.forEach(d => {
+          d.items.forEach(itm => {
+            if (!itm.is_credit) {
+              const amtClean = (itm.amount_str || '').replace(/₹/g, 'Rs. ');
+              message += `• ${itm.description}: ${amtClean}
+`;
+            }
+          });
+        });
+      }
+
+      message += `
+_(Receipt snapshot image copied to clipboard - press Ctrl+V to paste! / saved to device)_`;
+
+      try {
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          navigator.clipboard.writeText(message);
+        }
+      } catch (e) {}
+
+      const waUrl = `https://api.whatsapp.com/send?phone=${phone}&text=${encodeURIComponent(message)}`;
+
+      // 4. Render crisp pixel-perfect receipt canvas natively & copy image to clipboard
+      try {
+        if (cardData) {
+          const canvas = drawNativeReceiptCanvas(cardData);
+
+          // Copy PNG image blob to Clipboard (for instant Ctrl+V paste into WhatsApp!)
+          if (canvas.toBlob) {
+            canvas.toBlob(async (blob) => {
+              if (blob && navigator.clipboard && window.ClipboardItem && navigator.clipboard.write) {
+                try {
+                  const item = new ClipboardItem({ "image/png": blob });
+                  await navigator.clipboard.write([item]);
+                  console.log("Snapshot image copied to clipboard successfully!");
+                } catch (clipErr) {
+                  console.warn("Could not copy image to clipboard:", clipErr);
+                }
+              }
+            }, "image/png");
+          }
+
+          // Also download PNG file to device
+          const imgUrl = canvas.toDataURL("image/png");
+          const dlLink = document.createElement("a");
+          dlLink.download = `${(emiName || 'EMI_Receipt').replace(/\s+/g, '_')}_Snapshot.png`;
+          dlLink.href = imgUrl;
+          dlLink.click();
+        }
+      } catch (e) {
+        console.error("Canvas render error:", e);
+      }
+
+      // 5. Navigate the open window directly to WhatsApp
+      if (waWin) {
+        waWin.location.href = waUrl;
+      } else {
+        window.location.href = waUrl;
+      }
+    }
+
+    function renderTabs() {
+      const tabsContainer = document.getElementById('bank-tabs');
+      tabsContainer.innerHTML = '';
+      statements.forEach((stmt, idx) => {
+        const btn = document.createElement('button');
+        btn.className = `px-5 py-2.5 rounded-xl text-sm font-bold transition flex items-center gap-2 ${
+          idx === activeIndex 
+            ? 'bg-blue-600 text-white shadow-md shadow-blue-500/20' 
+            : 'bg-white hover:bg-slate-100 text-slate-600 border border-slate-200'
+        }`;
+        btn.innerHTML = `<span>🏛️</span> ${stmt.bank_short} (${stmt.statement_month})`;
+        btn.onclick = () => { activeIndex = idx; renderDashboard(); };
+        tabsContainer.appendChild(btn);
+      });
+    }
+
+    function renderHero() {
+      const stmt = statements[activeIndex];
+      const hero = document.getElementById('statement-hero');
+      
+      hero.innerHTML = `
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div class="relative overflow-hidden rounded-3xl bg-gradient-to-br from-blue-600 to-indigo-700 text-white p-7 shadow-xl shadow-blue-600/20 border border-blue-500/30">
+            <div class="flex justify-between items-start">
+              <span class="text-xs font-bold tracking-wider uppercase text-blue-200">Total Bill to be Paid</span>
+              <span class="px-2.5 py-1 text-[11px] font-bold rounded-full bg-blue-500/40 border border-blue-300/30 text-white">Due: ${stmt.due_date}</span>
+            </div>
+            <div class="text-4xl font-extrabold mt-3 tracking-tight">${stmt.total_due}</div>
+            <div class="mt-4 pt-4 border-t border-blue-400/30 flex justify-between text-xs text-blue-100">
+              <span>Account Statement</span>
+              <span class="font-bold">${stmt.bank_name}</span>
+            </div>
+          </div>
+
+          <div class="rounded-3xl bg-white p-7 border border-slate-200/80 shadow-sm flex flex-col justify-between">
+            <div>
+              <span class="text-xs font-bold tracking-wider uppercase text-slate-400">Statement Period & Storage</span>
+              <div class="text-2xl font-bold text-slate-900 mt-2">${stmt.statement_month}</div>
+            </div>
+            <div class="mt-4 pt-4 border-t border-slate-100 flex flex-col gap-1 text-xs text-slate-500">
+              <div class="flex justify-between"><span>Folder:</span><span class="font-bold text-slate-800">${stmt.month_folder_name}</span></div>
+              <div class="flex justify-between"><span>PDF:</span><span class="font-bold text-blue-600 truncate max-w-[160px]">${stmt.saved_name}</span></div>
+            </div>
+          </div>
+
+          <div class="rounded-3xl bg-white p-7 border border-slate-200/80 shadow-sm flex flex-col justify-between">
+            <div>
+              <div class="flex justify-between items-start">
+                <span class="text-xs font-bold tracking-wider uppercase text-slate-400">Reimbursement Tracker</span>
+                <span id="hero-settle-badge" class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 text-slate-700">Tracking</span>
+              </div>
+              <div class="text-2xl font-bold text-slate-900 mt-2">${stmt.all_txns.length} Transactions</div>
+            </div>
+            <div class="mt-4 pt-4 border-t border-slate-100 flex flex-col gap-1 text-xs">
+              <div class="flex justify-between">
+                <span class="text-slate-500">🟢 Collected:</span>
+                <span id="hero-collected-amt" class="font-bold text-emerald-600">₹0.00</span>
+              </div>
+              <div class="flex justify-between">
+                <span class="text-slate-500">🟡 Pending:</span>
+                <span id="hero-pending-amt" class="font-bold text-amber-600">₹0.00</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      `;
+    }
+
+    function renderCashbackAudit() {
+      const stmt = statements[activeIndex];
+      const container = document.getElementById('cashback-audit-section');
+      if (!container) return;
+
+      const txns = stmt.all_txns || [];
+      const cbItems = [];
+      let totalCredited = 0;
+      let totalReversed = 0;
+
+      txns.forEach(t => {
+        const d = (t.description || '').toLowerCase();
+        if (d.includes('cashback') || d.includes('reward') || d.includes('cb_') || d.includes('cash back')) {
+          if (t.is_credit) {
+            totalCredited += t.amount;
+            cbItems.push({
+              date: t.date,
+              desc: t.description,
+              amount: t.amount,
+              type: 'Credit',
+              status: 'Verified Credited'
+            });
+          } else {
+            totalReversed += t.amount;
+            cbItems.push({
+              date: t.date,
+              desc: t.description,
+              amount: t.amount,
+              type: 'Reversal',
+              status: 'Reversed by Bank (EMI Conversion)'
+            });
+          }
+        }
+      });
+
+      const isIcici = (stmt.bank_short || '').includes('ICICI');
+      const isHdfc = (stmt.bank_short || '').includes('HDFC');
+
+      if (cbItems.length === 0 && !isIcici) {
+        container.innerHTML = '';
+        return;
+      }
+
+      const netCashback = totalCredited - totalReversed;
+
+      let rowsHtml = '';
+      cbItems.forEach(item => {
+        const isRev = item.type === 'Reversal';
+        rowsHtml += `
+          <div class="px-5 py-3 flex justify-between items-center text-xs ${isRev ? 'bg-rose-50/40 text-rose-900' : 'hover:bg-slate-50/60'}">
+            <div class="flex items-center gap-3">
+              <span class="${isRev ? 'text-rose-500 font-bold' : 'text-emerald-500'}">↳</span>
+              <div>
+                <span class="font-semibold text-slate-800">${item.desc}</span>
+                <span class="ml-2 text-[10px] uppercase font-bold px-2 py-0.5 rounded-full ${isRev ? 'bg-rose-100 text-rose-700' : 'bg-emerald-100 text-emerald-800'}">${item.status}</span>
+              </div>
+            </div>
+            <div class="font-bold text-sm ${isRev ? 'text-rose-600' : 'text-emerald-600'}">
+              ${isRev ? '-' : '+'}₹${item.amount.toLocaleString('en-IN', {minimumFractionDigits: 2})}
+            </div>
+          </div>
+        `;
+      });
+
+      let ruleExplanation = '';
+      if (isHdfc) {
+        ruleExplanation = `
+          <div class="mt-3 text-[11px] text-slate-500 border-t border-slate-100 pt-3 flex flex-wrap gap-4">
+            <span>• <b>10% Swiggy Cashback</b>: Valid on Food, Instamart & Dineout (Verified)</span>
+            <span>• <b>5% Partner Cashback</b>: Valid on Myntra, Flipkart, etc. (Verified)</span>
+            <span>• <b>Cashback Reversal</b>: 1% reversed automatically upon converting purchase to Smart EMI</span>
+          </div>
+        `;
+      } else if (isIcici) {
+        ruleExplanation = `
+          <div class="mt-3 text-[11px] text-slate-500 border-t border-slate-100 pt-3 flex flex-wrap gap-4">
+            <span>• <b>5% Amazon Prime</b>: Unlimited 5% cashback on Amazon Shopping</span>
+            <span>• <b>2% Bill Payments & Flights</b>: Added directly to Amazon Pay balance</span>
+            <span>• <b>1% All Other Spends</b>: Credited automatically at billing cycle (1 Point = ₹1.00)</span>
+          </div>
+        `;
+      }
+
+      container.innerHTML = `
+        <div class="bg-white rounded-3xl border border-emerald-200/90 shadow-sm p-6 overflow-hidden">
+          <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 pb-4 border-b border-slate-100">
+            <div class="flex items-center gap-3">
+              <span class="w-10 h-10 rounded-xl bg-emerald-600 text-white flex items-center justify-center font-bold text-lg shadow-sm">🎁</span>
+              <div>
+                <div class="flex items-center gap-2">
+                  <h2 class="text-base font-bold text-slate-900">Cashback & Rewards Accuracy Audit</h2>
+                  <span class="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-emerald-100 text-emerald-800">100% Reconciled</span>
+                </div>
+                <p class="text-xs text-slate-500">Audited against ${stmt.bank_short} reward rules to ensure correct credits and identify reversals.</p>
+              </div>
+            </div>
+            <div class="flex items-center gap-3 w-full sm:w-auto">
+              <div class="px-4 py-2 rounded-xl bg-emerald-50 border border-emerald-200 text-right">
+                <span class="text-[10px] font-bold uppercase tracking-wider text-emerald-700 block">Net Cashback Earned</span>
+                <span class="text-lg font-extrabold text-emerald-700">₹${netCashback.toLocaleString('en-IN', {minimumFractionDigits: 2})}</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="divide-y divide-slate-100 mt-2">
+            ${rowsHtml || '<div class="p-4 text-xs text-slate-400">No cashback entries detected on this statement.</div>'}
+          </div>
+
+          ${ruleExplanation}
+        </div>
+      `;
+    }
+
+    function renderOngoingEMIs() {
+      const stmt = statements[activeIndex];
+      const emiContainer = document.getElementById('ongoing-emi-section');
+      const emis = stmt.ongoing_emis || [];
+
+      if (emis.length === 0) {
+        emiContainer.innerHTML = '';
+        return;
+      }
+
+      let cardsHtml = '';
+      emis.forEach(emi => {
+        const savedName = getSavedName(emi.loan_id, emi.custom_name);
+        const displayName = savedName ? savedName : (emi.type + " (" + emi.booked_date + ")");
+
+        cardsHtml += `
+          <div class="bg-white rounded-2xl border border-amber-200/90 p-5 shadow-sm hover:shadow-md transition">
+            <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 pb-3 border-b border-slate-100">
+              <div>
+                <div class="flex items-center gap-2">
+                  <span class="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800 uppercase tracking-wide">${emi.type}</span>
+                  <span class="text-xs text-slate-400 font-mono">ID: ${emi.loan_id}</span>
+                </div>
+                <div class="text-lg font-bold text-slate-900 mt-1">${displayName}</div>
+              </div>
+              <div class="flex items-center gap-2 w-full sm:w-auto flex-wrap">
+                <input type="text" id="emi-input-${emi.loan_id}" placeholder="Nickname (e.g. Naveen S25Edge)..." value="${savedName}" class="px-3 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500 w-full sm:w-44">
+                <input type="tel" id="emi-phone-${emi.loan_id}" placeholder="WhatsApp No. (e.g. 9876543210)..." value="${getSavedPhone(emi.loan_id)}" class="px-3 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 w-full sm:w-44">
+                <button onclick="saveCustomName('${emi.loan_id}')" class="px-3 py-1.5 text-xs font-bold bg-amber-500 hover:bg-amber-600 text-white rounded-lg shadow-sm transition">💾 Save</button>
+              </div>
+            </div>
+            
+            <div class="grid grid-cols-2 sm:grid-cols-4 gap-4 pt-4 text-xs">
+              <div>
+                <span class="text-slate-400 block">Total Loan Amount</span>
+                <span class="font-bold text-slate-800 text-sm">${emi.total_amount}</span>
+              </div>
+              <div>
+                <span class="text-slate-400 block">Balance Remaining</span>
+                <span class="font-bold text-rose-600 text-sm">${emi.balance_principal}</span>
+              </div>
+              <div>
+                <span class="text-slate-400 block">Balance Tenure</span>
+                <span class="font-bold text-slate-800 text-sm">${emi.balance_tenure}</span>
+              </div>
+              <div>
+                <span class="text-slate-400 block">${emi.monthly_emi ? 'Monthly Installment' : 'Interest Rate'}</span>
+                <span class="font-bold text-slate-800 text-sm">${emi.monthly_emi || emi.interest_rate}</span>
+              </div>
+            </div>
+
+            <!-- EMI True Cost & Hidden Charges Calculator -->
+            ${(() => {
+              const lAmt = parseFloat((emi.total_amount || '').replace(/[₹,]/g, '')) || 0;
+              const mEmi = parseFloat((emi.monthly_emi || '').replace(/[₹,]/g, '')) || 0;
+              const tenureNum = parseInt((emi.total_tenure || '').replace(/\D/g, ''), 10) || 0;
+              if (lAmt <= 0) return '';
+              const estRepay = (mEmi > 0 && tenureNum > 0) ? (mEmi * tenureNum) : (lAmt * 1.088);
+              const estInterest = Math.max(0, estRepay - lAmt);
+              const pFee = 299.0;
+              const pGst = 53.82;
+              const extraCost = estInterest + pFee + pGst;
+              const markupPct = ((extraCost / lAmt) * 100).toFixed(1);
+
+              return `
+                <div class="mt-4 pt-3 border-t border-amber-200/60 bg-amber-50/50 -mx-5 -mb-5 p-4 rounded-b-2xl">
+                  <div class="flex items-center justify-between flex-wrap gap-2 mb-2">
+                    <span class="text-xs font-bold uppercase tracking-wider text-amber-900 flex items-center gap-1.5">
+                      <span>💰</span>
+                      <span>EMI True Cost & Hidden Charges Calculator</span>
+                    </span>
+                    <span class="text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-amber-200 text-amber-900">
+                      Total Extra Cost: +₹${extraCost.toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2})} (+${markupPct}%)
+                    </span>
+                  </div>
+                  <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs">
+                    <div class="bg-white p-2 rounded-xl border border-amber-200/70">
+                      <span class="text-slate-400 block text-[10px]">Original Cash Price</span>
+                      <span class="font-bold text-slate-800 text-xs">₹${lAmt.toLocaleString('en-IN', {minimumFractionDigits: 2})}</span>
+                    </div>
+                    <div class="bg-white p-2 rounded-xl border border-amber-200/70">
+                      <span class="text-slate-400 block text-[10px]">Total Repayment</span>
+                      <span class="font-bold text-slate-800 text-xs">₹${estRepay.toLocaleString('en-IN', {minimumFractionDigits: 2})}</span>
+                    </div>
+                    <div class="bg-white p-2 rounded-xl border border-amber-200/70">
+                      <span class="text-slate-400 block text-[10px]">Interest Charged</span>
+                      <span class="font-bold text-rose-600 text-xs">₹${estInterest.toLocaleString('en-IN', {minimumFractionDigits: 2})}</span>
+                    </div>
+                    <div class="bg-white p-2 rounded-xl border border-amber-200/70">
+                      <span class="text-slate-400 block text-[10px]">Fee + 18% GST</span>
+                      <span class="font-bold text-amber-800 text-xs">₹${(pFee + pGst).toLocaleString('en-IN', {minimumFractionDigits: 2})}</span>
+                    </div>
+                  </div>
+                </div>
+              `;
+            })()}
+          </div>
+        `;
+      });
+
+      emiContainer.innerHTML = `
+        <div class="bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200 rounded-3xl p-6 shadow-sm">
+          <div class="flex items-center gap-3 mb-4">
+            <span class="w-9 h-9 rounded-xl bg-amber-500 text-white flex items-center justify-center font-bold text-lg shadow-sm">📊</span>
+            <div>
+              <h2 class="text-base font-bold text-slate-900">Ongoing EMIs & Loan Summary</h2>
+              <p class="text-xs text-slate-500">Assign editable custom nicknames to track what you bought. Saved names will appear automatically on your next bill!</p>
+            </div>
+          </div>
+          <div class="space-y-3">${cardsHtml}</div>
+        </div>
+      `;
+    }
+
+    function getLoanDetailsForGroup(group, stmt) {
+      if (!group.has_emi) return null;
+
+      // 1. Check for HDFC loan number match
+      for (const itm of group.items) {
+        for (const emi of (stmt.ongoing_emis || [])) {
+          if (itm.description && emi.loan_id && itm.description.includes(emi.loan_id)) {
+            const saved = getSavedName(emi.loan_id, emi.custom_name);
+            return {
+              loanKey: emi.loan_id,
+              loanName: saved || emi.display_name || ("Loan #" + emi.loan_id),
+              loanObj: emi
+            };
+          }
+        }
+      }
+
+      // 2. Check for ICICI <curr/total> Merchant pattern (e.g. <1/9> EZ TRADERS vs <8/12> Flipkart)
+      for (const itm of group.items) {
+        const mInst = (itm.description || "").match(/<(\d+)\/(\d+)>\s*(.*?)(?:\s+PVT|\s+LTD|\s*$)/i);
+        if (mInst) {
+          const currInst = mInst[1];
+          const totalTenure = mInst[2];
+          const rawMerchant = mInst[3].trim();
+          const cleanMerchantKey = rawMerchant.replace(/[^a-zA-Z0-9]/g, "_").toLowerCase();
+
+          // Match only an ongoing EMI that actually shares this exact tenure or merchant!
+          let matchedEmi = null;
+          for (const emi of (stmt.ongoing_emis || [])) {
+            const numMatch = (emi.total_tenure || "").match(/\d+/);
+            const isTenureMatch = numMatch && numMatch[0] === totalTenure;
+            const saved = getSavedName(emi.loan_id, emi.custom_name);
+            const isMerchantMatch = rawMerchant && (
+              (saved && saved.toLowerCase().includes(rawMerchant.toLowerCase())) ||
+              (emi.loan_id && emi.loan_id.toLowerCase().includes(rawMerchant.toLowerCase()))
+            );
+            if (isTenureMatch && isMerchantMatch) {
+              matchedEmi = emi;
+              break;
+            }
+          }
+
+          if (!matchedEmi) {
+            const tenureMatches = (stmt.ongoing_emis || []).filter(e => {
+              const nm = (e.total_tenure || "").match(/\d+/);
+              return nm && nm[0] === totalTenure;
+            });
+            if (tenureMatches.length === 1) {
+              matchedEmi = tenureMatches[0];
+            }
+          }
+
+          const loanKey = matchedEmi ? matchedEmi.loan_id : `loan_${cleanMerchantKey}_${totalTenure}`;
+          const saved = matchedEmi ? getSavedName(matchedEmi.loan_id, matchedEmi.custom_name) : getSavedName(loanKey, "");
+
+          return {
+            loanKey: loanKey,
+            loanName: saved || rawMerchant || `EMI (<${currInst}/${totalTenure}>)`,
+            loanObj: matchedEmi,
+            rawMerchant: rawMerchant,
+            currInst: currInst,
+            totalTenure: totalTenure
+          };
+        }
+      }
+
+      // 3. Check if there are setup charges matching an ongoing loan
+      for (const itm of group.items) {
+        const d = (itm.description || "").toLowerCase();
+        if (d.includes("procng fee") || d.includes("fee") || d.includes("swiggy cashback_reversal")) {
+          for (const emi of (stmt.ongoing_emis || [])) {
+            if (emi.loan_id && itm.description.includes(emi.loan_id)) {
+              const saved = getSavedName(emi.loan_id, emi.custom_name);
+              return {
+                loanKey: emi.loan_id,
+                loanName: saved || emi.display_name || ("Loan #" + emi.loan_id),
+                loanObj: emi
+              };
+            }
+          }
+        }
+      }
+
+      return null;
+    }
+
+    function renderDateGroups(filterText = '') {
+      const stmt = statements[activeIndex];
+      const container = document.getElementById('date-breakdown-container');
+      container.innerHTML = '';
+
+      let matchedTxnCount = 0;
+
+      // Group cards: For EMI with a custom name, consolidate all its dates into ONE card!
+      // For regular dates or unnamed EMIs, keep individual date cards.
+      const cardsList = [];
+      const namedEmiCardMap = {}; // emiName -> cardObj
+
+      Object.entries(stmt.date_groups).forEach(([dateStr, group]) => {
+        const filteredItems = group.items.filter(item => 
+          item.description.toLowerCase().includes(filterText.toLowerCase()) ||
+          dateStr.includes(filterText) ||
+          item.amount.toString().includes(filterText)
+        );
+
+        if (filteredItems.length === 0) return;
+        matchedTxnCount += filteredItems.length;
+
+        const loanDetails = group.has_emi ? getLoanDetailsForGroup(group, stmt) : null;
+
+        if (loanDetails) {
+          const loanKey = loanDetails.loanKey;
+          const emiName = loanDetails.loanName;
+          const sortedItems = enrichAndSortEmiItems(filteredItems);
+
+          if (namedEmiCardMap[loanKey]) {
+            namedEmiCardMap[loanKey].dates.push({
+              dateStr: dateStr,
+              items: sortedItems,
+              dateTotal: group.total
+            });
+            namedEmiCardMap[loanKey].combinedTotal += group.total;
+            namedEmiCardMap[loanKey].totalItemsCount += filteredItems.length;
+          } else {
+            const foundLoan = loanDetails.loanObj;
+            let foundLoanId = loanDetails.loanKey;
+            let overallLoanAmount = foundLoan ? (foundLoan.total_amount || "") : "";
+            let totalTenure = loanDetails.totalTenure || "";
+            let remainingCount = "";
+
+            if (foundLoan) {
+              const mTot = (foundLoan.total_tenure || "").match(/\d+/);
+              if (mTot && !totalTenure) totalTenure = mTot[0];
+              const mBal = (foundLoan.balance_tenure || "").match(/\d+/);
+              if (mBal) remainingCount = mBal[0];
+            }
+
+            let currInstNum = loanDetails.currInst ? parseInt(loanDetails.currInst, 10) : 1;
+            if (!loanDetails.currInst && totalTenure && remainingCount) {
+              const calc = parseInt(totalTenure, 10) - parseInt(remainingCount, 10);
+              if (calc > 0) currInstNum = calc;
+            }
+
+            const instLabel = totalTenure ? `Installment ${currInstNum} of ${totalTenure}` : `Installment #${currInstNum}`;
+            const monthInstallmentTitle = `${stmt.statement_month} • ${instLabel}`;
+            const monthDueLabel = `${stmt.statement_month} Due to be Paid`;
+
+            const personName = emiName ? emiName.trim().split(/\s+/)[0] : "";
+            const cheerEmojis = String.fromCodePoint(0x1F60A) + String.fromCodePoint(0x1F44D);
+            const cheerMessage = personName ? `Hi ${personName}! Only ${remainingCount ? remainingCount + ' more to go' : 'almost there'} ${cheerEmojis}` : "";
+
+            const cardObj = {
+              type: 'named_emi',
+              loanKey: loanKey,
+              emiName: emiName,
+              loanId: foundLoanId,
+              overallLoanAmount: overallLoanAmount,
+              monthInstallmentTitle: monthInstallmentTitle,
+              monthDueLabel: monthDueLabel,
+              currInstNum: currInstNum,
+              totalTenure: totalTenure,
+              remainingCount: remainingCount,
+              cheerMessage: cheerMessage,
+              dates: [{
+                dateStr: dateStr,
+                items: sortedItems,
+                dateTotal: group.total
+              }],
+              combinedTotal: group.total,
+              totalItemsCount: filteredItems.length
+            };
+            namedEmiCardMap[loanKey] = cardObj;
+            cardsList.push(cardObj);
+          }
+        } else {
+          cardsList.push({
+            type: 'date',
+            dateStr: dateStr,
+            group: group,
+            items: filteredItems,
+            isEmiGroup: group.has_emi
+          });
+        }
+      });
+
+      window.renderedCardsData = cardsList;
+      cardsList.forEach((card, cardIdx) => {
+        if (card.type === 'named_emi') {
+          // Single Unified Card for this named EMI with divided dates!
+          const dateCard = document.createElement('div');
+          dateCard.id = `card-named-emi-${cardIdx}`;
+          dateCard.className = 'bg-white rounded-2xl border-2 border-purple-400 shadow-md emi-card-glow emi-receipt-card overflow-hidden transition';
+
+          const datesHeaderStr = card.dates.map(d => d.dateStr).join(', ');
+          
+          // BIG Prominent EMI Receipt Header
+          const header = document.createElement('div');
+          header.className = 'p-6 sm:p-7 bg-gradient-to-br from-purple-100/90 via-purple-50/70 to-indigo-50/80 emi-receipt-header border-b-2 border-purple-200';
+          header.innerHTML = `
+            <div class="flex flex-col gap-5 w-full">
+              
+              <!-- TOP ROW: Title on Left, Action Buttons & Status on Right -->
+              <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 w-full">
+                <div class="flex items-center gap-3">
+                  <div class="w-12 h-12 rounded-xl bg-purple-600 emi-icon-box text-white flex items-center justify-center font-black text-xl shadow-md shadow-purple-500/30 flex-shrink-0" style="-webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; background-color: #9333ea !important; color: #fff !important;">
+                    🏷️
+                  </div>
+                  <div>
+                    <div class="flex items-center gap-2.5 flex-wrap">
+                      <span class="text-2xl font-black text-slate-900 tracking-tight">🏷️ ${card.emiName}</span>
+                      <span class="px-3 py-0.5 rounded-full text-xs font-extrabold bg-purple-600 emi-badge text-white shadow-sm uppercase tracking-wider" style="-webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; background-color: #9333ea !important; color: #fff !important;">
+                        EMI INSTALLMENT RECEIPT
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Action Buttons: Mark as Paid & Share WhatsApp -->
+                <div class="flex items-center gap-2.5 flex-wrap self-stretch sm:self-auto justify-end">
+                  ${(() => {
+                    const pStatus = getPaymentStatus(card.emiName);
+                    return `
+                      <button onclick="togglePaymentStatus('${card.emiName}', '₹${card.combinedTotal.toLocaleString('en-IN')}')" class="no-print px-3.5 py-2 rounded-xl border ${pStatus.isPaid ? 'border-emerald-300 bg-emerald-50 text-emerald-800 hover:bg-emerald-100' : 'border-amber-300 bg-amber-50 text-amber-900 hover:bg-amber-100'} font-bold text-xs shadow-sm transition flex items-center gap-1.5 cursor-pointer">
+                        <span>${pStatus.isPaid ? '🟢' : '🟡'}</span>
+                        <span>${pStatus.isPaid ? 'Paid on ' + pStatus.paidDate : 'Mark as Paid'}</span>
+                      </button>
+                    `;
+                  })()}
+                  <button onclick="shareReceiptOnWhatsApp('card-named-emi-${cardIdx}', '${card.emiName}', '${card.loanId || ''}', '₹${card.combinedTotal.toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2})}', '${datesHeaderStr}')" class="no-print px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs shadow-md shadow-emerald-600/30 transition flex items-center gap-1.5 cursor-pointer">
+                    <span>📲</span>
+                    <span>Share WhatsApp</span>
+                  </button>
+                  ${(() => {
+                    const pStatus = getPaymentStatus(card.emiName);
+                    return pStatus.isPaid 
+                      ? `<span class="px-3 py-1.5 rounded-xl text-xs font-extrabold bg-emerald-100 text-emerald-800 border border-emerald-300">✅ Reimbursed</span>`
+                      : `<span class="px-3 py-1.5 rounded-xl text-xs font-extrabold bg-amber-100 text-amber-900 border border-amber-300">⏳ Awaiting Payment</span>`;
+                  })()}
+                </div>
+              </div>
+
+              <!-- MIDDLE ROW: 3 Evenly Spread KPI Tiles across the entire width -->
+              <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 w-full">
+                <!-- Tile 1: Overall Loan Amount -->
+                <div class="p-3.5 rounded-xl bg-purple-50/80 border border-purple-200/90 shadow-xs flex flex-col justify-center">
+                  <div class="text-[10px] font-black uppercase tracking-wider text-purple-600">Overall Loan Amount</div>
+                  <div class="text-base font-black text-purple-950 mt-0.5">${card.overallLoanAmount || 'N/A'}</div>
+                </div>
+
+                <!-- Tile 2: Billing Cycle -->
+                <div class="p-3.5 rounded-xl bg-indigo-50/80 border border-indigo-200/90 shadow-xs flex flex-col justify-center">
+                  <div class="text-[10px] font-black uppercase tracking-wider text-indigo-600">Billing Cycle</div>
+                  <div class="text-base font-black text-indigo-950 mt-0.5">${card.monthInstallmentTitle || 'Current Month'}</div>
+                </div>
+
+                <!-- Tile 3: Remaining Tenure -->
+                <div class="p-3.5 rounded-xl bg-emerald-50/80 border border-emerald-200/90 shadow-xs flex flex-col justify-center">
+                  <div class="text-[10px] font-black uppercase tracking-wider text-emerald-600">Remaining Tenure</div>
+                  <div class="text-base font-black text-emerald-950 mt-0.5">${card.remainingCount ? card.remainingCount + ' Installments Left' : 'Active Plan'}</div>
+                </div>
+              </div>
+
+              <!-- BOTTOM ROW: Cheering Message on Left, Billing Summary on Right -->
+              <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 pt-1 border-t border-purple-200/60 w-full text-xs">
+                <div class="text-sm font-extrabold text-purple-900 flex items-center gap-2">
+                  <span>${card.cheerMessage || 'EMI Statement Breakdown'}</span>
+                </div>
+                <div class="text-purple-700 font-medium">
+                  ${card.totalItemsCount} charge item(s) • Billing Date: ${datesHeaderStr}
+                </div>
+              </div>
+
+            </div>
+          `;
+          dateCard.appendChild(header);
+
+          // Divide by date inside this card with sorted items
+          card.dates.forEach(dObj => {
+            const dateDivider = document.createElement('div');
+            dateDivider.className = 'px-6 py-2.5 bg-purple-100/60 border-b border-purple-200/70 flex justify-between items-center text-xs font-semibold';
+            dateDivider.setAttribute('style', '-webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; background-color: #f3e8ff !important;');
+            dateDivider.innerHTML = `
+              <div class="flex items-center gap-2 text-purple-950">
+                <span class="font-bold text-sm">📅 ${dObj.dateStr}</span>
+                <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-purple-200/80 text-purple-900 uppercase tracking-wider" style="-webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; background-color: #e9d5ff !important; color: #581c87 !important;">Date Divider</span>
+                <span class="text-purple-600 text-xs">(${dObj.items.length} item${dObj.items.length > 1 ? 's' : ''})</span>
+              </div>
+              <div class="text-purple-900 font-bold">
+                Date Subtotal: ₹${dObj.dateTotal.toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2})}
+              </div>
+            `;
+            dateCard.appendChild(dateDivider);
+
+            const table = document.createElement('div');
+            table.className = 'divide-y divide-purple-100/60';
+            
+            // Sort items: Credits ALWAYS on top, then Principal, Interest, Fees, and linked taxes with arrows
+            const sortedDateItems = enrichAndSortEmiItems(dObj.items);
+
+            sortedDateItems.forEach(item => {
+              const row = document.createElement('div');
+              const isCredit = item.is_credit;
+
+              // Shared color theme styling for Parent & Child
+              let rowStyleClass = 'item-row px-6 py-3.5 flex justify-between items-center transition ';
+              let inlineRowBg = '';
+              if (item.groupTheme === 'interest') {
+                rowStyleClass += 'bg-purple-100/80 hover:bg-purple-100 border-l-[6px] border-l-purple-600 ';
+                inlineRowBg = 'style="-webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; background-color: #ede9fe !important; border-left: 6px solid #7c3aed !important;"';
+              } else if (item.groupTheme === 'fee') {
+                rowStyleClass += 'bg-amber-100/80 hover:bg-amber-100 border-l-[6px] border-l-amber-500 ';
+                inlineRowBg = 'style="-webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; background-color: #fef3c7 !important; border-left: 6px solid #d97706 !important;"';
+              } else if (isCredit) {
+                rowStyleClass += 'bg-sky-100/80 hover:bg-sky-100 border-l-[6px] border-l-sky-600 ';
+                inlineRowBg = 'style="-webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; background-color: #e0f2fe !important; border-left: 6px solid #0284c7 !important;"';
+              } else {
+                rowStyleClass += 'bg-white hover:bg-slate-50 border-l-[6px] border-l-slate-200 ';
+              }
+              row.className = rowStyleClass;
+              if (inlineRowBg) row.setAttribute('style', inlineRowBg.replace('style="', '').replace('"', ''));
+
+              const emiBadge = item.is_emi && !isCredit && !item.taxInfo && !item.groupTheme
+                ? `<span class="ml-2 px-2 py-0.5 rounded text-[10px] font-bold bg-purple-100 text-purple-700 emi-comp-badge uppercase" style="-webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; background-color: #f3e8ff !important; color: #6b21a8 !important;">EMI Component</span>` 
+                : '';
+
+              const creditBadge = isCredit 
+                ? `<span class="ml-2 px-2.5 py-0.5 rounded-full text-[10px] font-extrabold bg-blue-100 text-blue-800 border border-blue-300 uppercase tracking-wide emi-credit-pill" style="-webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; background-color: #dbeafe !important; color: #1e40af !important; border: 1px solid #93c5fd !important;">⚡ Before EMI Conversion Credit</span>` 
+                : '';
+
+              let themeBadge = '';
+              if (item.groupTheme === 'interest') {
+                themeBadge = item.groupRole === 'parent'
+                  ? `<span class="ml-2 px-2 py-0.5 rounded text-[10px] font-bold bg-indigo-100 text-indigo-800 border border-indigo-200 uppercase tracking-wide" style="-webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; background-color: #e0e7ff !important; color: #3730a3 !important;">📊 Interest Base</span>`
+                  : `<span class="ml-2 px-2 py-0.5 rounded text-[10px] font-bold bg-indigo-100 text-indigo-800 border border-indigo-200 uppercase tracking-wide" style="-webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; background-color: #e0e7ff !important; color: #3730a3 !important;">↳ Tax on Interest</span>`;
+              } else if (item.groupTheme === 'fee') {
+                themeBadge = item.groupRole === 'parent'
+                  ? `<span class="ml-2 px-2 py-0.5 rounded text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-200 uppercase tracking-wide" style="-webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; background-color: #fef3c7 !important; color: #92400e !important;">🏷️ Fee Base</span>`
+                  : `<span class="ml-2 px-2 py-0.5 rounded text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-200 uppercase tracking-wide" style="-webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; background-color: #fef3c7 !important; color: #92400e !important;">↳ Tax on Fee</span>`;
+              }
+
+              row.innerHTML = `
+                <div class="flex items-center gap-3">
+                  <span class="${item.groupTheme === 'interest' ? 'text-indigo-600 font-extrabold' : (item.groupTheme === 'fee' ? 'text-amber-600 font-extrabold' : (isCredit ? 'text-blue-500 font-bold' : 'text-purple-500 font-bold'))} text-sm">↳</span>
+                  <div>
+                    <div class="font-semibold text-slate-800 text-sm flex items-center flex-wrap gap-1">
+                      <span class="item-desc-text">${item.description}</span>
+                      ${emiBadge}
+                      ${creditBadge}
+                      ${themeBadge}
+                    </div>
+                    
+                    ${item.taxInfo ? `
+                    <div class="flex items-center gap-1.5 text-xs font-bold mt-1">
+                      <span class="${item.groupTheme === 'interest' ? 'text-indigo-400' : 'text-amber-400'} font-mono text-sm leading-none">↳</span>
+                      <span class="px-2 py-0.5 rounded-md border shadow-xs inline-flex items-center gap-1 ${item.groupTheme === 'interest' ? 'bg-indigo-100 text-indigo-900 border-indigo-200' : 'bg-amber-100 text-amber-900 border-amber-200'}" style="-webkit-print-color-adjust: exact !important; print-color-adjust: exact !important;">
+                        <span>⚡</span>
+                        <span>Calculated as ${item.taxInfo.label}</span>
+                      </span>
+                    </div>` : `
+                    <div class="text-[11px] font-mono ${isCredit ? 'text-blue-600 font-bold' : (item.groupTheme === 'interest' ? 'text-indigo-600 font-medium' : (item.groupTheme === 'fee' ? 'text-amber-700 font-medium' : 'text-slate-400'))}">${isCredit ? 'CREDIT • BEFORE EMI CONVERSION (LOAN BOOKING OFFSET)' : (item.groupTheme === 'interest' ? 'DEBIT / CHARGE (MONTHLY EMI INTEREST)' : (item.groupTheme === 'fee' ? 'DEBIT / CHARGE (LOAN SETUP PROCESSING FEE)' : 'DEBIT / CHARGE'))}</div>`}
+                  </div>
+                </div>
+                <div class="text-right">
+                  <div class="item-amount-val font-bold text-sm ${isCredit ? 'text-blue-700 font-extrabold' : (item.groupTheme === 'interest' ? 'text-indigo-900 font-extrabold' : (item.groupTheme === 'fee' ? 'text-amber-900 font-extrabold' : (item.is_emi ? 'text-purple-900 font-extrabold' : 'text-slate-900')))}">${item.amount_str}</div>
+                  <span class="text-[10px] uppercase font-bold px-2 py-0.5 rounded-full ${isCredit ? 'bg-blue-100 text-blue-800 border border-blue-200 emi-credit-pill' : (item.groupTheme === 'interest' ? 'bg-indigo-100 text-indigo-800 border border-indigo-200' : (item.groupTheme === 'fee' ? 'bg-amber-100 text-amber-800 border border-amber-200' : (item.is_emi ? 'bg-purple-100 text-purple-800' : 'bg-slate-100 text-slate-600')))}">${isCredit ? 'Credit (Pre-EMI)' : (item.taxInfo ? 'Tax (GST)' : 'Debit')}</span>
+                </div>
+              `;
+              table.appendChild(row);
+            });
+            dateCard.appendChild(table);
+          });
+
+          // BOTTOM GRAND TOTAL FOOTER (Moved down!)
+          const grandTotalFooter = document.createElement('div');
+          grandTotalFooter.className = 'emi-receipt-footer px-6 sm:px-8 py-5 text-white flex flex-row justify-between items-center gap-4 border-t-2 border-purple-300';
+          grandTotalFooter.setAttribute('style', '-webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; background-color: #3b0764 !important; background: #3b0764 !important;');
+          grandTotalFooter.innerHTML = `
+            <div class="emi-footer-left flex items-center gap-3">
+              <div class="emi-footer-icon w-11 h-11 rounded-xl bg-white/10 flex items-center justify-center text-xl flex-shrink-0" style="-webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; background-color: rgba(255,255,255,0.2) !important;">
+                💰
+              </div>
+              <div>
+                <div class="emi-footer-title text-xs uppercase font-black tracking-wider text-purple-200" style="color: #f3e8ff !important;">
+                  ${card.monthDueLabel || (stmt.statement_month + ' Due to be Paid')}
+                </div>
+                <div class="emi-footer-subtitle text-[11px] text-purple-300" style="color: #d8b4fe !important;">
+                  Total installment & charges friend needs to reimburse for this billing cycle
+                </div>
+              </div>
+            </div>
+
+            <div class="emi-footer-right flex items-center gap-3">
+              <span class="emi-footer-grand-label text-xs font-bold text-purple-200 uppercase tracking-wider" style="color: #e9d5ff !important;">Grand Total:</span>
+              <span class="emi-footer-pill px-4 py-2 rounded-xl bg-purple-600 text-white font-black text-xl sm:text-2xl shadow-lg border border-purple-400/50" style="-webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; background-color: #9333ea !important; color: #ffffff !important; border: 1.5px solid #c084fc !important;">
+                ₹${card.combinedTotal.toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2})}
+              </span>
+            </div>
+          `;
+          dateCard.appendChild(grandTotalFooter);
+
+          container.appendChild(dateCard);
+
+        } else {
+          // Regular date card
+          const isEmiGroup = card.isEmiGroup;
+          const dateCard = document.createElement('div');
+          if (isEmiGroup) {
+            dateCard.className = 'bg-white rounded-2xl border-2 border-purple-400 shadow-md emi-card-glow emi-receipt-card overflow-hidden transition';
+          } else {
+            dateCard.className = 'bg-white rounded-2xl border border-slate-200/90 shadow-sm overflow-hidden transition';
+          }
+
+          const header = document.createElement('div');
+          if (isEmiGroup) {
+            header.className = 'px-6 py-4 bg-purple-50/80 emi-receipt-header border-b border-purple-200 flex flex-wrap justify-between items-center gap-3';
+            header.innerHTML = `
+              <div class="flex items-center gap-3">
+                <span class="w-9 h-9 rounded-xl bg-purple-600 emi-icon-box text-white flex items-center justify-center font-bold text-sm shadow-sm" style="-webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; background-color: #9333ea !important; color: #fff !important;">💳</span>
+                <div>
+                  <div class="flex items-center gap-2">
+                    <span class="font-bold text-slate-900 text-base">${card.dateStr}</span>
+                    <span class="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-purple-600 emi-badge text-white shadow-sm" style="-webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; background-color: #9333ea !important; color: #fff !important; letter-spacing: 0px !important; text-transform: none !important; display: inline-block;">EMI INSTALLMENT RECEIPT</span>
+                  </div>
+                  <div class="text-xs text-purple-700 font-medium">${card.items.length} item(s) on this date</div>
+                </div>
+              </div>
+              <div class="flex items-center gap-2">
+                <span class="text-xs font-bold text-purple-900 uppercase tracking-wider">EMI Total:</span>
+                <span class="px-3.5 py-1.5 rounded-xl bg-purple-600 emi-total-pill text-white font-extrabold text-sm shadow-md shadow-purple-500/30" style="-webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; background-color: #9333ea !important; color: #fff !important;">₹${card.group.total.toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</span>
+              </div>
+            `;
+          } else {
+            header.className = 'px-6 py-4 bg-slate-50/80 border-b border-slate-200/80 flex flex-wrap justify-between items-center gap-3';
+            header.innerHTML = `
+              <div class="flex items-center gap-3">
+                <span class="w-8 h-8 rounded-lg bg-blue-100 text-blue-700 flex items-center justify-center font-bold text-sm">📅</span>
+                <div>
+                  <div class="font-bold text-slate-900 text-base">${card.dateStr}</div>
+                  <div class="text-xs text-slate-500">${card.items.length} item(s) on this date</div>
+                </div>
+              </div>
+              <div class="flex items-center gap-2">
+                <span class="text-xs font-bold text-slate-400 uppercase tracking-wider">Same-Date Subtotal:</span>
+                <span class="px-3 py-1 rounded-xl bg-blue-600 text-white font-extrabold text-sm shadow-sm shadow-blue-500/20">₹${card.group.total.toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</span>
+              </div>
+            `;
+          }
+          dateCard.appendChild(header);
+
+          const table = document.createElement('div');
+          table.className = isEmiGroup ? 'divide-y divide-purple-100/60' : 'divide-y divide-slate-100';
+
+          enrichAndSortEmiItems(card.items).forEach(item => {
+            const row = document.createElement('div');
+            row.className = isEmiGroup 
+              ? 'px-6 py-3.5 flex justify-between items-center bg-purple-50/30 hover:bg-purple-100/40 transition'
+              : 'px-6 py-3.5 flex justify-between items-center hover:bg-slate-50/70 transition';
+
+            const isCredit = item.is_credit;
+            const emiBadge = item.is_emi && !isCredit
+              ? `<span class="ml-2 px-2 py-0.5 rounded text-[10px] font-bold bg-purple-100 text-purple-700 emi-comp-badge uppercase tracking-wide" style="-webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; background-color: #f3e8ff !important; color: #6b21a8 !important;">EMI Component</span>` 
+              : '';
+            const creditBadge = isCredit 
+              ? `<span class="ml-2 px-2.5 py-0.5 rounded-full text-[10px] font-extrabold bg-blue-100 text-blue-800 border border-blue-300 uppercase tracking-wide emi-credit-pill" style="-webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; background-color: #dbeafe !important; color: #1e40af !important; border: 1px solid #93c5fd !important;">⚡ Before EMI Conversion Credit</span>` 
+              : '';
+
+            row.innerHTML = `
+              <div class="flex items-center gap-3">
+                <span class="${item.is_emi ? 'text-purple-500 font-bold' : (isCredit ? 'text-blue-500 font-bold' : 'text-slate-400')} text-sm">↳</span>
+                <div>
+                  <div class="font-semibold text-slate-800 text-sm flex items-center flex-wrap gap-1">
+                    <span>${item.description}</span>
+                    ${emiBadge}
+                    ${creditBadge}
+                  </div>
+                  <div class="text-[11px] text-slate-400 font-mono">${isCredit ? 'CREDIT • BEFORE EMI CONVERSION (LOAN BOOKING OFFSET)' : 'DEBIT / CHARGE'}</div>
+                </div>
+              </div>
+              <div class="text-right">
+                <div class="font-bold text-sm ${isCredit ? 'text-blue-700 font-extrabold' : (item.is_emi ? 'text-purple-900 font-extrabold' : 'text-slate-900')}">${item.amount_str}</div>
+                <span class="text-[10px] uppercase font-bold px-2 py-0.5 rounded-full ${isCredit ? 'bg-blue-100 text-blue-800 border border-blue-200 emi-credit-pill' : (item.is_emi ? 'bg-purple-100 text-purple-800' : 'bg-slate-100 text-slate-600')}">${isCredit ? 'Credit (Pre-EMI)' : 'Debit'}</span>
+              </div>
+            `;
+            table.appendChild(row);
+          });
+
+          dateCard.appendChild(table);
+          container.appendChild(dateCard);
+        }
+      });
+
+      document.getElementById('record-count').innerText = `${matchedTxnCount} transactions shown`;
+
+      // Update Hero Reimbursement Totals
+      let collectedTotal = 0;
+      let pendingTotal = 0;
+      cardsList.forEach(c => {
+        if (c.type === 'named_emi') {
+          const pStatus = getPaymentStatus(c.emiName);
+          if (pStatus.isPaid) {
+            collectedTotal += c.combinedTotal;
+          } else {
+            pendingTotal += c.combinedTotal;
+          }
+        }
+      });
+      const hCollected = document.getElementById('hero-collected-amt');
+      const hPending = document.getElementById('hero-pending-amt');
+      const hBadge = document.getElementById('hero-settle-badge');
+      if (hCollected) hCollected.innerText = '₹' + collectedTotal.toLocaleString('en-IN', {minimumFractionDigits: 2});
+      if (hPending) hPending.innerText = '₹' + pendingTotal.toLocaleString('en-IN', {minimumFractionDigits: 2});
+      if (hBadge) {
+        if (pendingTotal === 0 && collectedTotal > 0) {
+          hBadge.innerText = 'All Settled ✅';
+          hBadge.className = 'px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800';
+        } else if (pendingTotal > 0) {
+          hBadge.innerText = 'Pending Collection ⏳';
+          hBadge.className = 'px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800';
+        } else {
+          hBadge.innerText = 'Tracking';
+          hBadge.className = 'px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 text-slate-700';
+        }
+      }
+    }
+
+    function filterTransactions() {
+      const query = document.getElementById('search-input').value;
+      renderDateGroups(query);
+    }
+
+    function exportCSV() {
+      const stmt = statements[activeIndex];
+      let csvContent = "data:text/csv;charset=utf-8,Bank,Date,Description,Type,Amount,Is_EMI,Daily_Subtotal\n";
+      Object.entries(stmt.date_groups).forEach(([dt, grp]) => {
+        grp.items.forEach((itm, idx) => {
+          const subtotal = idx === 0 ? grp.total : "";
+          const ttype = itm.is_credit ? "Credit" : "Debit";
+          const isEmi = itm.is_emi ? "YES" : "NO";
+          const row = `"${stmt.bank_short}","${dt}","${itm.description.replace(/"/g, '""')}","${ttype}",${itm.amount},"${isEmi}",${subtotal}`;
+          csvContent += row + "\n";
+        });
+      });
+      const encodedUri = encodeURI(csvContent);
+      const link = document.createElement("a");
+      link.setAttribute("href", encodedUri);
+      link.setAttribute("download", `${stmt.bank_short}_${stmt.statement_month}_Date_Breakdown.csv`);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    }
+
+    function renderDashboard() {
+      renderTabs();
+      renderHero();
+      renderCashbackAudit();
+      renderOngoingEMIs();
+      renderDateGroups();
+    }
+
+    renderDashboard();
+  </script>
+</body>
+</html>

@@ -61,6 +61,8 @@ def show_popup_error(title, message):
     pass
 
 PASSWORDS_FILE = "passwords.json"
+GOOGLE_SHEET_TEMPLATE_URL = "https://docs.google.com/spreadsheets/d/1j2xafoAYKAp_fnfomK59HDsXGArd_-gMKpwWnDesDAc/copy"
+GOOGLE_SHEET_VIEW_URL = "https://docs.google.com/spreadsheets/d/1j2xafoAYKAp_fnfomK59HDsXGArd_-gMKpwWnDesDAc/edit?usp=sharing"
 
 KNOWN_BANKS = [
     {
@@ -79,7 +81,7 @@ KNOWN_BANKS = [
 
 
 def load_stored_passwords(folder="."):
-  """Loads stored statement passwords from passwords.json across candidate directories."""
+  """Loads stored statement passwords and Google Sheets Webhook URL from passwords.json across candidate directories."""
   candidates = [
       folder,
       ".",
@@ -96,15 +98,20 @@ def load_stored_passwords(folder="."):
             return {
                 "hdfc": str(data.get("hdfc", "")).strip(),
                 "icici": str(data.get("icici", "")).strip(),
+                "sheets_webhook_url": str(data.get("sheets_webhook_url", "")).strip(),
             }
         except Exception:
           pass
-  return {"hdfc": "", "icici": ""}
+  return {"hdfc": "", "icici": "", "sheets_webhook_url": ""}
 
 
-def save_stored_passwords(hdfc_pass, icici_pass, folder="."):
-  """Saves bank statement passwords locally to passwords.json (excluded from Git)."""
-  data = {"hdfc": str(hdfc_pass).strip(), "icici": str(icici_pass).strip()}
+def save_stored_passwords(hdfc_pass, icici_pass, sheets_webhook_url="", folder="."):
+  """Saves bank statement passwords and Google Sheets Webhook URL locally to passwords.json (excluded from Git)."""
+  data = {
+      "hdfc": str(hdfc_pass).strip(),
+      "icici": str(icici_pass).strip(),
+      "sheets_webhook_url": str(sheets_webhook_url).strip(),
+  }
   script_dir = os.path.dirname(os.path.abspath(__file__))
   targets = set([script_dir, ".", folder, os.path.join(os.path.expanduser("~"), "Downloads")])
   success = False
@@ -252,10 +259,9 @@ def parse_icici_statement(reader, file_path, saved_names):
 
   all_lines = []
   p2_text = ""
-  for idx, page in enumerate(reader.pages[:2]):
+  for idx, page in enumerate(reader.pages):
     t = page.extract_text() or ""
-    if idx == 1:
-      p2_text = t
+    p2_text += "\n" + t
     for line in t.splitlines():
       all_lines.append(line.strip())
 
@@ -587,8 +593,31 @@ def process_statement_file(file_path, base_downloads_dir=None):
 
 def generate_modern_dashboard_html(results_list, output_dir):
   """Generates a high-quality modern interactive HTML dashboard with EMI receipt highlighting."""
+  import base64
   html_path = os.path.join(output_dir, "Statement_Dashboard.html")
   data_json = json.dumps(results_list)
+
+  swiggy_card_b64 = ""
+  amazon_card_b64 = ""
+  for cdir in [output_dir, os.path.dirname(os.path.abspath(__file__)), ".", "/working_dir/c_a77ecec1bad766ad/user_uploaded_files/ttl=63d/user_uploaded"]:
+    sp = os.path.join(cdir, "card-facia-swiggy.jpg")
+    ap = os.path.join(cdir, "card-facia-amazon.png")
+    ap_orig = os.path.join(cdir, "amazon-card-banner.webp")
+    if os.path.exists(sp) and not swiggy_card_b64:
+      try:
+        with open(sp, "rb") as f:
+          swiggy_card_b64 = "data:image/jpeg;base64," + base64.b64encode(f.read()).decode("utf-8")
+      except Exception: pass
+    if os.path.exists(ap) and not amazon_card_b64:
+      try:
+        with open(ap, "rb") as f:
+          amazon_card_b64 = "data:image/png;base64," + base64.b64encode(f.read()).decode("utf-8")
+      except Exception: pass
+    elif os.path.exists(ap_orig) and not amazon_card_b64:
+      try:
+        with open(ap_orig, "rb") as f:
+          amazon_card_b64 = "data:image/webp;base64," + base64.b64encode(f.read()).decode("utf-8")
+      except Exception: pass
 
   html_content = f"""<!DOCTYPE html>
 <html lang="en">
@@ -600,7 +629,73 @@ def generate_modern_dashboard_html(results_list, output_dir):
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <style>
-    body {{ font-family: 'Plus Jakarta Sans', sans-serif; }}
+    body {{ font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'SF Pro Text', 'Plus Jakarta Sans', system-ui, sans-serif; }}
+
+    /* --- Apple Design System & Fluid Materials --- */
+    .apple-glass {{
+      background: rgba(255, 255, 255, 0.82);
+      backdrop-filter: blur(24px) saturate(180%);
+      -webkit-backdrop-filter: blur(24px) saturate(180%);
+      border: 1px solid rgba(226, 232, 240, 0.8);
+      box-shadow: 0 10px 30px -5px rgba(0, 0, 0, 0.04), 0 2px 6px rgba(0, 0, 0, 0.02);
+    }}
+    .apple-segmented-bar {{
+      background: rgba(241, 245, 249, 0.9);
+      backdrop-filter: blur(20px) saturate(180%);
+      -webkit-backdrop-filter: blur(20px) saturate(180%);
+      border: 1px solid rgba(226, 232, 240, 0.9);
+      padding: 5px;
+      border-radius: 20px;
+      display: inline-flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }}
+    .apple-tab-btn {{
+      transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+      cursor: pointer;
+      user-select: none;
+      -webkit-user-select: none;
+    }}
+    .apple-tab-btn:active {{
+      transform: scale(0.96) !important;
+      transition: transform 0.08s ease-out;
+    }}
+    .apple-card-stage {{
+      perspective: 1200px;
+    }}
+    .apple-physical-card {{
+      aspect-ratio: 1.586 / 1;
+      width: 100%;
+      max-width: 380px;
+      border-radius: 20px;
+      transform-style: preserve-3d;
+      transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.4s ease;
+      cursor: pointer;
+      position: relative;
+      overflow: hidden;
+      box-shadow: 0 20px 45px -12px rgba(0, 0, 0, 0.25), 0 4px 12px -2px rgba(0, 0, 0, 0.1);
+    }}
+    .apple-physical-card:hover {{
+      box-shadow: 0 28px 60px -12px rgba(0, 0, 0, 0.32), 0 8px 20px -4px rgba(0, 0, 0, 0.15);
+    }}
+    .apple-physical-card:active {{
+      transform: scale(0.975);
+      transition: transform 0.1s ease-out;
+    }}
+    .apple-card-glare {{
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      border-radius: 20px;
+      background: radial-gradient(circle at var(--mouse-x, 50%) var(--mouse-y, 50%), rgba(255, 255, 255, 0.4) 0%, rgba(255, 255, 255, 0) 60%);
+      opacity: 0;
+      mix-blend-mode: overlay;
+      transition: opacity 0.3s ease;
+    }}
+    .apple-physical-card:hover .apple-card-glare {{
+      opacity: 1;
+    }}
+
     .emi-card-glow {{ box-shadow: 0 4px 20px -2px rgba(124, 58, 237, 0.15); }}
 
     /* Fix color mismatch in Print / Save to PDF */
@@ -679,6 +774,98 @@ def generate_modern_dashboard_html(results_list, output_dir):
         background-color: #0f172a !important;
         color: #ffffff !important;
       }}
+      .emi-receipt-footer {{
+        background-color: #3b0764 !important;
+        background: #3b0764 !important;
+        color: #ffffff !important;
+        border-top: 2px solid #a855f7 !important;
+        display: flex !important;
+        flex-direction: row !important;
+        justify-content: space-between !important;
+        align-items: center !important;
+        width: 100% !important;
+        box-sizing: border-box !important;
+        padding: 16px 28px !important;
+        break-inside: avoid !important;
+        page-break-inside: avoid !important;
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+      }}
+      .emi-receipt-footer * {{
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+      }}
+      .emi-footer-left {{
+        display: flex !important;
+        flex-direction: row !important;
+        align-items: center !important;
+        gap: 12px !important;
+      }}
+      .emi-footer-right {{
+        display: flex !important;
+        flex-direction: row !important;
+        align-items: center !important;
+        gap: 12px !important;
+      }}
+      .emi-footer-icon {{
+        background-color: rgba(255, 255, 255, 0.2) !important;
+        color: #ffffff !important;
+        width: 44px !important;
+        height: 44px !important;
+        border-radius: 12px !important;
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        font-size: 20px !important;
+      }}
+      .emi-footer-title {{
+        color: #f3e8ff !important;
+        font-size: 13px !important;
+        font-weight: 900 !important;
+        text-transform: uppercase !important;
+        letter-spacing: 0.05em !important;
+      }}
+      .emi-footer-subtitle {{
+        color: #d8b4fe !important;
+        font-size: 11px !important;
+      }}
+      .emi-footer-grand-label {{
+        color: #e9d5ff !important;
+        font-size: 12px !important;
+        font-weight: 700 !important;
+        text-transform: uppercase !important;
+        letter-spacing: 0.05em !important;
+      }}
+      .emi-footer-pill {{
+        background-color: #9333ea !important;
+        background: #9333ea !important;
+        color: #ffffff !important;
+        border: 1.5px solid #c084fc !important;
+        padding: 8px 18px !important;
+        border-radius: 12px !important;
+        font-size: 20px !important;
+        font-weight: 900 !important;
+        display: inline-block !important;
+      }}
+      .emi-credit-pill {{
+        background-color: #dbeafe !important;
+        color: #1e40af !important;
+        border: 1px solid #93c5fd !important;
+        display: inline-block !important;
+      }}
+      /* Punchy inheritance highlights for Print / Save to PDF */
+      .theme-row-interest {{
+        background-color: #ede9fe !important;
+        border-left: 6px solid #7c3aed !important;
+      }}
+      .theme-row-fee {{
+        background-color: #fef3c7 !important;
+        border-left: 6px solid #d97706 !important;
+      }}
+      .theme-row-credit {{
+        background-color: #e0f2fe !important;
+        border-left: 6px solid #0284c7 !important;
+      }}
     }}
   </style>
 </head>
@@ -694,6 +881,7 @@ def generate_modern_dashboard_html(results_list, output_dir):
         </div>
       </div>
       <div class="flex items-center gap-3 w-full sm:w-auto">
+        <a href="{GOOGLE_SHEET_TEMPLATE_URL}" target="_blank" class="px-3.5 py-2 text-xs font-semibold bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg transition shadow-md flex items-center gap-1.5 no-print">📊 Copy Google Sheet Template</a>
         <button onclick="window.print()" class="px-4 py-2 text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-lg transition border border-slate-700">🖨️ Print / Save</button>
         <button onclick="exportCSV()" class="px-4 py-2 text-xs font-semibold bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg shadow-lg shadow-emerald-600/20 transition">📊 Download CSV</button>
       </div>
@@ -707,21 +895,32 @@ def generate_modern_dashboard_html(results_list, output_dir):
     <div id="cashback-audit-section" class="mb-8"></div>
     <div id="ongoing-emi-section" class="mb-8"></div>
 
-    <!-- Search Bar & Filters -->
-    <div class="bg-white rounded-2xl border border-slate-200/80 p-4 shadow-sm mb-6 flex flex-col sm:flex-row justify-between items-center gap-4">
-      <div class="relative w-full sm:w-96">
-        <span class="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">🔍</span>
-        <input type="text" id="search-input" onkeyup="filterTransactions()" placeholder="Search merchant, category, or amount..." class="w-full pl-10 pr-4 py-2.5 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 transition">
+    <!-- Search Bar & Category Filters -->
+    <div class="bg-white rounded-2xl border border-slate-200/80 p-4 shadow-sm mb-6 flex flex-col gap-3">
+      <div class="flex flex-col sm:flex-row justify-between items-center gap-4">
+        <div class="relative w-full sm:w-96">
+          <span class="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">🔍</span>
+          <input type="text" id="search-input" onkeyup="filterTransactions()" placeholder="Search merchant, category, or amount..." class="w-full pl-10 pr-4 py-2.5 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 transition">
+        </div>
+        <div class="flex items-center gap-4 text-xs font-semibold text-slate-500">
+          <div class="flex items-center gap-1.5">
+            <span class="w-3 h-3 rounded-full bg-purple-500"></span>
+            <span>Highlighted = EMI Receipt Section</span>
+          </div>
+          <div class="flex items-center gap-1.5">
+            <span class="w-2.5 h-2.5 rounded-full bg-emerald-500"></span>
+            <span id="record-count">Loading activity...</span>
+          </div>
+        </div>
       </div>
-      <div class="flex items-center gap-4 text-xs font-semibold text-slate-500">
-        <div class="flex items-center gap-1.5">
-          <span class="w-3 h-3 rounded-full bg-purple-500"></span>
-          <span>Highlighted = EMI Receipt Section</span>
-        </div>
-        <div class="flex items-center gap-1.5">
-          <span class="w-2.5 h-2.5 rounded-full bg-emerald-500"></span>
-          <span id="record-count">Loading activity...</span>
-        </div>
+
+      <!-- Quick Filter Pills: All Activity | EMI Receipts | Regular Spends | Credits -->
+      <div class="flex items-center gap-2 flex-wrap pt-3 border-t border-slate-100" id="filter-pills-bar">
+        <span class="text-xs font-bold text-slate-400 uppercase tracking-wider mr-1">View Filter:</span>
+        <button onclick="setFilterCategory('all')" id="pill-filter-all" class="filter-pill active px-3.5 py-1.5 rounded-xl text-xs font-bold bg-slate-900 text-white shadow-sm transition cursor-pointer">🔘 All Activity</button>
+        <button onclick="setFilterCategory('emi')" id="pill-filter-emi" class="filter-pill px-3.5 py-1.5 rounded-xl text-xs font-bold bg-purple-50 text-purple-700 border border-purple-200 hover:bg-purple-100 transition cursor-pointer">🏷️ EMI Receipts Only</button>
+        <button onclick="setFilterCategory('regular')" id="pill-filter-regular" class="filter-pill px-3.5 py-1.5 rounded-xl text-xs font-bold bg-slate-50 text-slate-700 border border-slate-200 hover:bg-slate-100 transition cursor-pointer">💳 Regular Card Spends</button>
+        <button onclick="setFilterCategory('credit')" id="pill-filter-credit" class="filter-pill px-3.5 py-1.5 rounded-xl text-xs font-bold bg-blue-50 text-blue-700 border border-blue-200 hover:bg-blue-100 transition cursor-pointer">⚡ Pre-EMI & Credits</button>
       </div>
     </div>
 
@@ -731,6 +930,7 @@ def generate_modern_dashboard_html(results_list, output_dir):
   </main>
 
   <script>
+    const CARD_IMAGES = {{ swiggy: "{swiggy_card_b64}", amazon: "{amazon_card_b64}" }};
     const statements = {data_json};
     let activeIndex = 0;
 
@@ -795,12 +995,107 @@ def generate_modern_dashboard_html(results_list, output_dir):
 
     window.renderedCardsData = [];
 
+    function enrichAndSortEmiItems(itemsList) {{
+      const nonTaxCharges = itemsList.filter(it => {{
+        const d = (it.description || '').toLowerCase();
+        const isTax = d.includes('gst') || d.includes('tax') || d.includes('cgst') || d.includes('sgst') || d.includes('igst');
+        return !it.is_credit && !isTax && it.amount > 0;
+      }});
+
+      const enriched = itemsList.map(item => {{
+        const d = (item.description || '').toLowerCase();
+        const isTax = d.includes('gst') || d.includes('tax') || d.includes('cgst') || d.includes('sgst') || d.includes('igst');
+        let taxInfo = null;
+        let groupTheme = null; // 'interest' | 'fee' | 'principal'
+        let groupRole = null;  // 'parent' | 'child'
+        let rank = 50;
+
+        if (item.is_credit) {{
+          // 1. CREDITS ALWAYS ON TOP!
+          rank = 1;
+        }} else if (isTax) {{
+          for (const base of nonTaxCharges) {{
+            const is18 = Math.abs(item.amount - (base.amount * 0.18)) <= 0.05;
+            const is9 = Math.abs(item.amount - (base.amount * 0.09)) <= 0.05;
+            if (is18 || is9) {{
+              const rate = is18 ? '18%' : '9%';
+              const taxType = d.includes('cgst') ? 'CGST' : (d.includes('sgst') ? 'SGST' : 'IGST');
+              const isInt = base.description.toLowerCase().includes('int');
+              const isPrin = base.description.toLowerCase().includes('prin');
+              const baseName = isInt ? 'Interest' : (isPrin ? 'Principal' : 'Processing Fee');
+              groupTheme = isInt ? 'interest' : (isPrin ? 'principal' : 'fee');
+              groupRole = 'child';
+              taxInfo = {{
+                rate: rate,
+                taxType: taxType,
+                baseName: baseName,
+                baseAmount: base.amount,
+                label: rate + ' ' + taxType + ' on ' + baseName + ' (₹' + base.amount.toFixed(2) + ')'
+              }};
+              // Rank right after its parent charge!
+              rank = isPrin ? 15 : (isInt ? 25 : 35);
+              break;
+            }}
+          }}
+
+          if (!taxInfo) {{
+            const impliedBase = Math.round((item.amount / 0.18) * 100) / 100;
+            taxInfo = {{
+              rate: '18%',
+              taxType: 'GST',
+              baseName: 'Base Amount',
+              baseAmount: impliedBase,
+              label: '18% GST on ₹' + impliedBase.toFixed(2)
+            }};
+            rank = 28;
+          }}
+        }} else {{
+          if (d.includes('prin') || d.includes('principal') || (d.includes('amortization') && !d.includes('int'))) {{
+            rank = 10; // Principal
+            groupTheme = 'principal';
+            groupRole = 'parent';
+          }} else if (d.includes('int') || d.includes('interest')) {{
+            rank = 20; // Interest
+            groupTheme = 'interest';
+            groupRole = 'parent';
+          }} else if (d.includes('fee') || d.includes('procng') || item.amount <= 300) {{
+            rank = 30; // Processing Fee
+            groupTheme = 'fee';
+            groupRole = 'parent';
+          }} else if (d.includes('cashback') || d.includes('reversal')) {{
+            rank = 40; // Reversal
+          }} else {{
+            rank = 32;
+          }}
+        }}
+
+        return Object.assign({{}}, item, {{ taxInfo: taxInfo, groupTheme: groupTheme, groupRole: groupRole, rank: rank }});
+      }});
+
+      enriched.sort((a, b) => {{
+        if (a.rank !== b.rank) return a.rank - b.rank;
+        return b.amount - a.amount;
+      }});
+
+      return enriched;
+    }}
+
+    function compareEmiItems(a, b) {{
+      const arr = enrichAndSortEmiItems([a, b]);
+      return arr[0] === a ? -1 : 1;
+    }}
+
     function drawNativeReceiptCanvas(card) {{
       const scale = 2;
       const width = 920;
-      const headerH = 92;
+      const cardX = 4;
+      const cardY = 4;
+      const cardW = width - 8;
+      const cardR = 16;
+      const headerH = 148;
       const dateBarH = 44;
       const rowH = 68;
+      const footerH = 68;
 
       const dates = card.type === 'named_emi' ? card.dates : [{{
         dateStr: card.dateStr,
@@ -810,7 +1105,9 @@ def generate_modern_dashboard_html(results_list, output_dir):
 
       let totalRows = 0;
       dates.forEach(d => {{ totalRows += d.items.length; }});
-      const height = headerH + (dates.length * dateBarH) + (totalRows * rowH) + 12;
+      const contentH = (dates.length * dateBarH) + (totalRows * rowH);
+      const cardH = headerH + contentH + footerH;
+      const height = cardH + 8;
 
       const canvas = document.createElement('canvas');
       canvas.width = width * scale;
@@ -833,95 +1130,143 @@ def generate_modern_dashboard_html(results_list, output_dir):
         if (stroke) {{ ctx.strokeStyle = stroke; ctx.lineWidth = lineW; ctx.stroke(); }}
       }}
 
-      // 1. Outer Card & Background
+      // 1. Transparent Canvas & Card Background
       ctx.fillStyle = '#ffffff';
       ctx.fillRect(0, 0, width, height);
-      roundRect(4, 4, width - 8, height - 8, 16, '#ffffff', '#c084fc', 2);
+      roundRect(cardX, cardY, cardW, cardH, cardR, '#ffffff', null);
 
-      // 2. Header Fill
+      // 2. Header Fill (Smoothly hugs the top corners of the card)
       ctx.save();
       ctx.beginPath();
-      ctx.moveTo(20, 5);
-      ctx.arcTo(width - 5, 5, width - 5, headerH, 15);
-      ctx.lineTo(width - 5, headerH);
-      ctx.lineTo(5, headerH);
-      ctx.lineTo(5, 20);
-      ctx.arcTo(5, 5, 20, 5, 15);
+      ctx.moveTo(cardX + cardR, cardY);
+      ctx.lineTo(cardX + cardW - cardR, cardY);
+      ctx.arcTo(cardX + cardW, cardY, cardX + cardW, cardY + cardR, cardR);
+      ctx.lineTo(cardX + cardW, cardY + headerH);
+      ctx.lineTo(cardX, cardY + headerH);
+      ctx.lineTo(cardX, cardY + cardR);
+      ctx.arcTo(cardX, cardY, cardX + cardR, cardY, cardR);
       ctx.closePath();
       ctx.fillStyle = '#faf5ff';
       ctx.fill();
       ctx.restore();
 
       ctx.beginPath();
-      ctx.moveTo(5, headerH);
-      ctx.lineTo(width - 5, headerH);
+      ctx.moveTo(cardX, cardY + headerH);
+      ctx.lineTo(cardX + cardW, cardY + headerH);
       ctx.strokeStyle = '#e9d5ff';
       ctx.lineWidth = 1;
       ctx.stroke();
 
-      // Icon Box
-      roundRect(24, 24, 44, 44, 12, '#9333ea', null);
-      ctx.font = `bold 20px ${{fontSans}}`;
+      // --- ROW 1: Identity on Left, Status Badge on Right ---
+      // Left Icon Box
+      roundRect(cardX + 24, cardY + 16, 46, 46, 12, '#9333ea', null);
+      ctx.font = `bold 22px ${{fontSans}}`;
       ctx.fillStyle = '#ffffff';
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
-      ctx.fillText('💳', 46, 46);
+      ctx.fillText('🏷️', cardX + 47, cardY + 39);
 
       // Title
       const titleText = card.type === 'named_emi' ? card.emiName : card.dateStr;
-      ctx.font = `bold 20px ${{fontSans}}`;
+      ctx.font = `bold 22px ${{fontSans}}`;
       ctx.fillStyle = '#0f172a';
       ctx.textAlign = 'left';
       ctx.textBaseline = 'middle';
-      ctx.fillText(titleText, 82, 36);
+      ctx.fillText(titleText, cardX + 82, cardY + 39);
       const titleW = ctx.measureText(titleText).width;
 
-      // Purple Badge: EMI INSTALLMENT RECEIPT (Mathematically centered, zero overlap)
+      // Badge: EMI INSTALLMENT RECEIPT
       const badgeText = 'EMI INSTALLMENT RECEIPT';
       ctx.font = `bold 11px ${{fontSans}}`;
-      const badgeW = ctx.measureText(badgeText).width + 24;
-      const badgeX = 82 + titleW + 14;
-      roundRect(badgeX, 24, badgeW, 24, 12, '#9333ea', null);
+      const badgeW = ctx.measureText(badgeText).width + 22;
+      const badgeX = cardX + 82 + titleW + 12;
+      roundRect(badgeX, cardY + 27, badgeW, 24, 12, '#9333ea', null);
       ctx.fillStyle = '#ffffff';
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
-      ctx.fillText(badgeText, badgeX + badgeW / 2, 36);
+      ctx.fillText(badgeText, badgeX + badgeW / 2, cardY + 39);
 
-      // Subtitle with Cheering Greeting (Option 5)
-      const datesSummary = dates.map(d => d.dateStr).join(', ');
-      const subText = card.cheerMessage ? card.cheerMessage : `${{totalRows}} item(s) across ${{dates.length}} date(s) (${{datesSummary}})`;
-      ctx.font = card.cheerMessage ? `bold 14px ${{fontSans}}` : `500 13px ${{fontSans}}`;
+      // Top Right: Payment Status Badge (Flushed to right edge)
+      const pStatus = getPaymentStatus(card.emiName);
+      const statusText = pStatus.isPaid ? `✅ REIMBURSED • PAID ${{pStatus.paidDate.toUpperCase()}}` : `⏳ AWAITING PAYMENT`;
+      ctx.font = `bold 11px ${{fontSans}}`;
+      const statusW = ctx.measureText(statusText).width + 24;
+      const statusX = (cardX + cardW - 24) - statusW;
+      const statusBg = pStatus.isPaid ? '#dcfce7' : '#fef3c7';
+      const statusStroke = pStatus.isPaid ? '#86efac' : '#fde68a';
+      const statusFg = pStatus.isPaid ? '#15803d' : '#92400e';
+      roundRect(statusX, cardY + 27, statusW, 24, 12, statusBg, statusStroke, 1);
+      ctx.fillStyle = statusFg;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(statusText, statusX + statusW / 2, cardY + 39);
+
+      // --- ROW 2: 3 Evenly Spread KPI Tiles across the entire width ---
+      const tileGap = 12;
+      const availableTileW = cardW - 48; // padding 24 on left and right
+      const tileW = (availableTileW - (tileGap * 2)) / 3;
+      const tileY = cardY + 54;
+      const tileH = 44;
+
+      // Tile 1: Overall Loan Amount (Left)
+      const t1X = cardX + 24;
+      roundRect(t1X, tileY, tileW, tileH, 8, '#f3e8ff', '#d8b4fe', 1);
+      ctx.font = `bold 9px ${{fontSans}}`;
+      ctx.fillStyle = '#7e22ce';
+      ctx.textAlign = 'left';
+      ctx.textBaseline = 'middle';
+      ctx.fillText('OVERALL LOAN AMOUNT', t1X + 14, tileY + 14);
+      ctx.font = `bold 15px ${{fontSans}}`;
+      ctx.fillStyle = '#581c87';
+      ctx.fillText(card.overallLoanAmount || 'N/A', t1X + 14, tileY + 30);
+
+      // Tile 2: Billing Cycle (Center)
+      const t2X = t1X + tileW + tileGap;
+      roundRect(t2X, tileY, tileW, tileH, 8, '#e0e7ff', '#c7d2fe', 1);
+      ctx.font = `bold 9px ${{fontSans}}`;
+      ctx.fillStyle = '#4338ca';
+      ctx.textAlign = 'left';
+      ctx.textBaseline = 'middle';
+      ctx.fillText('BILLING CYCLE', t2X + 14, tileY + 14);
+      ctx.font = `bold 14px ${{fontSans}}`;
+      ctx.fillStyle = '#312e81';
+      ctx.fillText(card.monthInstallmentTitle || 'Current Cycle', t2X + 14, tileY + 30);
+
+      // Tile 3: Remaining Tenure (Right)
+      const t3X = t2X + tileW + tileGap;
+      roundRect(t3X, tileY, tileW, tileH, 8, '#ecfdf5', '#a7f3d0', 1);
+      ctx.font = `bold 9px ${{fontSans}}`;
+      ctx.fillStyle = '#047857';
+      ctx.textAlign = 'left';
+      ctx.textBaseline = 'middle';
+      ctx.fillText('REMAINING TENURE', t3X + 14, tileY + 14);
+      ctx.font = `bold 14px ${{fontSans}}`;
+      ctx.fillStyle = '#065f46';
+      ctx.fillText(card.remainingCount ? `${{card.remainingCount}} Installments Left` : 'Active Plan', t3X + 14, tileY + 30);
+
+      // --- ROW 3: Cheering message on Left, Item count & Date on Right ---
+      const cheerText = card.cheerMessage ? card.cheerMessage : `EMI Statement Breakdown`;
+      ctx.font = `bold 14px ${{fontSans}}`;
       ctx.fillStyle = '#581c87';
       ctx.textAlign = 'left';
       ctx.textBaseline = 'middle';
-      ctx.fillText(subText, 82, 62);
+      ctx.fillText(cheerText, cardX + 24, cardY + 120);
 
-      // Right Combined Total Pill
-      const totalVal = card.type === 'named_emi' ? card.combinedTotal : card.group.total;
-      const totalFormatted = '₹' + totalVal.toLocaleString('en-IN', {{minimumFractionDigits: 2, maximumFractionDigits: 2}});
-      ctx.font = `bold 15px ${{fontSans}}`;
-      const totPillW = Math.max(105, ctx.measureText(totalFormatted).width + 32);
-      const totPillX = width - 24 - totPillW;
-      roundRect(totPillX, 28, totPillW, 36, 12, '#9333ea', null);
-      ctx.fillStyle = '#ffffff';
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-      ctx.fillText(totalFormatted, totPillX + totPillW / 2, 46);
-
-      ctx.font = `bold 12px ${{fontSans}}`;
-      ctx.fillStyle = '#581c87';
+      const datesSummary = dates.map(d => d.dateStr).join(', ');
+      ctx.font = `500 12px ${{fontSans}}`;
+      ctx.fillStyle = '#7e22ce';
       ctx.textAlign = 'right';
       ctx.textBaseline = 'middle';
-      ctx.fillText('COMBINED EMI TOTAL:', totPillX - 12, 46);
+      ctx.fillText(`${{totalRows}} charge item(s) • Billing Date: ${{datesSummary}}`, cardX + cardW - 24, cardY + 120);
 
-      // 3. Date Bars & Transaction Rows
-      let curY = headerH;
+      // 3. Date Bars & Transaction Rows (With Matching Group Colors!)
+      let curY = cardY + headerH;
       dates.forEach(dObj => {{
         ctx.fillStyle = '#f3e8ff';
-        ctx.fillRect(5, curY, width - 10, dateBarH);
+        ctx.fillRect(cardX, curY, cardW, dateBarH);
         ctx.beginPath();
-        ctx.moveTo(5, curY + dateBarH);
-        ctx.lineTo(width - 5, curY + dateBarH);
+        ctx.moveTo(cardX, curY + dateBarH);
+        ctx.lineTo(cardX + cardW, curY + dateBarH);
         ctx.strokeStyle = '#e9d5ff';
         ctx.lineWidth = 1;
         ctx.stroke();
@@ -931,54 +1276,114 @@ def generate_modern_dashboard_html(results_list, output_dir):
         ctx.textAlign = 'left';
         ctx.textBaseline = 'middle';
         const dtLabel = `📅  ${{dObj.dateStr}}`;
-        ctx.fillText(dtLabel, 24, curY + dateBarH / 2);
+        ctx.fillText(dtLabel, cardX + 20, curY + dateBarH / 2);
 
         const dtLabelW = ctx.measureText(dtLabel).width;
         ctx.font = `500 12px ${{fontSans}}`;
         ctx.fillStyle = '#7e22ce';
-        ctx.fillText(`(${{dObj.items.length}} item${{dObj.items.length > 1 ? 's' : ''}})`, 24 + dtLabelW + 8, curY + dateBarH / 2);
+        ctx.fillText(`(${{dObj.items.length}} item${{dObj.items.length > 1 ? 's' : ''}})`, cardX + 20 + dtLabelW + 8, curY + dateBarH / 2);
 
         const dtSubFormatted = 'Date Subtotal: ₹' + dObj.dateTotal.toLocaleString('en-IN', {{minimumFractionDigits: 2, maximumFractionDigits: 2}});
         ctx.font = `bold 13px ${{fontSans}}`;
         ctx.fillStyle = '#581c87';
         ctx.textAlign = 'right';
-        ctx.fillText(dtSubFormatted, width - 24, curY + dateBarH / 2);
+        ctx.fillText(dtSubFormatted, cardX + cardW - 20, curY + dateBarH / 2);
 
         curY += dateBarH;
 
-        dObj.items.forEach(item => {{
-          ctx.fillStyle = '#ffffff';
-          ctx.fillRect(5, curY, width - 10, rowH);
+        // Enrich and sort items: Credits on TOP, parent-child tax pairing
+        const sortedItems = enrichAndSortEmiItems(dObj.items);
+
+        sortedItems.forEach(item => {{
+          // Row background color based on inheritance group!
+          let rowBg = '#ffffff';
+          let borderAccentColor = null;
+
+          if (item.groupTheme === 'interest') {{
+            rowBg = '#ede9fe'; // Punchy, vibrant Lavender/Indigo for Interest & its Tax!
+            borderAccentColor = '#7c3aed';
+          }} else if (item.groupTheme === 'fee') {{
+            rowBg = '#fef3c7'; // Punchy, rich Golden Amber for Fee & its Tax!
+            borderAccentColor = '#d97706';
+          }} else if (item.is_credit) {{
+            rowBg = '#e0f2fe'; // Punchy, crisp Sky Blue for Pre-EMI Credit!
+            borderAccentColor = '#0284c7';
+          }}
+
+          ctx.fillStyle = rowBg;
+          ctx.fillRect(cardX, curY, cardW, rowH);
+
+          // Draw left vertical accent bar to visually connect parent & child!
+          if (borderAccentColor) {{
+            ctx.fillStyle = borderAccentColor;
+            ctx.fillRect(cardX, curY, 6, rowH);
+          }}
 
           ctx.beginPath();
-          ctx.moveTo(16, curY + rowH);
-          ctx.lineTo(width - 16, curY + rowH);
+          ctx.moveTo(cardX + 12, curY + rowH);
+          ctx.lineTo(cardX + cardW - 12, curY + rowH);
           ctx.strokeStyle = '#f3e8ff';
           ctx.lineWidth = 1;
           ctx.stroke();
 
           // Left Arrow
           ctx.font = `bold 15px ${{fontSans}}`;
-          ctx.fillStyle = item.is_emi ? '#a855f7' : '#94a3b8';
+          ctx.fillStyle = item.groupTheme === 'interest' ? '#4f46e5' : (item.groupTheme === 'fee' ? '#d97706' : (item.is_credit ? '#2563eb' : '#94a3b8'));
           ctx.textAlign = 'left';
           ctx.textBaseline = 'middle';
-          ctx.fillText('↳', 26, curY + 25);
+          ctx.fillText('↳', item.taxInfo ? cardX + 32 : cardX + 22, curY + 25);
 
           // Description
           ctx.font = `600 14px ${{fontSans}}`;
-          ctx.fillStyle = '#1e293b';
+          ctx.fillStyle = item.taxInfo ? (item.groupTheme === 'interest' ? '#3730a3' : '#78350f') : '#1e293b';
           let descText = item.description || '';
-          if (descText.length > 62) descText = descText.substring(0, 59) + '...';
-          ctx.fillText(descText, 48, curY + 25);
+          if (descText.length > 54) descText = descText.substring(0, 51) + '...';
+          ctx.fillText(descText, item.taxInfo ? cardX + 54 : cardX + 44, curY + 25);
           const descW = ctx.measureText(descText).width;
 
-          // EMI Component Pill
-          if (item.is_emi) {{
+          // Matching Badge Pills (Parent & Child share matching theme colors!)
+          if (item.is_credit) {{
+            const compText = 'BEFORE EMI CONVERSION CREDIT';
+            ctx.font = `bold 10px ${{fontSans}}`;
+            const compW = ctx.measureText(compText).width + 16;
+            const compX = cardX + 44 + descW + 10;
+            if (compX + compW < cardX + cardW - 140) {{
+              roundRect(compX, curY + 14, compW, 22, 6, '#dbeafe', '#93c5fd', 1);
+              ctx.fillStyle = '#1e40af';
+              ctx.textAlign = 'center';
+              ctx.textBaseline = 'middle';
+              ctx.fillText(compText, compX + compW / 2, curY + 25);
+            }}
+          }} else if (item.groupTheme === 'interest') {{
+            const compText = item.groupRole === 'parent' ? 'INTEREST BASE' : 'TAX ON INTEREST';
+            ctx.font = `bold 10px ${{fontSans}}`;
+            const compW = ctx.measureText(compText).width + 16;
+            const compX = (item.taxInfo ? cardX + 54 : cardX + 44) + descW + 10;
+            if (compX + compW < cardX + cardW - 140) {{
+              roundRect(compX, curY + 14, compW, 22, 6, '#e0e7ff', '#c7d2fe', 1);
+              ctx.fillStyle = '#3730a3';
+              ctx.textAlign = 'center';
+              ctx.textBaseline = 'middle';
+              ctx.fillText(compText, compX + compW / 2, curY + 25);
+            }}
+          }} else if (item.groupTheme === 'fee') {{
+            const compText = item.groupRole === 'parent' ? 'FEE BASE' : 'TAX ON FEE';
+            ctx.font = `bold 10px ${{fontSans}}`;
+            const compW = ctx.measureText(compText).width + 16;
+            const compX = (item.taxInfo ? cardX + 54 : cardX + 44) + descW + 10;
+            if (compX + compW < cardX + cardW - 140) {{
+              roundRect(compX, curY + 14, compW, 22, 6, '#fef3c7', '#fde68a', 1);
+              ctx.fillStyle = '#92400e';
+              ctx.textAlign = 'center';
+              ctx.textBaseline = 'middle';
+              ctx.fillText(compText, compX + compW / 2, curY + 25);
+            }}
+          }} else if (item.is_emi) {{
             const compText = 'EMI COMPONENT';
             ctx.font = `bold 10px ${{fontSans}}`;
             const compW = ctx.measureText(compText).width + 16;
-            const compX = 48 + descW + 10;
-            if (compX + compW < width - 140) {{
+            const compX = cardX + 44 + descW + 10;
+            if (compX + compW < cardX + cardW - 140) {{
               roundRect(compX, curY + 14, compW, 22, 6, '#f3e8ff', '#e9d5ff', 1);
               ctx.fillStyle = '#6b21a8';
               ctx.textAlign = 'center';
@@ -987,27 +1392,41 @@ def generate_modern_dashboard_html(results_list, output_dir):
             }}
           }}
 
-          // Sub-label DEBIT / CHARGE
+          // Sub-label: Show calculated arrow line for tax!
           ctx.font = `500 11px ${{fontMono}}`;
-          ctx.fillStyle = '#94a3b8';
           ctx.textAlign = 'left';
           ctx.textBaseline = 'middle';
-          ctx.fillText(item.is_credit ? 'CREDIT / PAYMENT' : 'DEBIT / CHARGE', 48, curY + 47);
+          if (item.taxInfo) {{
+            ctx.fillStyle = item.groupTheme === 'interest' ? '#4f46e5' : '#d97706';
+            ctx.fillText('↳ ' + item.taxInfo.label, cardX + 54, curY + 47);
+          }} else if (item.is_credit) {{
+            ctx.fillStyle = '#1e40af';
+            ctx.fillText('CREDIT • BEFORE EMI CONVERSION (LOAN OFFSET)', cardX + 44, curY + 47);
+          }} else if (item.groupTheme === 'interest') {{
+            ctx.fillStyle = '#4f46e5';
+            ctx.fillText('DEBIT / CHARGE (MONTHLY EMI INTEREST)', cardX + 44, curY + 47);
+          }} else if (item.groupTheme === 'fee') {{
+            ctx.fillStyle = '#d97706';
+            ctx.fillText('DEBIT / CHARGE (LOAN SETUP PROCESSING FEE)', cardX + 44, curY + 47);
+          }} else {{
+            ctx.fillStyle = '#94a3b8';
+            ctx.fillText('DEBIT / CHARGE', cardX + 44, curY + 47);
+          }}
 
           // Right Amount
           ctx.font = `bold 15px ${{fontSans}}`;
-          ctx.fillStyle = item.is_credit ? '#059669' : (item.is_emi ? '#581c87' : '#0f172a');
+          ctx.fillStyle = item.is_credit ? '#1d4ed8' : (item.groupTheme === 'interest' ? '#3730a3' : (item.groupTheme === 'fee' ? '#92400e' : '#0f172a'));
           ctx.textAlign = 'right';
           ctx.textBaseline = 'middle';
-          ctx.fillText(item.amount_str, width - 24, curY + 23);
+          ctx.fillText(item.amount_str, cardX + cardW - 20, curY + 23);
 
           // Right Type Pill
-          const typeText = item.is_credit ? 'CREDIT' : 'DEBIT';
+          const typeText = item.is_credit ? 'CREDIT (PRE-EMI)' : (item.taxInfo ? 'TAX (GST)' : 'DEBIT');
           ctx.font = `bold 10px ${{fontSans}}`;
           const tpW = ctx.measureText(typeText).width + 16;
-          const tpX = width - 24 - tpW;
-          const tpBg = item.is_credit ? '#ecfdf5' : (item.is_emi ? '#f3e8ff' : '#f1f5f9');
-          const tpFg = item.is_credit ? '#047857' : (item.is_emi ? '#6b21a8' : '#475569');
+          const tpX = cardX + cardW - 20 - tpW;
+          const tpBg = item.is_credit ? '#dbeafe' : (item.groupTheme === 'interest' ? '#e0e7ff' : (item.groupTheme === 'fee' ? '#fef3c7' : '#f1f5f9'));
+          const tpFg = item.is_credit ? '#1e40af' : (item.groupTheme === 'interest' ? '#3730a3' : (item.groupTheme === 'fee' ? '#92400e' : '#475569'));
           roundRect(tpX, curY + 36, tpW, 20, 10, tpBg, null);
           ctx.fillStyle = tpFg;
           ctx.textAlign = 'center';
@@ -1017,6 +1436,56 @@ def generate_modern_dashboard_html(results_list, output_dir):
           curY += rowH;
         }});
       }});
+
+      // 4. Bottom Grand Total Footer (ZERO GAP: perfectly hugs the bottom border of the card!)
+      const footerBottom = cardY + cardH;
+      ctx.save();
+      ctx.beginPath();
+      ctx.moveTo(cardX, curY);
+      ctx.lineTo(cardX + cardW, curY);
+      ctx.lineTo(cardX + cardW, footerBottom - cardR);
+      ctx.arcTo(cardX + cardW, footerBottom, cardX + cardW - cardR, footerBottom, cardR);
+      ctx.lineTo(cardX + cardR, footerBottom);
+      ctx.arcTo(cardX, footerBottom, cardX, footerBottom - cardR, cardR);
+      ctx.lineTo(cardX, curY);
+      ctx.closePath();
+      ctx.fillStyle = '#3b0764';
+      ctx.fill();
+      ctx.restore();
+
+      ctx.beginPath();
+      ctx.moveTo(cardX, curY);
+      ctx.lineTo(cardX + cardW, curY);
+      ctx.strokeStyle = '#a855f7';
+      ctx.lineWidth = 1.5;
+      ctx.stroke();
+
+      const totalVal = card.type === 'named_emi' ? card.combinedTotal : card.group.total;
+      const totalFormatted = '₹' + totalVal.toLocaleString('en-IN', {{minimumFractionDigits: 2, maximumFractionDigits: 2}});
+      const dueLabel = (card.monthDueLabel || 'Due to be Paid') + ' (Grand Total)';
+
+      ctx.font = `bold 16px ${{fontSans}}`;
+      ctx.fillStyle = '#ffffff';
+      ctx.textAlign = 'left';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(dueLabel, cardX + 24, curY + footerH / 2 - 10);
+
+      ctx.font = `500 12px ${{fontSans}}`;
+      ctx.fillStyle = '#e9d5ff';
+      ctx.fillText('Total monthly installment & charges to be reimbursed', cardX + 24, curY + footerH / 2 + 12);
+
+      // Right Grand Total Pill
+      ctx.font = `bold 20px ${{fontSans}}`;
+      const totPillW = Math.max(130, ctx.measureText(totalFormatted).width + 36);
+      const totPillX = cardX + cardW - 20 - totPillW;
+      roundRect(totPillX, curY + (footerH - 40) / 2, totPillW, 40, 12, '#9333ea', '#c084fc', 1.5);
+      ctx.fillStyle = '#ffffff';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(totalFormatted, totPillX + totPillW / 2, curY + footerH / 2);
+
+      // 5. STROKE OUTER CARD BORDER LAST (Guarantees crisp 2px border framing the entire card with 0 gaps!)
+      roundRect(cardX, cardY, cardW, cardH, cardR, null, '#c084fc', 2);
 
       return canvas;
     }}
@@ -1072,7 +1541,7 @@ def generate_modern_dashboard_html(results_list, output_dir):
       }}
 
       message += `
-_(Receipt snapshot image downloaded to your device)_`;
+_(Receipt snapshot image copied to clipboard - press Ctrl+V to paste! / saved to device)_`;
 
       try {{
         if (navigator.clipboard && navigator.clipboard.writeText) {{
@@ -1082,10 +1551,27 @@ _(Receipt snapshot image downloaded to your device)_`;
 
       const waUrl = `https://api.whatsapp.com/send?phone=${{phone}}&text=${{encodeURIComponent(message)}}`;
 
-      // 4. Render crisp pixel-perfect receipt canvas natively
+      // 4. Render crisp pixel-perfect receipt canvas natively & copy image to clipboard
       try {{
         if (cardData) {{
           const canvas = drawNativeReceiptCanvas(cardData);
+
+          // Copy PNG image blob to Clipboard (for instant Ctrl+V paste into WhatsApp!)
+          if (canvas.toBlob) {{
+            canvas.toBlob(async (blob) => {{
+              if (blob && navigator.clipboard && window.ClipboardItem && navigator.clipboard.write) {{
+                try {{
+                  const item = new ClipboardItem({{ "image/png": blob }});
+                  await navigator.clipboard.write([item]);
+                  console.log("Snapshot image copied to clipboard successfully!");
+                }} catch (clipErr) {{
+                  console.warn("Could not copy image to clipboard:", clipErr);
+                }}
+              }}
+            }}, "image/png");
+          }}
+
+          // Also download PNG file to device
           const imgUrl = canvas.toDataURL("image/png");
           const dlLink = document.createElement("a");
           dlLink.download = `${{(emiName || 'EMI_Receipt').replace(/\s+/g, '_')}}_Snapshot.png`;
@@ -1104,76 +1590,273 @@ _(Receipt snapshot image downloaded to your device)_`;
       }}
     }}
 
-    function renderTabs() {{
+    function getActiveStatement() {{
+      if (activeIndex === -1 || (statements.length > 1 && activeIndex === -1)) {{
+        const combined = {{
+          bank_name: "Consolidated All Statements",
+          bank_short: "All Statements",
+          statement_month: statements[0] ? statements[0].statement_month : "October 2026",
+          due_date: statements.map(s => (s.bank_short || 'Bank') + ': ' + (s.due_date || '')).join(' • '),
+          month_folder_name: statements[0] ? statements[0].month_folder_name : "Statements_October_2026",
+          saved_name: statements.length + " Statements Loaded",
+          all_txns: [],
+          ongoing_emis: [],
+          date_groups: {{}},
+          total_due: ""
+        }};
+        let sumDue = 0;
+        statements.forEach(s => {{
+          (s.all_txns || []).forEach(t => combined.all_txns.push({{ ...t, bank_badge: s.bank_short }}));
+          (s.ongoing_emis || []).forEach(e => combined.ongoing_emis.push({{ ...e, bank_badge: s.bank_short }}));
+          const cleanDue = parseFloat(String(s.total_due || '0').replace(/[^0-9.]/g, ''));
+          if (!isNaN(cleanDue)) sumDue += cleanDue;
+
+          Object.entries(s.date_groups || {{}}).forEach(([dt, grp]) => {{
+            if (!combined.date_groups[dt]) {{
+              combined.date_groups[dt] = {{
+                total: 0,
+                has_emi: false,
+                items: []
+              }};
+            }}
+            combined.date_groups[dt].total += (grp.total || 0);
+            if (grp.has_emi) combined.date_groups[dt].has_emi = true;
+            (grp.items || []).forEach(itm => {{
+              combined.date_groups[dt].items.push({{
+                ...itm,
+                bank_badge: s.bank_short
+              }});
+            }});
+          }});
+        }});
+        combined.total_due = '₹' + sumDue.toLocaleString('en-IN', {{minimumFractionDigits: 2, maximumFractionDigits: 2}});
+        return combined;
+      }}
+      return statements[activeIndex] || statements[0];
+    }}
+
+        function renderTabs() {{
       const tabsContainer = document.getElementById('bank-tabs');
       tabsContainer.innerHTML = '';
+      tabsContainer.className = 'flex items-center gap-2 mb-8 overflow-x-auto pb-2 apple-segmented-bar';
+
+      if (statements.length > 1) {{
+        const allBtn = document.createElement('button');
+        const isActive = activeIndex === -1;
+        allBtn.className = `apple-tab-btn px-5 py-2.5 rounded-xl text-xs font-bold transition flex items-center gap-2 ${{
+          isActive 
+            ? 'bg-white text-slate-900 shadow-sm border border-slate-200/90 font-extrabold' 
+            : 'text-slate-600 hover:text-slate-900 hover:bg-white/60'
+        }}`;
+        allBtn.innerHTML = `<span class="w-2 h-2 rounded-full ${{isActive ? 'bg-indigo-600 animate-pulse' : 'bg-slate-300'}}"></span><span>🌐 All Statements (${{statements.length}} Cards)</span>`;
+        allBtn.onclick = () => {{ activeIndex = -1; renderDashboard(); }};
+        tabsContainer.appendChild(allBtn);
+      }}
+
       statements.forEach((stmt, idx) => {{
         const btn = document.createElement('button');
-        btn.className = `px-5 py-2.5 rounded-xl text-sm font-bold transition flex items-center gap-2 ${{
-          idx === activeIndex 
-            ? 'bg-blue-600 text-white shadow-md shadow-blue-500/20' 
-            : 'bg-white hover:bg-slate-100 text-slate-600 border border-slate-200'
+        const isActive = idx === activeIndex;
+        const bName = (stmt.bank_name || stmt.bank_short || '').toLowerCase();
+        const isSwiggy = bName.includes('swiggy') || bName.includes('hdfc');
+        const isAmazon = bName.includes('amazon') || bName.includes('icici');
+
+        let dotColor = isSwiggy ? 'bg-[#fc8019]' : (isAmazon ? 'bg-[#ff9900]' : 'bg-blue-600');
+        let icon = isSwiggy ? '🛵' : (isAmazon ? '🛒' : '🏛️');
+
+        btn.className = `apple-tab-btn px-5 py-2.5 rounded-xl text-xs font-bold transition flex items-center gap-2 ${{
+          isActive 
+            ? 'bg-white text-slate-900 shadow-sm border border-slate-200/90 font-extrabold' 
+            : 'text-slate-600 hover:text-slate-900 hover:bg-white/60'
         }}`;
-        btn.innerHTML = `<span>🏛️</span> ${{stmt.bank_short}} (${{stmt.statement_month}})`;
+        btn.innerHTML = `<span class="w-2 h-2 rounded-full ${{isActive ? dotColor + ' animate-pulse' : 'bg-slate-300'}}"></span><span>${{icon}} ${{stmt.bank_short}} (${{stmt.statement_month}})</span>`;
         btn.onclick = () => {{ activeIndex = idx; renderDashboard(); }};
         tabsContainer.appendChild(btn);
       }});
     }}
 
+    function setupCardPhysics() {{
+      const card = document.getElementById('apple-active-card');
+      if (!card) return;
+
+      card.onmousemove = (e) => {{
+        const rect = card.getBoundingClientRect();
+        const x = e.clientX - rect.left;
+        const y = e.clientY - rect.top;
+        const cx = rect.width / 2;
+        const cy = rect.height / 2;
+        const rx = ((y - cy) / cy) * -9;
+        const ry = ((x - cx) / cx) * 9;
+        card.style.transform = `perspective(1000px) rotateX(${{rx}}deg) rotateY(${{ry}}deg) scale3d(1.02, 1.02, 1.02)`;
+        card.style.setProperty('--mouse-x', `${{(x / rect.width) * 100}}%`);
+        card.style.setProperty('--mouse-y', `${{(y / rect.height) * 100}}%`);
+      }};
+
+      card.onmouseleave = () => {{
+        card.style.transform = 'perspective(1000px) rotateX(0deg) rotateY(0deg) scale3d(1, 1, 1)';
+      }};
+    }}
+
     function renderHero() {{
-      const stmt = statements[activeIndex];
+      const stmt = getActiveStatement();
       const hero = document.getElementById('statement-hero');
       
+      const bName = (stmt.bank_name || stmt.bank_short || '').toLowerCase();
+      const isSwiggy = bName.includes('swiggy') || bName.includes('hdfc');
+      const isAmazon = bName.includes('amazon') || bName.includes('icici');
+      const isAll = activeIndex === -1;
+
+      let cardStageHtml = '';
+      let ambientColor = 'rgba(99, 102, 241, 0.25)';
+      let cardBadgeText = 'Multi-Card Portfolio';
+      let cardBadgeClass = 'bg-indigo-100 text-indigo-900 border-indigo-200';
+
+      if (isSwiggy) {{
+        ambientColor = 'rgba(252, 128, 25, 0.28)';
+        cardBadgeText = 'Swiggy HDFC Bank Card';
+        cardBadgeClass = 'bg-orange-100 text-orange-950 border-orange-200';
+        cardStageHtml = `
+          <div id="apple-active-card" class="apple-physical-card shadow-2xl" style="background: url('${{CARD_IMAGES.swiggy}}') center/cover no-repeat;">
+            <div class="apple-card-glare"></div>
+          </div>
+        `;
+      }} else if (isAmazon) {{
+        ambientColor = 'rgba(245, 158, 11, 0.24)';
+        cardBadgeText = 'Amazon Pay ICICI Card';
+        cardBadgeClass = 'bg-amber-100 text-amber-950 border-amber-200';
+        cardStageHtml = `
+          <div id="apple-active-card" class="apple-physical-card shadow-2xl" style="background: url('${{CARD_IMAGES.amazon}}') center/cover no-repeat;">
+            <div class="apple-card-glare"></div>
+          </div>
+        `;
+      }} else {{
+        ambientColor = 'rgba(99, 102, 241, 0.22)';
+        cardBadgeText = 'Consolidated Dual Cards';
+        cardBadgeClass = 'bg-indigo-100 text-indigo-900 border-indigo-200';
+        cardStageHtml = `
+          <div class="relative w-full max-w-[380px] h-[230px] flex items-center justify-center">
+            <!-- Back Card (ICICI Amazon) -->
+            <div class="apple-physical-card absolute w-[88%] shadow-lg top-0 right-2 -rotate-3 opacity-90 transition hover:rotate-0 hover:z-20 hover:opacity-100" style="background: url('${{CARD_IMAGES.amazon}}') center/cover no-repeat;">
+              <div class="apple-card-glare"></div>
+            </div>
+            <!-- Front Card (HDFC Swiggy) -->
+            <div id="apple-active-card" class="apple-physical-card absolute w-[92%] shadow-2xl bottom-1 left-2 rotate-2 transition hover:rotate-0" style="background: url('${{CARD_IMAGES.swiggy}}') center/cover no-repeat;">
+              <div class="apple-card-glare"></div>
+            </div>
+          </div>
+        `;
+      }}
+
       hero.innerHTML = `
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <div class="relative overflow-hidden rounded-3xl bg-gradient-to-br from-blue-600 to-indigo-700 text-white p-7 shadow-xl shadow-blue-600/20 border border-blue-500/30">
-            <div class="flex justify-between items-start">
-              <span class="text-xs font-bold tracking-wider uppercase text-blue-200">Total Bill to be Paid</span>
-              <span class="px-2.5 py-1 text-[11px] font-bold rounded-full bg-blue-500/40 border border-blue-300/30 text-white">Due: ${{stmt.due_date}}</span>
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-stretch">
+          
+          <!-- LEFT: Apple Wallet Physical Card Showcase (5 Columns) -->
+          <div class="lg:col-span-5 rounded-3xl apple-glass p-6 sm:p-7 flex flex-col justify-between items-center relative overflow-hidden group">
+            <div class="absolute -inset-10 blur-3xl pointer-events-none transition-all duration-700" style="background: ${{ambientColor}};"></div>
+            
+            <!-- Top Card Micro-Bar -->
+            <div class="w-full flex justify-between items-center text-xs font-bold text-slate-500 relative z-10 mb-4">
+              <span class="px-3 py-1 rounded-full text-[11px] font-extrabold border ${{cardBadgeClass}} flex items-center gap-1.5 shadow-xs">
+                <span>💳</span>
+                <span>${{cardBadgeText}}</span>
+              </span>
+              <span class="text-[11px] font-mono text-slate-400 bg-slate-100/80 px-2.5 py-0.5 rounded-lg border border-slate-200/60">3D Interactive</span>
             </div>
-            <div class="text-4xl font-extrabold mt-3 tracking-tight">${{stmt.total_due}}</div>
-            <div class="mt-4 pt-4 border-t border-blue-400/30 flex justify-between text-xs text-blue-100">
-              <span>Account Statement</span>
-              <span class="font-bold">${{stmt.bank_name}}</span>
+
+            <!-- Pristine Physical Card Stage -->
+            <div class="apple-card-stage w-full flex justify-center py-2 relative z-10">
+              ${{cardStageHtml}}
+            </div>
+
+            <!-- Bottom Card Specs -->
+            <div class="w-full flex justify-between items-center text-xs text-slate-500 mt-4 pt-3 border-t border-slate-200/60 relative z-10">
+              <span class="font-bold text-slate-700">${{stmt.bank_name}}</span>
+              <span class="font-mono text-slate-400 text-[11px]">${{stmt.statement_month}}</span>
             </div>
           </div>
 
-          <div class="rounded-3xl bg-white p-7 border border-slate-200/80 shadow-sm flex flex-col justify-between">
-            <div>
-              <span class="text-xs font-bold tracking-wider uppercase text-slate-400">Statement Period & Storage</span>
-              <div class="text-2xl font-bold text-slate-900 mt-2">${{stmt.statement_month}}</div>
-            </div>
-            <div class="mt-4 pt-4 border-t border-slate-100 flex flex-col gap-1 text-xs text-slate-500">
-              <div class="flex justify-between"><span>Folder:</span><span class="font-bold text-slate-800">${{stmt.month_folder_name}}</span></div>
-              <div class="flex justify-between"><span>PDF:</span><span class="font-bold text-blue-600 truncate max-w-[160px]">${{stmt.saved_name}}</span></div>
-            </div>
-          </div>
+          <!-- RIGHT: Statement Intelligence & Apple Glass Metrics (7 Columns) -->
+          <div class="lg:col-span-7 flex flex-col justify-between gap-4">
+            
+            <!-- Primary Tile: Statement Total Due -->
+            <div class="p-7 rounded-3xl apple-glass flex flex-col justify-between flex-1 relative overflow-hidden">
+              <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+                <div>
+                  <span class="text-[11px] font-extrabold tracking-[0.06em] text-slate-400 uppercase">Statement Total Due</span>
+                  <div class="text-4xl sm:text-5xl font-extrabold text-slate-900 mt-1 tracking-[-0.03em] leading-none">${{stmt.total_due}}</div>
+                </div>
+                <div class="flex items-center gap-2 self-start sm:self-auto">
+                  <span class="px-3.5 py-1.5 rounded-full text-xs font-extrabold bg-emerald-50 text-emerald-800 border border-emerald-300/80 shadow-xs flex items-center gap-1.5">
+                    <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                    <span>Due: ${{stmt.due_date}}</span>
+                  </span>
+                </div>
+              </div>
 
-          <div class="rounded-3xl bg-white p-7 border border-slate-200/80 shadow-sm flex flex-col justify-between">
-            <div>
-              <div class="flex justify-between items-start">
-                <span class="text-xs font-bold tracking-wider uppercase text-slate-400">Reimbursement Tracker</span>
-                <span id="hero-settle-badge" class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 text-slate-700">Tracking</span>
+              <!-- Metadata Grid -->
+              <div class="grid grid-cols-2 sm:grid-cols-3 gap-3 mt-6 pt-5 border-t border-slate-200/60 text-xs">
+                <div>
+                  <div class="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider">Account / Card</div>
+                  <div class="font-extrabold text-slate-800 text-sm mt-0.5 truncate">${{stmt.bank_short}}</div>
+                </div>
+                <div>
+                  <div class="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider">Billing Cycle</div>
+                  <div class="font-extrabold text-slate-800 text-sm mt-0.5">${{stmt.statement_month}}</div>
+                </div>
+                <div class="col-span-2 sm:col-span-1">
+                  <div class="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider">Storage Path</div>
+                  <div class="font-bold text-blue-600 text-xs mt-0.5 truncate" title="${{stmt.saved_name}}">📁 ${{stmt.saved_name}}</div>
+                </div>
               </div>
-              <div class="text-2xl font-bold text-slate-900 mt-2">${{stmt.all_txns.length}} Transactions</div>
             </div>
-            <div class="mt-4 pt-4 border-t border-slate-100 flex flex-col gap-1 text-xs">
-              <div class="flex justify-between">
-                <span class="text-slate-500">🟢 Collected:</span>
-                <span id="hero-collected-amt" class="font-bold text-emerald-600">₹0.00</span>
+
+            <!-- Secondary Row: Split EMI Reimbursements & Fast Actions -->
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <!-- Tile 1: Friend EMI Reimbursements -->
+              <div class="p-5 rounded-3xl apple-glass flex flex-col justify-between">
+                <div class="flex justify-between items-center">
+                  <span class="text-[11px] font-extrabold tracking-[0.06em] text-slate-400 uppercase">Friend EMI Split</span>
+                  <span id="hero-settle-badge" class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 text-slate-700">Tracking</span>
+                </div>
+                <div class="flex items-baseline justify-between mt-3">
+                  <div>
+                    <div class="text-[10px] font-bold text-emerald-600 uppercase tracking-wide">Collected</div>
+                    <div id="hero-collected-amt" class="text-xl font-extrabold text-emerald-700 mt-0.5 tracking-tight">₹0.00</div>
+                  </div>
+                  <div class="text-right">
+                    <div class="text-[10px] font-bold text-amber-600 uppercase tracking-wide">Pending</div>
+                    <div id="hero-pending-amt" class="text-xl font-extrabold text-amber-700 mt-0.5 tracking-tight">₹0.00</div>
+                  </div>
+                </div>
               </div>
-              <div class="flex justify-between">
-                <span class="text-slate-500">🟡 Pending:</span>
-                <span id="hero-pending-amt" class="font-bold text-amber-600">₹0.00</span>
+
+              <!-- Tile 2: Activity Summary & Direct Actions -->
+              <div class="p-5 rounded-3xl apple-glass flex flex-col justify-between">
+                <div class="flex justify-between items-center">
+                  <span class="text-[11px] font-extrabold tracking-[0.06em] text-slate-400 uppercase">Statement Activity</span>
+                  <span class="text-xs font-bold text-slate-500">${{stmt.all_txns.length}} transactions</span>
+                </div>
+                <div class="flex items-center gap-2 mt-3">
+                  <button onclick="document.getElementById('search-input').focus()" class="flex-1 px-3 py-2 text-xs font-bold bg-slate-900 hover:bg-slate-800 text-white rounded-xl shadow-xs transition flex items-center justify-center gap-1.5 active:scale-95 cursor-pointer">
+                    <span>🔍</span>
+                    <span>Search</span>
+                  </button>
+                  <button onclick="exportCSV()" class="px-3.5 py-2 text-xs font-bold bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl shadow-xs transition flex items-center justify-center gap-1 active:scale-95 cursor-pointer">
+                    <span>📊</span>
+                    <span>CSV</span>
+                  </button>
+                </div>
               </div>
+
             </div>
           </div>
         </div>
       `;
+
+      setupCardPhysics();
     }}
 
     function renderCashbackAudit() {{
-      const stmt = statements[activeIndex];
+      const stmt = getActiveStatement();
       const container = document.getElementById('cashback-audit-section');
       if (!container) return;
 
@@ -1286,7 +1969,7 @@ _(Receipt snapshot image downloaded to your device)_`;
     }}
 
     function renderOngoingEMIs() {{
-      const stmt = statements[activeIndex];
+      const stmt = getActiveStatement();
       const emiContainer = document.getElementById('ongoing-emi-section');
       const emis = stmt.ongoing_emis || [];
 
@@ -1399,56 +2082,94 @@ _(Receipt snapshot image downloaded to your device)_`;
       `;
     }}
 
-        function getEmiNameForGroup(group, stmt) {{
-      if (!group.has_emi) return "";
-      
+    function getLoanDetailsForGroup(group, stmt) {{
+      if (!group.has_emi) return null;
+
+      // 1. Check for HDFC loan number match
       for (const itm of group.items) {{
         for (const emi of (stmt.ongoing_emis || [])) {{
           if (itm.description && emi.loan_id && itm.description.includes(emi.loan_id)) {{
             const saved = getSavedName(emi.loan_id, emi.custom_name);
-            if (saved) return saved;
+            return {{
+              loanKey: emi.loan_id,
+              loanName: saved || emi.display_name || ("Loan #" + emi.loan_id),
+              loanObj: emi
+            }};
           }}
         }}
       }}
 
+      // 2. Check for ICICI <curr/total> Merchant pattern (e.g. <1/9> EZ TRADERS vs <8/12> Flipkart)
       for (const itm of group.items) {{
-        const mInst = itm.description.match(/<(\d+)\/(\d+)>\s*(.*?)(?:\s+PVT|\s+LTD|\s*$)/i);
+        const mInst = (itm.description || "").match(/<(\d+)\/(\d+)>\s*(.*?)(?:\s+PVT|\s+LTD|\s*$)/i);
         if (mInst) {{
+          const currInst = mInst[1];
           const totalTenure = mInst[2];
           const rawMerchant = mInst[3].trim();
+          const cleanMerchantKey = rawMerchant.replace(/[^a-zA-Z0-9]/g, "_").toLowerCase();
+
+          // Match only an ongoing EMI that actually shares this exact tenure or merchant!
+          let matchedEmi = null;
           for (const emi of (stmt.ongoing_emis || [])) {{
             const numMatch = (emi.total_tenure || "").match(/\d+/);
-            if (numMatch && numMatch[0] === totalTenure) {{
-              const saved = getSavedName(emi.loan_id, emi.custom_name);
-              if (saved) return saved;
+            const isTenureMatch = numMatch && numMatch[0] === totalTenure;
+            const saved = getSavedName(emi.loan_id, emi.custom_name);
+            const isMerchantMatch = rawMerchant && (
+              (saved && saved.toLowerCase().includes(rawMerchant.toLowerCase())) ||
+              (emi.loan_id && emi.loan_id.toLowerCase().includes(rawMerchant.toLowerCase()))
+            );
+            if (isTenureMatch && isMerchantMatch) {{
+              matchedEmi = emi;
+              break;
             }}
           }}
-          if (rawMerchant) {{
-            for (const emi of (stmt.ongoing_emis || [])) {{
-              const saved = getSavedName(emi.loan_id, emi.custom_name);
-              if (saved && (saved.toLowerCase().includes(rawMerchant.toLowerCase()) || rawMerchant.toLowerCase().includes(saved.toLowerCase()))) {{
-                return saved;
-              }}
+
+          if (!matchedEmi) {{
+            const tenureMatches = (stmt.ongoing_emis || []).filter(e => {{
+              const nm = (e.total_tenure || "").match(/\d+/);
+              return nm && nm[0] === totalTenure;
+            }});
+            if (tenureMatches.length === 1) {{
+              matchedEmi = tenureMatches[0];
             }}
-            for (const emi of (stmt.ongoing_emis || [])) {{
+          }}
+
+          const loanKey = matchedEmi ? matchedEmi.loan_id : `loan_${{cleanMerchantKey}}_${{totalTenure}}`;
+          const saved = matchedEmi ? getSavedName(matchedEmi.loan_id, matchedEmi.custom_name) : getSavedName(loanKey, "");
+
+          return {{
+            loanKey: loanKey,
+            loanName: saved || rawMerchant || `EMI (<${{currInst}}/${{totalTenure}}>)`,
+            loanObj: matchedEmi,
+            rawMerchant: rawMerchant,
+            currInst: currInst,
+            totalTenure: totalTenure
+          }};
+        }}
+      }}
+
+      // 3. Check if there are setup charges matching an ongoing loan
+      for (const itm of group.items) {{
+        const d = (itm.description || "").toLowerCase();
+        if (d.includes("procng fee") || d.includes("fee") || d.includes("swiggy cashback_reversal")) {{
+          for (const emi of (stmt.ongoing_emis || [])) {{
+            if (emi.loan_id && itm.description.includes(emi.loan_id)) {{
               const saved = getSavedName(emi.loan_id, emi.custom_name);
-              if (saved) return saved;
+              return {{
+                loanKey: emi.loan_id,
+                loanName: saved || emi.display_name || ("Loan #" + emi.loan_id),
+                loanObj: emi
+              }};
             }}
-            return rawMerchant;
           }}
         }}
       }}
 
-      if (stmt.ongoing_emis && stmt.ongoing_emis.length === 1) {{
-        const saved = getSavedName(stmt.ongoing_emis[0].loan_id, stmt.ongoing_emis[0].custom_name);
-        if (saved) return saved;
-      }}
-
-      return "";
+      return null;
     }}
 
     function renderDateGroups(filterText = '') {{
-      const stmt = statements[activeIndex];
+      const stmt = getActiveStatement();
       const container = document.getElementById('date-breakdown-container');
       container.innerHTML = '';
 
@@ -1469,52 +2190,70 @@ _(Receipt snapshot image downloaded to your device)_`;
         if (filteredItems.length === 0) return;
         matchedTxnCount += filteredItems.length;
 
-        const emiName = (group.has_emi) ? getEmiNameForGroup(group, stmt) : "";
+        const loanDetails = group.has_emi ? getLoanDetailsForGroup(group, stmt) : null;
 
-        if (group.has_emi && emiName) {{
-          if (namedEmiCardMap[emiName]) {{
-            namedEmiCardMap[emiName].dates.push({{
+        if (loanDetails) {{
+          const loanKey = loanDetails.loanKey;
+          const emiName = loanDetails.loanName;
+          const sortedItems = enrichAndSortEmiItems(filteredItems);
+
+          if (namedEmiCardMap[loanKey]) {{
+            namedEmiCardMap[loanKey].dates.push({{
               dateStr: dateStr,
-              items: filteredItems,
+              items: sortedItems,
               dateTotal: group.total
             }});
-            namedEmiCardMap[emiName].combinedTotal += group.total;
-            namedEmiCardMap[emiName].totalItemsCount += filteredItems.length;
+            namedEmiCardMap[loanKey].combinedTotal += group.total;
+            namedEmiCardMap[loanKey].totalItemsCount += filteredItems.length;
           }} else {{
-            let foundLoanId = "";
+            const foundLoan = loanDetails.loanObj;
+            let foundLoanId = loanDetails.loanKey;
+            let overallLoanAmount = foundLoan ? (foundLoan.total_amount || "") : "";
+            let totalTenure = loanDetails.totalTenure || "";
             let remainingCount = "";
-            for (const emi of (stmt.ongoing_emis || [])) {{
-              const sName = getSavedName(emi.loan_id, emi.custom_name);
-              if (sName === emiName || (!sName && emi.custom_name === emiName)) {{
-                foundLoanId = emi.loan_id;
-                const mLeft = (emi.balance_tenure || "").match(/\d+/);
-                if (mLeft) remainingCount = mLeft[0];
-                break;
-              }}
+
+            if (foundLoan) {{
+              const mTot = (foundLoan.total_tenure || "").match(/\d+/);
+              if (mTot && !totalTenure) totalTenure = mTot[0];
+              const mBal = (foundLoan.balance_tenure || "").match(/\d+/);
+              if (mBal) remainingCount = mBal[0];
             }}
-            if (!foundLoanId && stmt.ongoing_emis && stmt.ongoing_emis.length === 1) {{
-              foundLoanId = stmt.ongoing_emis[0].loan_id;
-              const mLeft = (stmt.ongoing_emis[0].balance_tenure || "").match(/\d+/);
-              if (mLeft) remainingCount = mLeft[0];
+
+            let currInstNum = loanDetails.currInst ? parseInt(loanDetails.currInst, 10) : 1;
+            if (!loanDetails.currInst && totalTenure && remainingCount) {{
+              const calc = parseInt(totalTenure, 10) - parseInt(remainingCount, 10);
+              if (calc > 0) currInstNum = calc;
             }}
+
+            const instLabel = totalTenure ? `Installment ${{currInstNum}} of ${{totalTenure}}` : `Installment #${{currInstNum}}`;
+            const monthInstallmentTitle = `${{stmt.statement_month}} • ${{instLabel}}`;
+            const monthDueLabel = `${{stmt.statement_month}} Due to be Paid`;
+
             const personName = emiName ? emiName.trim().split(/\s+/)[0] : "";
             const cheerEmojis = String.fromCodePoint(0x1F60A) + String.fromCodePoint(0x1F44D);
             const cheerMessage = personName ? `Hi ${{personName}}! Only ${{remainingCount ? remainingCount + ' more to go' : 'almost there'}} ${{cheerEmojis}}` : "";
 
             const cardObj = {{
               type: 'named_emi',
+              loanKey: loanKey,
               emiName: emiName,
               loanId: foundLoanId,
+              overallLoanAmount: overallLoanAmount,
+              monthInstallmentTitle: monthInstallmentTitle,
+              monthDueLabel: monthDueLabel,
+              currInstNum: currInstNum,
+              totalTenure: totalTenure,
+              remainingCount: remainingCount,
               cheerMessage: cheerMessage,
               dates: [{{
                 dateStr: dateStr,
-                items: filteredItems,
+                items: sortedItems,
                 dateTotal: group.total
               }}],
               combinedTotal: group.total,
               totalItemsCount: filteredItems.length
             }};
-            namedEmiCardMap[emiName] = cardObj;
+            namedEmiCardMap[loanKey] = cardObj;
             cardsList.push(cardObj);
           }}
         }} else {{
@@ -1530,6 +2269,16 @@ _(Receipt snapshot image downloaded to your device)_`;
 
       window.renderedCardsData = cardsList;
       cardsList.forEach((card, cardIdx) => {{
+        // Apply Category Filter
+        if (currentFilterCategory === 'emi') {{
+          if (card.type !== 'named_emi' && !card.isEmiGroup) return;
+        }} else if (currentFilterCategory === 'regular') {{
+          if (card.type === 'named_emi' || card.isEmiGroup) return;
+        }} else if (currentFilterCategory === 'credit') {{
+          const hasCredit = (card.items || []).some(it => it.is_credit) || (card.dates || []).some(d => (d.items || []).some(it => it.is_credit));
+          if (!hasCredit) return;
+        }}
+
         if (card.type === 'named_emi') {{
           // Single Unified Card for this named EMI with divided dates!
           const dateCard = document.createElement('div');
@@ -1537,46 +2286,89 @@ _(Receipt snapshot image downloaded to your device)_`;
           dateCard.className = 'bg-white rounded-2xl border-2 border-purple-400 shadow-md emi-card-glow emi-receipt-card overflow-hidden transition';
 
           const datesHeaderStr = card.dates.map(d => d.dateStr).join(', ');
+          
+          // BIG Prominent EMI Receipt Header
           const header = document.createElement('div');
-          header.className = 'px-6 py-4 bg-purple-50/80 emi-receipt-header border-b border-purple-200 flex flex-wrap justify-between items-center gap-3';
+          header.className = 'p-6 sm:p-7 bg-gradient-to-br from-purple-100/90 via-purple-50/70 to-indigo-50/80 emi-receipt-header border-b-2 border-purple-200';
           header.innerHTML = `
-            <div class="flex items-center gap-3">
-              <span class="w-10 h-10 rounded-xl bg-purple-600 emi-icon-box text-white flex items-center justify-center font-bold text-sm shadow-sm" style="-webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; background-color: #9333ea !important; color: #fff !important;">💳</span>
-              <div>
-                <div class="flex items-center gap-2 flex-wrap">
-                  <span class="font-bold text-slate-900 text-lg">🏷️ ${{card.emiName}}</span>
-                  <span class="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-purple-600 emi-badge text-white shadow-sm" style="-webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; background-color: #9333ea !important; color: #fff !important; letter-spacing: 0px !important; text-transform: none !important; display: inline-block;">EMI INSTALLMENT RECEIPT</span>
+            <div class="flex flex-col gap-5 w-full">
+              
+              <!-- TOP ROW: Title on Left, Action Buttons & Status on Right -->
+              <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 w-full">
+                <div class="flex items-center gap-3">
+                  <div class="w-12 h-12 rounded-xl bg-purple-600 emi-icon-box text-white flex items-center justify-center font-black text-xl shadow-md shadow-purple-500/30 flex-shrink-0" style="-webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; background-color: #9333ea !important; color: #fff !important;">
+                    🏷️
+                  </div>
+                  <div>
+                    <div class="flex items-center gap-2.5 flex-wrap">
+                      <span class="text-2xl font-black text-slate-900 tracking-tight">🏷️ ${{card.emiName}}</span>
+                      <span class="px-3 py-0.5 rounded-full text-xs font-extrabold bg-purple-600 emi-badge text-white shadow-sm uppercase tracking-wider" style="-webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; background-color: #9333ea !important; color: #fff !important;">
+                        EMI INSTALLMENT RECEIPT
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Action Buttons: Mark as Paid & Share WhatsApp -->
+                <div class="flex items-center gap-2.5 flex-wrap self-stretch sm:self-auto justify-end">
+                  ${{(() => {{
+                    const pStatus = getPaymentStatus(card.emiName);
+                    return `
+                      <button onclick="togglePaymentStatus('${{card.emiName}}', '₹${{card.combinedTotal.toLocaleString('en-IN')}}')" class="no-print px-3.5 py-2 rounded-xl border ${{pStatus.isPaid ? 'border-emerald-300 bg-emerald-50 text-emerald-800 hover:bg-emerald-100' : 'border-amber-300 bg-amber-50 text-amber-900 hover:bg-amber-100'}} font-bold text-xs shadow-sm transition flex items-center gap-1.5 cursor-pointer">
+                        <span>${{pStatus.isPaid ? '🟢' : '🟡'}}</span>
+                        <span>${{pStatus.isPaid ? 'Paid on ' + pStatus.paidDate : 'Mark as Paid'}}</span>
+                      </button>
+                    `;
+                  }})()}}
+                  <button onclick="shareReceiptOnWhatsApp('card-named-emi-${{cardIdx}}', '${{card.emiName}}', '${{card.loanId || ''}}', '₹${{card.combinedTotal.toLocaleString('en-IN', {{minimumFractionDigits: 2, maximumFractionDigits: 2}})}}', '${{datesHeaderStr}}')" class="no-print px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs shadow-md shadow-emerald-600/30 transition flex items-center gap-1.5 cursor-pointer">
+                    <span>📲</span>
+                    <span>Share WhatsApp</span>
+                  </button>
                   ${{(() => {{
                     const pStatus = getPaymentStatus(card.emiName);
                     return pStatus.isPaid 
-                      ? `<span class="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-300">✅ Reimbursed • Paid ${{pStatus.paidDate}}</span>`
-                      : `<span class="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-amber-100 text-amber-800 border border-amber-300">⏳ Awaiting Payment</span>`;
+                      ? `<span class="px-3 py-1.5 rounded-xl text-xs font-extrabold bg-emerald-100 text-emerald-800 border border-emerald-300">✅ Reimbursed</span>`
+                      : `<span class="px-3 py-1.5 rounded-xl text-xs font-extrabold bg-amber-100 text-amber-900 border border-amber-300">⏳ Awaiting Payment</span>`;
                   }})()}}
                 </div>
-                <div class="text-xs text-purple-700 font-medium">${{card.cheerMessage ? `<span class="font-bold text-purple-950 text-sm mr-2">${{card.cheerMessage}}</span> • ` : ''}}${{card.totalItemsCount}} item(s) (${{datesHeaderStr}})</div>
               </div>
-            </div>
-            <div class="flex items-center gap-2 flex-wrap">
-              ${{(() => {{
-                const pStatus = getPaymentStatus(card.emiName);
-                return `
-                  <button onclick="togglePaymentStatus('${{card.emiName}}', '₹${{card.combinedTotal.toLocaleString('en-IN')}}')" class="no-print px-3 py-1.5 rounded-xl border ${{pStatus.isPaid ? 'border-emerald-300 bg-emerald-50 text-emerald-800 hover:bg-emerald-100' : 'border-amber-300 bg-amber-50 text-amber-900 hover:bg-amber-100'}} font-bold text-xs shadow-sm transition flex items-center gap-1.5 cursor-pointer">
-                    <span>${{pStatus.isPaid ? '🟢' : '🟡'}}</span>
-                    <span>${{pStatus.isPaid ? 'Paid on ' + pStatus.paidDate : 'Mark as Paid'}}</span>
-                  </button>
-                `;
-              }})()}}
-              <button onclick="shareReceiptOnWhatsApp('card-named-emi-${{cardIdx}}', '${{card.emiName}}', '${{card.loanId || ''}}', '₹${{card.combinedTotal.toLocaleString('en-IN', {{minimumFractionDigits: 2, maximumFractionDigits: 2}})}}', '${{datesHeaderStr}}')" class="no-print px-3.5 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs shadow-md shadow-emerald-600/30 transition flex items-center gap-1.5 cursor-pointer">
-                <span>📲</span>
-                <span>Share WhatsApp</span>
-              </button>
-              <span class="text-xs font-bold text-purple-900 uppercase tracking-wider">Combined EMI Total:</span>
-              <span class="px-3.5 py-1.5 rounded-xl bg-purple-600 emi-total-pill text-white font-extrabold text-sm shadow-md shadow-purple-500/30" style="-webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; background-color: #9333ea !important; color: #fff !important;">₹${{card.combinedTotal.toLocaleString('en-IN', {{minimumFractionDigits: 2, maximumFractionDigits: 2}})}}</span>
+
+              <!-- MIDDLE ROW: 3 Evenly Spread KPI Tiles across the entire width -->
+              <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 w-full">
+                <!-- Tile 1: Overall Loan Amount -->
+                <div class="p-3.5 rounded-xl bg-purple-50/80 border border-purple-200/90 shadow-xs flex flex-col justify-center">
+                  <div class="text-[10px] font-black uppercase tracking-wider text-purple-600">Overall Loan Amount</div>
+                  <div class="text-base font-black text-purple-950 mt-0.5">${{card.overallLoanAmount || 'N/A'}}</div>
+                </div>
+
+                <!-- Tile 2: Billing Cycle -->
+                <div class="p-3.5 rounded-xl bg-indigo-50/80 border border-indigo-200/90 shadow-xs flex flex-col justify-center">
+                  <div class="text-[10px] font-black uppercase tracking-wider text-indigo-600">Billing Cycle</div>
+                  <div class="text-base font-black text-indigo-950 mt-0.5">${{card.monthInstallmentTitle || 'Current Month'}}</div>
+                </div>
+
+                <!-- Tile 3: Remaining Tenure -->
+                <div class="p-3.5 rounded-xl bg-emerald-50/80 border border-emerald-200/90 shadow-xs flex flex-col justify-center">
+                  <div class="text-[10px] font-black uppercase tracking-wider text-emerald-600">Remaining Tenure</div>
+                  <div class="text-base font-black text-emerald-950 mt-0.5">${{card.remainingCount ? card.remainingCount + ' Installments Left' : 'Active Plan'}}</div>
+                </div>
+              </div>
+
+              <!-- BOTTOM ROW: Cheering Message on Left, Billing Summary on Right -->
+              <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 pt-1 border-t border-purple-200/60 w-full text-xs">
+                <div class="text-sm font-extrabold text-purple-900 flex items-center gap-2">
+                  <span>${{card.cheerMessage || 'EMI Statement Breakdown'}}</span>
+                </div>
+                <div class="text-purple-700 font-medium">
+                  ${{card.totalItemsCount}} charge item(s) • Billing Date: ${{datesHeaderStr}}
+                </div>
+              </div>
+
             </div>
           `;
           dateCard.appendChild(header);
 
-          // Divide by date inside this card
+          // Divide by date inside this card with sorted items
           card.dates.forEach(dObj => {{
             const dateDivider = document.createElement('div');
             dateDivider.className = 'px-6 py-2.5 bg-purple-100/60 border-b border-purple-200/70 flex justify-between items-center text-xs font-semibold';
@@ -1584,6 +2376,7 @@ _(Receipt snapshot image downloaded to your device)_`;
             dateDivider.innerHTML = `
               <div class="flex items-center gap-2 text-purple-950">
                 <span class="font-bold text-sm">📅 ${{dObj.dateStr}}</span>
+                <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-purple-200/80 text-purple-900 uppercase tracking-wider" style="-webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; background-color: #e9d5ff !important; color: #581c87 !important;">Date Divider</span>
                 <span class="text-purple-600 text-xs">(${{dObj.items.length}} item${{dObj.items.length > 1 ? 's' : ''}})</span>
               </div>
               <div class="text-purple-900 font-bold">
@@ -1594,32 +2387,110 @@ _(Receipt snapshot image downloaded to your device)_`;
 
             const table = document.createElement('div');
             table.className = 'divide-y divide-purple-100/60';
-            dObj.items.forEach(item => {{
+            
+            // Sort items: Credits ALWAYS on top, then Principal, Interest, Fees, and linked taxes with arrows
+            const sortedDateItems = enrichAndSortEmiItems(dObj.items);
+
+            sortedDateItems.forEach(item => {{
               const row = document.createElement('div');
-              row.className = 'item-row px-6 py-3.5 flex justify-between items-center bg-purple-50/20 hover:bg-purple-100/40 transition';
-              const emiBadge = item.is_emi 
-                ? `<span class="ml-2 px-2 py-0.5 rounded text-[10px] font-bold bg-purple-100 text-purple-700 emi-comp-badge uppercase" style="-webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; background-color: #f3e8ff !important; color: #6b21a8 !important; letter-spacing: normal !important;">EMI Component</span>` 
+              const isCredit = item.is_credit;
+
+              // Shared color theme styling for Parent & Child
+              let rowStyleClass = 'item-row px-6 py-3.5 flex justify-between items-center transition ';
+              let inlineRowBg = '';
+              if (item.groupTheme === 'interest') {{
+                rowStyleClass += 'bg-purple-100/80 hover:bg-purple-100 border-l-[6px] border-l-purple-600 ';
+                inlineRowBg = 'style="-webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; background-color: #ede9fe !important; border-left: 6px solid #7c3aed !important;"';
+              }} else if (item.groupTheme === 'fee') {{
+                rowStyleClass += 'bg-amber-100/80 hover:bg-amber-100 border-l-[6px] border-l-amber-500 ';
+                inlineRowBg = 'style="-webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; background-color: #fef3c7 !important; border-left: 6px solid #d97706 !important;"';
+              }} else if (isCredit) {{
+                rowStyleClass += 'bg-sky-100/80 hover:bg-sky-100 border-l-[6px] border-l-sky-600 ';
+                inlineRowBg = 'style="-webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; background-color: #e0f2fe !important; border-left: 6px solid #0284c7 !important;"';
+              }} else {{
+                rowStyleClass += 'bg-white hover:bg-slate-50 border-l-[6px] border-l-slate-200 ';
+              }}
+              row.className = rowStyleClass;
+              if (inlineRowBg) row.setAttribute('style', inlineRowBg.replace('style="', '').replace('"', ''));
+
+              const emiBadge = item.is_emi && !isCredit && !item.taxInfo && !item.groupTheme
+                ? `<span class="ml-2 px-2 py-0.5 rounded text-[10px] font-bold bg-purple-100 text-purple-700 emi-comp-badge uppercase" style="-webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; background-color: #f3e8ff !important; color: #6b21a8 !important;">EMI Component</span>` 
                 : '';
+
+              const creditBadge = isCredit 
+                ? `<span class="ml-2 px-2.5 py-0.5 rounded-full text-[10px] font-extrabold bg-blue-100 text-blue-800 border border-blue-300 uppercase tracking-wide emi-credit-pill" style="-webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; background-color: #dbeafe !important; color: #1e40af !important; border: 1px solid #93c5fd !important;">⚡ Before EMI Conversion Credit</span>` 
+                : '';
+
+              let themeBadge = '';
+              if (item.groupTheme === 'interest') {{
+                themeBadge = item.groupRole === 'parent'
+                  ? `<span class="ml-2 px-2 py-0.5 rounded text-[10px] font-bold bg-indigo-100 text-indigo-800 border border-indigo-200 uppercase tracking-wide" style="-webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; background-color: #e0e7ff !important; color: #3730a3 !important;">📊 Interest Base</span>`
+                  : `<span class="ml-2 px-2 py-0.5 rounded text-[10px] font-bold bg-indigo-100 text-indigo-800 border border-indigo-200 uppercase tracking-wide" style="-webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; background-color: #e0e7ff !important; color: #3730a3 !important;">↳ Tax on Interest</span>`;
+              }} else if (item.groupTheme === 'fee') {{
+                themeBadge = item.groupRole === 'parent'
+                  ? `<span class="ml-2 px-2 py-0.5 rounded text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-200 uppercase tracking-wide" style="-webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; background-color: #fef3c7 !important; color: #92400e !important;">🏷️ Fee Base</span>`
+                  : `<span class="ml-2 px-2 py-0.5 rounded text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-200 uppercase tracking-wide" style="-webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; background-color: #fef3c7 !important; color: #92400e !important;">↳ Tax on Fee</span>`;
+              }}
+
               row.innerHTML = `
                 <div class="flex items-center gap-3">
-                  <span class="${{item.is_emi ? 'text-purple-500' : 'text-slate-400'}} text-sm font-bold">↳</span>
+                  <span class="${{item.groupTheme === 'interest' ? 'text-indigo-600 font-extrabold' : (item.groupTheme === 'fee' ? 'text-amber-600 font-extrabold' : (isCredit ? 'text-blue-500 font-bold' : 'text-purple-500 font-bold'))}} text-sm">↳</span>
                   <div>
                     <div class="font-semibold text-slate-800 text-sm flex items-center flex-wrap gap-1">
                       <span class="item-desc-text">${{item.description}}</span>
                       ${{emiBadge}}
+                      ${{creditBadge}}
+                      ${{themeBadge}}
                     </div>
-                    <div class="text-[11px] text-slate-400 font-mono">${{item.is_credit ? 'CREDIT / PAYMENT' : 'DEBIT / CHARGE'}}</div>
+                    
+                    ${{item.taxInfo ? `
+                    <div class="flex items-center gap-1.5 text-xs font-bold mt-1">
+                      <span class="${{item.groupTheme === 'interest' ? 'text-indigo-400' : 'text-amber-400'}} font-mono text-sm leading-none">↳</span>
+                      <span class="px-2 py-0.5 rounded-md border shadow-xs inline-flex items-center gap-1 ${{item.groupTheme === 'interest' ? 'bg-indigo-100 text-indigo-900 border-indigo-200' : 'bg-amber-100 text-amber-900 border-amber-200'}}" style="-webkit-print-color-adjust: exact !important; print-color-adjust: exact !important;">
+                        <span>⚡</span>
+                        <span>Calculated as ${{item.taxInfo.label}}</span>
+                      </span>
+                    </div>` : `
+                    <div class="text-[11px] font-mono ${{isCredit ? 'text-blue-600 font-bold' : (item.groupTheme === 'interest' ? 'text-indigo-600 font-medium' : (item.groupTheme === 'fee' ? 'text-amber-700 font-medium' : 'text-slate-400'))}}">${{isCredit ? 'CREDIT • BEFORE EMI CONVERSION (LOAN BOOKING OFFSET)' : (item.groupTheme === 'interest' ? 'DEBIT / CHARGE (MONTHLY EMI INTEREST)' : (item.groupTheme === 'fee' ? 'DEBIT / CHARGE (LOAN SETUP PROCESSING FEE)' : 'DEBIT / CHARGE'))}}</div>`}}
                   </div>
                 </div>
                 <div class="text-right">
-                  <div class="item-amount-val font-bold text-sm ${{item.is_credit ? 'text-emerald-600' : (item.is_emi ? 'text-purple-900 font-extrabold' : 'text-slate-900')}}">${{item.amount_str}}</div>
-                  <span class="text-[10px] uppercase font-bold px-2 py-0.5 rounded-full ${{item.is_credit ? 'bg-emerald-50 text-emerald-700' : (item.is_emi ? 'bg-purple-100 text-purple-800' : 'bg-slate-100 text-slate-600')}}">${{item.is_credit ? 'Credit' : 'Debit'}}</span>
+                  <div class="item-amount-val font-bold text-sm ${{isCredit ? 'text-blue-700 font-extrabold' : (item.groupTheme === 'interest' ? 'text-indigo-900 font-extrabold' : (item.groupTheme === 'fee' ? 'text-amber-900 font-extrabold' : (item.is_emi ? 'text-purple-900 font-extrabold' : 'text-slate-900')))}}">${{item.amount_str}}</div>
+                  <span class="text-[10px] uppercase font-bold px-2 py-0.5 rounded-full ${{isCredit ? 'bg-blue-100 text-blue-800 border border-blue-200 emi-credit-pill' : (item.groupTheme === 'interest' ? 'bg-indigo-100 text-indigo-800 border border-indigo-200' : (item.groupTheme === 'fee' ? 'bg-amber-100 text-amber-800 border border-amber-200' : (item.is_emi ? 'bg-purple-100 text-purple-800' : 'bg-slate-100 text-slate-600')))}}">${{isCredit ? 'Credit (Pre-EMI)' : (item.taxInfo ? 'Tax (GST)' : 'Debit')}}</span>
                 </div>
               `;
               table.appendChild(row);
             }});
             dateCard.appendChild(table);
           }});
+
+          // BOTTOM GRAND TOTAL FOOTER (Moved down!)
+          const grandTotalFooter = document.createElement('div');
+          grandTotalFooter.className = 'emi-receipt-footer px-6 sm:px-8 py-5 text-white flex flex-row justify-between items-center gap-4 border-t-2 border-purple-300';
+          grandTotalFooter.setAttribute('style', '-webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; background-color: #3b0764 !important; background: #3b0764 !important;');
+          grandTotalFooter.innerHTML = `
+            <div class="emi-footer-left flex items-center gap-3">
+              <div class="emi-footer-icon w-11 h-11 rounded-xl bg-white/10 flex items-center justify-center text-xl flex-shrink-0" style="-webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; background-color: rgba(255,255,255,0.2) !important;">
+                💰
+              </div>
+              <div>
+                <div class="emi-footer-title text-xs uppercase font-black tracking-wider text-purple-200" style="color: #f3e8ff !important;">
+                  ${{card.monthDueLabel || (stmt.statement_month + ' Due to be Paid')}}
+                </div>
+                <div class="emi-footer-subtitle text-[11px] text-purple-300" style="color: #d8b4fe !important;">
+                  Total installment & charges friend needs to reimburse for this billing cycle
+                </div>
+              </div>
+            </div>
+
+            <div class="emi-footer-right flex items-center gap-3">
+              <span class="emi-footer-grand-label text-xs font-bold text-purple-200 uppercase tracking-wider" style="color: #e9d5ff !important;">Grand Total:</span>
+              <span class="emi-footer-pill px-4 py-2 rounded-xl bg-purple-600 text-white font-black text-xl sm:text-2xl shadow-lg border border-purple-400/50" style="-webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; background-color: #9333ea !important; color: #ffffff !important; border: 1.5px solid #c084fc !important;">
+                ₹${{card.combinedTotal.toLocaleString('en-IN', {{minimumFractionDigits: 2, maximumFractionDigits: 2}})}}
+              </span>
+            </div>
+          `;
+          dateCard.appendChild(grandTotalFooter);
 
           container.appendChild(dateCard);
 
@@ -1673,30 +2544,36 @@ _(Receipt snapshot image downloaded to your device)_`;
           const table = document.createElement('div');
           table.className = isEmiGroup ? 'divide-y divide-purple-100/60' : 'divide-y divide-slate-100';
 
-          card.items.forEach(item => {{
+          enrichAndSortEmiItems(card.items).forEach(item => {{
             const row = document.createElement('div');
             row.className = isEmiGroup 
               ? 'px-6 py-3.5 flex justify-between items-center bg-purple-50/30 hover:bg-purple-100/40 transition'
               : 'px-6 py-3.5 flex justify-between items-center hover:bg-slate-50/70 transition';
 
-            const emiBadge = item.is_emi 
+            const isCredit = item.is_credit;
+            const emiBadge = item.is_emi && !isCredit
               ? `<span class="ml-2 px-2 py-0.5 rounded text-[10px] font-bold bg-purple-100 text-purple-700 emi-comp-badge uppercase tracking-wide" style="-webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; background-color: #f3e8ff !important; color: #6b21a8 !important;">EMI Component</span>` 
+              : '';
+            const creditBadge = isCredit 
+              ? `<span class="ml-2 px-2.5 py-0.5 rounded-full text-[10px] font-extrabold bg-blue-100 text-blue-800 border border-blue-300 uppercase tracking-wide emi-credit-pill" style="-webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; background-color: #dbeafe !important; color: #1e40af !important; border: 1px solid #93c5fd !important;">⚡ Before EMI Conversion Credit</span>` 
               : '';
 
             row.innerHTML = `
               <div class="flex items-center gap-3">
-                <span class="${{item.is_emi ? 'text-purple-500' : 'text-slate-400'}} text-sm font-bold">↳</span>
+                <span class="${{item.is_emi ? 'text-purple-500 font-bold' : (isCredit ? 'text-blue-500 font-bold' : 'text-slate-400')}} text-sm">↳</span>
                 <div>
-                  <div class="font-semibold text-slate-800 text-sm flex items-center">
-                    ${{item.description}}
+                  <div class="font-semibold text-slate-800 text-sm flex items-center flex-wrap gap-1">
+                    <span>${{item.description}}</span>
+                    ${{item.bank_badge ? `<span class="ml-1 px-2 py-0.5 rounded text-[10px] font-extrabold bg-slate-100 text-slate-700 border border-slate-300 uppercase">${{item.bank_badge}}</span>` : ''}}
                     ${{emiBadge}}
+                    ${{creditBadge}}
                   </div>
-                  <div class="text-[11px] text-slate-400 font-mono">${{item.is_credit ? 'CREDIT / PAYMENT' : 'DEBIT / CHARGE'}}</div>
+                  <div class="text-[11px] text-slate-400 font-mono">${{isCredit ? 'CREDIT • BEFORE EMI CONVERSION (LOAN BOOKING OFFSET)' : 'DEBIT / CHARGE'}}</div>
                 </div>
               </div>
               <div class="text-right">
-                <div class="font-bold text-sm ${{item.is_credit ? 'text-emerald-600' : (item.is_emi ? 'text-purple-900 font-extrabold' : 'text-slate-900')}}">${{item.amount_str}}</div>
-                <span class="text-[10px] uppercase font-bold px-2 py-0.5 rounded-full ${{item.is_credit ? 'bg-emerald-50 text-emerald-700' : (item.is_emi ? 'bg-purple-100 text-purple-800' : 'bg-slate-100 text-slate-600')}}">${{item.is_credit ? 'Credit' : 'Debit'}}</span>
+                <div class="font-bold text-sm ${{isCredit ? 'text-blue-700 font-extrabold' : (item.is_emi ? 'text-purple-900 font-extrabold' : 'text-slate-900')}}">${{item.amount_str}}</div>
+                <span class="text-[10px] uppercase font-bold px-2 py-0.5 rounded-full ${{isCredit ? 'bg-blue-100 text-blue-800 border border-blue-200 emi-credit-pill' : (item.is_emi ? 'bg-purple-100 text-purple-800' : 'bg-slate-100 text-slate-600')}}">${{isCredit ? 'Credit (Pre-EMI)' : 'Debit'}}</span>
               </div>
             `;
             table.appendChild(row);
@@ -1739,6 +2616,26 @@ _(Receipt snapshot image downloaded to your device)_`;
           hBadge.className = 'px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 text-slate-700';
         }}
       }}
+    }}
+
+    let currentFilterCategory = 'all';
+
+    function setFilterCategory(cat) {{
+      currentFilterCategory = cat;
+      const allPills = ['all', 'emi', 'regular', 'credit'];
+      allPills.forEach(p => {{
+        const btn = document.getElementById('pill-filter-' + p);
+        if (!btn) return;
+        if (p === cat) {{
+          if (p === 'all') btn.className = 'filter-pill active px-3.5 py-1.5 rounded-xl text-xs font-bold bg-slate-900 text-white shadow-sm transition cursor-pointer';
+          else if (p === 'emi') btn.className = 'filter-pill active px-3.5 py-1.5 rounded-xl text-xs font-bold bg-purple-600 text-white shadow-md shadow-purple-500/20 transition cursor-pointer';
+          else if (p === 'regular') btn.className = 'filter-pill active px-3.5 py-1.5 rounded-xl text-xs font-bold bg-blue-600 text-white shadow-md shadow-blue-500/20 transition cursor-pointer';
+          else if (p === 'credit') btn.className = 'filter-pill active px-3.5 py-1.5 rounded-xl text-xs font-bold bg-emerald-600 text-white shadow-md shadow-emerald-500/20 transition cursor-pointer';
+        }} else {{
+          btn.className = 'filter-pill px-3.5 py-1.5 rounded-xl text-xs font-bold bg-slate-50 text-slate-600 border border-slate-200 hover:bg-slate-100 transition cursor-pointer';
+        }}
+      }});
+      renderDateGroups(document.getElementById('search-input') ? document.getElementById('search-input').value : '');
     }}
 
     function filterTransactions() {{
@@ -1793,7 +2690,7 @@ def launch_gui():
 
   window = tk.Tk()
   window.title("Bank Statement Analyzer & Unlocker")
-  window.geometry("1060x800")
+  window.geometry("1160x820")
   window.minsize(920, 660)
   window.configure(bg="#f8fafc")
 
@@ -2304,20 +3201,20 @@ def launch_gui():
     w_desc.pack(anchor="w")
 
   def open_configure_passwords_dialog():
-    """Opens modal dialog to configure and locally store passwords for ICICI and HDFC statements."""
+    """Opens modal dialog to configure and locally store passwords for ICICI, HDFC, and Google Sheets Webhook URL."""
     curr_pwds = load_stored_passwords(last_base_dir["path"])
 
     dlg = tk.Toplevel(window)
-    dlg.title("Configure Bank Statement Passwords")
-    dlg.geometry("540x440")
+    dlg.title("Configure Passwords & Google Sheets Sync")
+    dlg.geometry("580x600")
     dlg.resizable(False, False)
     dlg.configure(bg="#ffffff")
     dlg.transient(window)
     dlg.grab_set()
 
     try:
-      x = window.winfo_x() + (window.winfo_width() // 2) - 250
-      y = window.winfo_y() + (window.winfo_height() // 2) - 210
+      x = window.winfo_x() + (window.winfo_width() // 2) - 290
+      y = window.winfo_y() + (window.winfo_height() // 2) - 300
       dlg.geometry(f"+{max(0, x)}+{max(0, y)}")
     except Exception:
       pass
@@ -2327,7 +3224,7 @@ def launch_gui():
 
     tk.Label(
         hdr,
-        text="🔑  Configure Statement Passwords",
+        text="🔑  Configure Passwords & Google Sheets Sync",
         font=("Segoe UI", 13, "bold"),
         fg="#ffffff",
         bg="#0f172a"
@@ -2335,13 +3232,13 @@ def launch_gui():
 
     tk.Label(
         hdr,
-        text="Saved locally in passwords.json and excluded from GitHub via .gitignore.",
+        text="Saved locally in passwords.json and strictly excluded from Git (.gitignore).",
         font=("Segoe UI", 9),
         fg="#94a3b8",
         bg="#0f172a"
     ).pack(anchor="w", pady=(2, 0))
 
-    body = tk.Frame(dlg, bg="#ffffff", padx=24, pady=18)
+    body = tk.Frame(dlg, bg="#ffffff", padx=24, pady=16)
     body.pack(fill=tk.BOTH, expand=True)
 
     tk.Label(
@@ -2358,7 +3255,7 @@ def launch_gui():
         font=("Segoe UI", 8),
         fg="#64748b",
         bg="#ffffff",
-        wraplength=480,
+        wraplength=520,
         justify=tk.LEFT
     ).pack(anchor="w", pady=(1, 4))
 
@@ -2373,7 +3270,7 @@ def launch_gui():
         highlightthickness=1,
         highlightbackground="#cbd5e1"
     )
-    icici_entry.pack(fill=tk.X, pady=(0, 14), ipady=4)
+    icici_entry.pack(fill=tk.X, pady=(0, 10), ipady=3)
 
     tk.Label(
         body,
@@ -2389,7 +3286,7 @@ def launch_gui():
         font=("Segoe UI", 8),
         fg="#64748b",
         bg="#ffffff",
-        wraplength=480,
+        wraplength=520,
         justify=tk.LEFT
     ).pack(anchor="w", pady=(1, 4))
 
@@ -2404,7 +3301,7 @@ def launch_gui():
         highlightthickness=1,
         highlightbackground="#cbd5e1"
     )
-    hdfc_entry.pack(fill=tk.X, pady=(0, 10), ipady=4)
+    hdfc_entry.pack(fill=tk.X, pady=(0, 8), ipady=3)
 
     show_pass_var = tk.BooleanVar(value=False)
     def toggle_show():
@@ -2421,7 +3318,59 @@ def launch_gui():
         bg="#ffffff",
         activebackground="#ffffff"
     )
-    show_cb.pack(anchor="w", pady=(0, 16))
+    show_cb.pack(anchor="w", pady=(0, 12))
+
+    sep = tk.Frame(body, height=1, bg="#e2e8f0")
+    sep.pack(fill=tk.X, pady=(0, 12))
+
+    sheets_hdr = tk.Frame(body, bg="#ffffff")
+    sheets_hdr.pack(fill=tk.X)
+
+    tk.Label(
+        sheets_hdr,
+        text="📊  Google Sheets Multi-Month Sync (Optional):",
+        font=("Segoe UI", 10, "bold"),
+        fg="#0f172a",
+        bg="#ffffff"
+    ).pack(side=tk.LEFT)
+
+    copy_tmpl_btn = tk.Button(
+        sheets_hdr,
+        text="📋  Copy Template Sheet",
+        font=("Segoe UI", 8, "bold"),
+        bg="#059669",
+        fg="#ffffff",
+        activebackground="#047857",
+        activeforeground="#ffffff",
+        relief=tk.FLAT,
+        padx=8,
+        pady=2,
+        cursor="hand2",
+        command=lambda: webbrowser.open(GOOGLE_SHEET_TEMPLATE_URL)
+    )
+    copy_tmpl_btn.pack(side=tk.RIGHT)
+
+    tk.Label(
+        body,
+        text="Make a copy of the official multi-month tracker, deploy its Apps Script as a Web App ('Who has access: Anyone'), and paste the Web App URL below:",
+        font=("Segoe UI", 8),
+        fg="#64748b",
+        bg="#ffffff",
+        wraplength=520,
+        justify=tk.LEFT
+    ).pack(anchor="w", pady=(2, 4))
+
+    sheets_url_var = tk.StringVar(value=curr_pwds.get("sheets_webhook_url", ""))
+    sheets_url_entry = tk.Entry(
+        body,
+        textvariable=sheets_url_var,
+        font=("Segoe UI", 10),
+        relief=tk.SOLID,
+        bd=1,
+        highlightthickness=1,
+        highlightbackground="#cbd5e1"
+    )
+    sheets_url_entry.pack(fill=tk.X, pady=(0, 14), ipady=3)
 
     btn_row = tk.Frame(body, bg="#ffffff")
     btn_row.pack(fill=tk.X)
@@ -2430,24 +3379,23 @@ def launch_gui():
       try:
         icici_val = icici_var.get().strip()
         hdfc_val = hdfc_var.get().strip()
-        if not icici_val and not hdfc_val:
-          messagebox.showwarning("Empty Passwords", "Please enter at least one bank password.", parent=dlg)
+        sheets_url_val = sheets_url_var.get().strip()
+        if not icici_val and not hdfc_val and not sheets_url_val:
+          messagebox.showwarning("Empty Settings", "Please enter at least one bank password or a Google Sheets Web App URL.", parent=dlg)
           return
-        save_stored_passwords(hdfc_val, icici_val, last_base_dir["path"])
-        log(f"[CREDENTIAL STORE] Saved ICICI & HDFC passwords locally in '{PASSWORDS_FILE}' (excluded from Git).")
+        save_stored_passwords(hdfc_val, icici_val, sheets_url_val, last_base_dir["path"])
+        log(f"[CREDENTIAL STORE] Saved ICICI/HDFC passwords and Google Sheets Webhook URL in '{PASSWORDS_FILE}' (excluded from Git).")
         msg = (
-            f"Bank passwords saved successfully to '{PASSWORDS_FILE}'!\n\n"
-            "They are stored locally on your computer and will be reused automatically whenever statements are unlocked.\n"
-            "Your passwords are automatically ignored by Git (.gitignore) and will not be pushed to GitHub."
+            f"Settings saved successfully to '{PASSWORDS_FILE}'!\n\n• Passwords & Webhook URL are stored locally on your machine and reused automatically.\n• Strictly excluded by Git (.gitignore) and will never be pushed to GitHub."
         )
-        messagebox.showinfo("Passwords Saved", msg, parent=dlg)
+        messagebox.showinfo("Settings Saved", msg, parent=dlg)
         dlg.destroy()
       except Exception as ex:
-        messagebox.showerror("Save Error", f"Failed to save passwords:\n{ex}", parent=dlg)
+        messagebox.showerror("Save Error", f"Failed to save settings:\n{ex}", parent=dlg)
 
     save_btn = tk.Button(
         btn_row,
-        text="💾  Save Passwords",
+        text="💾  Save Settings",
         font=("Segoe UI", 10, "bold"),
         bg="#0f766e",
         fg="#ffffff",
@@ -2535,37 +3483,152 @@ def launch_gui():
     if error_files:
       messagebox.showerror("Errors Occurred", "\n\n".join(error_files))
 
+  def on_sync_google_sheets():
+    """Appends current statement bills and friend reimbursements to the user's master multi-month Google Sheet."""
+    if not current_results:
+      messagebox.showwarning(
+          "No Statements Loaded",
+          "Please load and decrypt at least one bank statement PDF first using '📁 Select Statement PDF'.",
+          parent=window
+      )
+      return
+
+    stored = load_stored_passwords(last_base_dir["path"])
+    webhook_url = stored.get("sheets_webhook_url", "").strip()
+    if not webhook_url:
+      open_cfg = messagebox.askyesno(
+          "Google Sheets Webhook Not Set",
+          "Google Sheets Web App URL is not configured yet.\n\nWould you like to open '🔑 Configure Passwords & Sync' to paste your Web App URL or make a copy of the free Google Sheets template?",
+          parent=window
+      )
+      if open_cfg:
+        open_configure_passwords_dialog()
+      return
+
+    bills = []
+    reimbursements = []
+    for rdata in current_results:
+      tot_due_str = str(rdata.get("total_due", "0")).replace("Rs.", "").replace("₹", "").replace(",", "").strip()
+      try:
+        tot_due = float(tot_due_str)
+      except Exception:
+        tot_due = 0.0
+
+      emis = rdata.get("ongoing_emis", [])
+      friend_share = sum(float(str(e.get("amount", 0)).replace(",", "")) for e in emis)
+      personal_share = tot_due - friend_share
+
+      cb_val = 0.0
+      cb_dict = rdata.get("cashback", {})
+      if isinstance(cb_dict, dict):
+        cb_val = cb_dict.get("net_cashback", 0.0)
+
+      bills.append({
+          "billing_month": rdata.get("statement_month", ""),
+          "bank": rdata.get("bank_full_name", rdata.get("bank_short", "")),
+          "statement_date": rdata.get("statement_date", "-"),
+          "due_date": rdata.get("due_date", "-"),
+          "total_due": tot_due,
+          "friend_share": friend_share,
+          "personal_share": personal_share,
+          "cashback": cb_val,
+          "status": "Due Soon",
+          "notes": f"{len(emis)} ongoing EMI(s) tracked"
+      })
+
+      for emi in emis:
+        nickname = emi.get("nickname") or emi.get("desc", "Friend Loan")
+        reimbursements.append({
+            "billing_month": rdata.get("statement_month", ""),
+            "contact_name": nickname.split()[0] if nickname else "Friend",
+            "mobile": emi.get("contact_mobile", ""),
+            "nickname": nickname,
+            "bank": rdata.get("bank_short", ""),
+            "installment_num": emi.get("installment_str", "-"),
+            "amount": emi.get("amount", 0.0),
+            "remaining": f"{emi.get('total_installments', 0) - emi.get('current_installment', 0)} left" if emi.get('total_installments') else "-",
+            "status": "Pending",
+            "reminder_status": "Scheduled"
+        })
+
+    payload = {
+        "action": "append_statements",
+        "bills": bills,
+        "reimbursements": reimbursements
+    }
+
+    try:
+      import urllib.request
+      payload_bytes = json.dumps(payload).encode("utf-8")
+      req = urllib.request.Request(
+          webhook_url,
+          data=payload_bytes,
+          headers={"Content-Type": "application/json", "User-Agent": "SmartBillSegregator/1.0"}
+      )
+      with urllib.request.urlopen(req, timeout=15) as resp:
+        resp_body = resp.read().decode("utf-8")
+      log(f"[GOOGLE SHEETS] Successfully synced {len(bills)} bill(s) and {len(reimbursements)} friend loan(s).")
+      messagebox.showinfo(
+          "Google Sheets Synced",
+          f"✅ Successfully synced to your Master Google Sheet!\n\n• {len(bills)} Card Bill(s) appended to 'Monthly Bills History'\n• {len(reimbursements)} Friend Installment(s) appended to 'Monthly Friend Reimbursements'\n\nBilling Month: {current_results[0].get('statement_month', '')}",
+          parent=window
+      )
+    except Exception as ex:
+      log(f"[GOOGLE SHEETS ERROR] Failed to sync: {ex}")
+      messagebox.showerror(
+          "Sync Failed",
+          f"Could not connect to Google Sheets Web App:\n\n{ex}\n\nPlease verify that your Google Apps Script Web App was deployed with:\n• Execute as: Me\n• Who has access: Anyone",
+          parent=window
+      )
+
+
   select_btn = tk.Button(
       controls_frame,
-      text="📁  Select Statement PDF (1 or Both)",
+      text="📁  Select Statement PDF",
       font=("Segoe UI", 10, "bold"),
       bg="#2563eb",
       fg="#ffffff",
       activebackground="#1d4ed8",
       activeforeground="#ffffff",
       relief=tk.FLAT,
-      padx=16,
+      padx=13,
       pady=8,
       cursor="hand2",
       command=on_select_files
   )
-  select_btn.pack(side=tk.LEFT, padx=(0, 10))
+  select_btn.pack(side=tk.LEFT, padx=(0, 8))
 
   pass_btn = tk.Button(
       controls_frame,
-      text="🔑  Configure Passwords",
+      text="🔑  Configure Passwords & Sync",
       font=("Segoe UI", 10, "bold"),
       bg="#0f766e",
       fg="#ffffff",
       activebackground="#0d9488",
       activeforeground="#ffffff",
       relief=tk.FLAT,
-      padx=14,
+      padx=11,
       pady=8,
       cursor="hand2",
       command=open_configure_passwords_dialog
   )
-  pass_btn.pack(side=tk.LEFT, padx=(0, 10))
+  pass_btn.pack(side=tk.LEFT, padx=(0, 8))
+
+  sync_btn = tk.Button(
+      controls_frame,
+      text="☁️  Sync to Google Sheets",
+      font=("Segoe UI", 10, "bold"),
+      bg="#0284c7",
+      fg="#ffffff",
+      activebackground="#0369a1",
+      activeforeground="#ffffff",
+      relief=tk.FLAT,
+      padx=11,
+      pady=8,
+      cursor="hand2",
+      command=on_sync_google_sheets
+  )
+  sync_btn.pack(side=tk.LEFT, padx=(0, 8))
 
   web_btn = tk.Button(
       controls_frame,
@@ -2576,12 +3639,12 @@ def launch_gui():
       activebackground="#4338ca",
       activeforeground="#ffffff",
       relief=tk.FLAT,
-      padx=15,
+      padx=11,
       pady=8,
       cursor="hand2",
       command=open_web_dashboard
   )
-  web_btn.pack(side=tk.LEFT, padx=(0, 10))
+  web_btn.pack(side=tk.LEFT, padx=(0, 8))
 
   open_folder_btn = tk.Button(
       controls_frame,
@@ -2590,12 +3653,12 @@ def launch_gui():
       bg="#e2e8f0",
       fg="#1e293b",
       relief=tk.FLAT,
-      padx=14,
+      padx=11,
       pady=8,
       cursor="hand2",
       command=on_open_folder
   )
-  open_folder_btn.pack(side=tk.LEFT, padx=(0, 10))
+  open_folder_btn.pack(side=tk.LEFT, padx=(0, 8))
 
   export_btn = tk.Button(
       controls_frame,
@@ -2606,12 +3669,12 @@ def launch_gui():
       activebackground="#047857",
       activeforeground="#ffffff",
       relief=tk.FLAT,
-      padx=14,
+      padx=11,
       pady=8,
       cursor="hand2",
       command=on_export_csv
   )
-  export_btn.pack(side=tk.LEFT, padx=(0, 10))
+  export_btn.pack(side=tk.LEFT, padx=(0, 8))
 
   delete_btn = tk.Button(
       controls_frame,
@@ -2622,7 +3685,7 @@ def launch_gui():
       activebackground="#dc2626",
       activeforeground="#ffffff",
       relief=tk.FLAT,
-      padx=15,
+      padx=11,
       pady=8,
       cursor="hand2",
       command=on_delete_month_folder

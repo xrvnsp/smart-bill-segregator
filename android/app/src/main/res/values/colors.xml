@@ -1,0 +1,7 @@
+<resources>
+    <color name="purple_primary">#9333ea</color>
+    <color name="purple_dark">#3b0764</color>
+    <color name="teal_accent">#0f766e</color>
+    <color name="background_dark">#0f172a</color>
+    <color name="white">#ffffff</color>
+</resources>
