@@ -604,12 +604,20 @@ def process_statement_file(file_path, base_downloads_dir=None, custom_passwords=
     accepted_pwd = None
 
     fname_lower = os.path.basename(str(file_path)).lower()
-    if "simplyclick" in fname_lower or "simply click" in fname_lower or "sbicard" in fname_lower or "sbi" in fname_lower:
-      ordered_banks = [b for b in KNOWN_BANKS if b["key"] == "sbi"]
-    elif "4315" in fname_lower or "amazon" in fname_lower or "icici" in fname_lower:
-      ordered_banks = [b for b in KNOWN_BANKS if b["key"] == "icici"]
-    elif "5268" in fname_lower or "hdfc" in fname_lower or "swiggy" in fname_lower:
-      ordered_banks = [b for b in KNOWN_BANKS if b["key"] == "hdfc"]
+    meta_clues = ""
+    try:
+      if reader.metadata:
+        for k, v in reader.metadata.items():
+          meta_clues += f" {k} {v}".lower()
+    except Exception:
+      pass
+
+    if "simplyclick" in fname_lower or "simply click" in fname_lower or "sbicard" in fname_lower or "sbi" in fname_lower or "sbicpsl" in meta_clues or "sbi card" in meta_clues:
+      ordered_banks = [b for b in KNOWN_BANKS if b["key"] == "sbi"] + [b for b in KNOWN_BANKS if b["key"] != "sbi"]
+    elif "4315" in fname_lower or "amazon" in fname_lower or "icici" in fname_lower or "icici" in meta_clues:
+      ordered_banks = [b for b in KNOWN_BANKS if b["key"] == "icici"] + [b for b in KNOWN_BANKS if b["key"] != "icici"]
+    elif "5268" in fname_lower or "hdfc" in fname_lower or "swiggy" in fname_lower or "hdfc" in meta_clues:
+      ordered_banks = [b for b in KNOWN_BANKS if b["key"] == "hdfc"] + [b for b in KNOWN_BANKS if b["key"] != "hdfc"]
     else:
       ordered_banks = list(KNOWN_BANKS)
 
@@ -618,6 +626,7 @@ def process_statement_file(file_path, base_downloads_dir=None, custom_passwords=
       stored_pwds = {
           "hdfc": str(custom_passwords.get("hdfc", "")).strip(),
           "icici": str(custom_passwords.get("icici", "")).strip(),
+          "sbi": str(custom_passwords.get("sbi", "")).strip(),
           "sheets_webhook_url": str(custom_passwords.get("sheets_webhook_url", "")).strip()
       }
     else:

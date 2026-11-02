@@ -204,19 +204,32 @@ if uploaded_files:
             if "password" in msg.lower():
                 with st.form(key=f"pwd_unlock_{up_file.name}"):
                     fname_low = up_file.name.lower()
-                    hint = "DDMMYYYY + Last 4 digits of card (e.g. 150819954321)" if ("sbi" in fname_low or "simplyclick" in fname_low) else ("Lowercase name (4) + DDMM" if "icici" in fname_low else "UPPERCASE name (4) + DDMM")
-                    st.markdown(f"**Enter password for `{up_file.name}` ({hint}):**")
-                    inline_pwd = st.text_input("Statement password:", type="password", key=f"inp_{up_file.name}")
+                    def_idx = 0 if ("sbi" in fname_low or "simply" in fname_low) else (1 if ("hdfc" in fname_low or "swiggy" in fname_low) else (2 if ("icici" in fname_low or "amazon" in fname_low) else 0))
+                    st.markdown(f"**Unlock `{up_file.name}`:**")
+                    selected_bank = st.radio(
+                        "Statement Bank Format:",
+                        ["SBI Card (SimplyCLICK)", "HDFC Bank (Swiggy)", "ICICI Bank (Amazon Pay)"],
+                        index=def_idx,
+                        horizontal=True,
+                        key=f"bank_choice_{up_file.name}"
+                    )
+                    if "SBI" in selected_bank:
+                        hint_desc = "Date of Birth in DDMMYYYY + Last 4 digits of card (e.g. 150819954321)"
+                        bank_key = "sbi"
+                    elif "HDFC" in selected_bank:
+                        hint_desc = "First 4 letters of name in UPPERCASE + DDMM (e.g. SARA3105)"
+                        bank_key = "hdfc"
+                    else:
+                        hint_desc = "First 4 letters of name in lowercase + DDMM (e.g. sara3105)"
+                        bank_key = "icici"
+
+                    st.caption(f"🔑 Password pattern: **{hint_desc}**")
+                    inline_pwd = st.text_input(f"Enter {selected_bank} password:", type="password", key=f"inp_{up_file.name}")
                     if st.form_submit_button("🔓 Unlock & Save in Browser", use_container_width=True):
                         if inline_pwd.strip():
-                            if "sbi" in fname_low or "simplyclick" in fname_low:
-                                st.session_state.session_passwords["sbi"] = inline_pwd.strip()
-                            elif "icici" in fname_low or "amazon" in fname_low:
-                                st.session_state.session_passwords["icici"] = inline_pwd.strip()
-                            else:
-                                st.session_state.session_passwords["hdfc"] = inline_pwd.strip()
+                            st.session_state.session_passwords[bank_key] = inline_pwd.strip()
                             st.session_state["pending_save_vault"] = dict(st.session_state.session_passwords)
-                            st.success("Password saved to browser! Unlocking...")
+                            st.success(f"Password for {selected_bank} saved to browser! Unlocking...")
                             st.rerun()
 
 # --- Active Statements Controls & Clear State ---
