@@ -179,14 +179,14 @@ with st.sidebar:
             "ICICI Password",
             value=st.session_state.session_passwords.get("icici", ""),
             type="password",
-            help="Lowercase name (4) + DDMM (e.g. sara3105)",
+            help="Lowercase name (4) + DDMM (e.g. rohi2512)",
             key="input_icici_pwd"
         )
         hdfc_val = st.text_input(
             "HDFC Password",
             value=st.session_state.session_passwords.get("hdfc", ""),
             type="password",
-            help="UPPERCASE name (4) + DDMM (e.g. SARA3105)",
+            help="UPPERCASE name (4) + DDMM (e.g. ROHI2512)",
             key="input_hdfc_pwd"
         )
         sbi_val = st.text_input(
@@ -406,10 +406,10 @@ if uploaded_files:
                         hint_desc = "Date of Birth in DDMMYYYY + Last 4 digits of card (e.g. 150819954321)"
                         bank_key = "sbi"
                     elif "HDFC" in selected_bank:
-                        hint_desc = "First 4 letters of name in UPPERCASE + DDMM (e.g. SARA3105)"
+                        hint_desc = "First 4 letters of name in UPPERCASE + DDMM (e.g. ROHI2512)"
                         bank_key = "hdfc"
                     else:
-                        hint_desc = "First 4 letters of name in lowercase + DDMM (e.g. sara3105)"
+                        hint_desc = "First 4 letters of name in lowercase + DDMM (e.g. rohi2512)"
                         bank_key = "icici"
 
                     st.caption(f"🔑 Password pattern: **{hint_desc}**")

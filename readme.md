@@ -20,13 +20,12 @@ An Apple-inspired interactive web dashboard, Streamlit web application ([smartbi
 
 * 🔀 **Interactive 3D Physical Card Shuffling & Idle Animations**:
   * **Auto 3D Shuffle**: Realistic physical deck cycling with spring physics, elevation depth, and specular glare.
-  * **3D Fan-Out Deck Spread**: Expands all 3 cards in an arc (`-11°`, `0°`, `+11°`) to view Swiggy HDFC, Amazon Pay ICICI, and SBI SimplyCLICK simultaneously.
-  * **Click-to-Focus Spotlight**: Tap or click any card (or badge) to immediately bring it into the spotlight with spring damping.
-  * **Hover / Idle Glare**: Moving the pointer or tilting the device glints holographic light reflections across embossed cardholder names.
+  * **Hover / Inspect**: Hovering over or touching the cards smoothly pauses the cycle to inspect card details.
+  * **Pristine Presentation**: Generous viewport height buffer ensuring zero card clipping on both mobile and PC.
 
 * 🔒 **Device-Local Browser Password Vault with Instant Notifications**:
   * Passwords live strictly in your device's browser `localStorage` via a zero-height client bridge (`local_storage_bridge`).
-  * Automatic toast notifications inform you when saved passwords are restored on session start or when newly saved.
+  * 5-second persistent sidebar toast notifications inform you when saved passwords are stored or updated.
   * Zero credentials or passwords ever touch server storage.
 
 * 🏷️ **Unified Named Friend EMI Receipts**:
@@ -48,8 +47,8 @@ Save your passwords once in the sidebar (**💾 Save Passwords on This Device**)
 
 | Card / Bank | Password Pattern | Example |
 | :--- | :--- | :--- |
-| **HDFC Bank (Swiggy)** | First 4 letters of Name (**UPPERCASE**) + `DDMM` of Birth | `SARA3105` |
-| **ICICI Bank (Amazon Pay)** | First 4 letters of Name (**lowercase**) + `DDMM` of Birth | `sara3105` |
+| **HDFC Bank (Swiggy)** | First 4 letters of Name (**UPPERCASE**) + `DDMM` of Birth | `ROHI2512` |
+| **ICICI Bank (Amazon Pay)** | First 4 letters of Name (**lowercase**) + `DDMM` of Birth | `rohi2512` |
 | **SBI Card (SimplyCLICK)** | Date of Birth (**DDMMYYYY**) + **Last 4 digits** of Primary Card | `150819954321` |
 
 ---

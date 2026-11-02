@@ -286,7 +286,7 @@ def parse_icici_statement(reader, file_path, saved_names):
     if m_icici:
       cardholder_name = " ".join(m_icici.group(1).split()).upper()
   if not cardholder_name:
-    cardholder_name = "SARAVANA PRAKASH"
+    cardholder_name = "Cardholder"
 
   exact_header_pat = r"[`\s]*([\d,]+\.\d{2})\s+[`\s]*([\d,]+\.\d{2})\s+SPENDS\s+OVERVIEW\s+([A-Za-z]+\s+\d{1,2},?\s+\d{4})\s+([A-Za-z]+\s+\d{1,2},?\s+\d{4})"
   m_hdr = re.search(exact_header_pat, p1_text)
@@ -604,7 +604,7 @@ def parse_hdfc_statement(reader, file_path, saved_names):
         cardholder_name = " ".join(raw_name.split()).upper()
         break
   if not cardholder_name:
-    cardholder_name = "SARAVANA PRAKASH"
+    cardholder_name = "Cardholder"
 
   m_tot = re.search(r"TOTAL\s+AMOUNT\s+DUE\s+C?([\d,]+\.\d{2})", p1_text, re.IGNORECASE)
   total_due = f"₹{m_tot.group(1)}" if m_tot else "₹4,361.00"
@@ -1928,7 +1928,7 @@ def generate_modern_dashboard_html(results_list, output_dir=".", write_to_disk=T
           due_date: statements.map(s => (s.bank_short || 'Bank') + ': ' + (s.due_date || '')).join(' • '),
           month_folder_name: statements[0] ? statements[0].month_folder_name : "Statements_October_2026",
           saved_name: statements.length + " Statements Loaded",
-          cardholder_name: (statements[0] && statements[0].cardholder_name) || "SARAVANA PRAKASH",
+          cardholder_name: (statements[0] && statements[0].cardholder_name) || "Cardholder",
           all_txns: [],
           ongoing_emis: [],
           date_groups: {{}},
