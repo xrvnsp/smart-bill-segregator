@@ -1,125 +1,122 @@
 # 💳 Smart Bill Segregator
 
-An Apple-inspired interactive web dashboard, Streamlit web app ([smartbills.streamlit.app](https://smartbills.streamlit.app)), and desktop tool for decrypting, analyzing, and segregating password-protected Indian bank credit card statements (**HDFC Bank Swiggy** & **ICICI Bank Amazon Pay**).
+An Apple-inspired interactive web dashboard, Streamlit web application ([smartbills.streamlit.app](https://smartbills.streamlit.app)), and offline utility for decrypting, segregating, and reconciling password-protected Indian credit card statements (**HDFC Bank Swiggy**, **ICICI Bank Amazon Pay**, and **SBI Card SimplyCLICK**).
 
 > 🔒 **100% Zero-Disk Privacy**: Statements are processed in RAM & never stored on the server — also I don't have money to buy a server 😜
 
-## ✨ Core Features
+---
 
-* 🍎 **Apple Design System UI & 3D Interactive Cards**: Built with frosted glass surfaces (`backdrop-filter: blur(24px)`), optical typography, capsule segmented controls, and interactive 3D physical credit cards (Swiggy HDFC & Amazon Pay ICICI) with pointer-tracked tilt and specular glare.
+## ✨ Core Highlights
 
-* 🔒 **Zero-Disk In-Memory Architecture**: Uploaded PDFs are decrypted and parsed 100% in RAM (`io.BytesIO`) within your isolated browser session. Zero files or statements are ever written to server storage.
+* 🏛️ **3 Major Bank Credit Cards Auto-Detected**:
+  * **HDFC Bank (Swiggy)**: Food delivery, dining 10% cashback audit, processing fees & GST reconciliation.
+  * **ICICI Bank (Amazon Pay)**: 5% unlimited shopping rewards, loan amortization & statement breakdown.
+  * **SBI Card (SimplyCLICK)**: 10X reward point balances, payments/credits, no-payment-due detection, and online spends tracking.
 
-* 🍪 **Device-Local Browser Password Vault**: Passwords are saved strictly in your own device's browser `localStorage` (`local_storage_bridge`) so they persist across reloads on your machine without ever touching a server disk or leaking across devices.
+* 📱 **Dual Mobile & PC Responsive Build**:
+  * **PC Desktop**: High-resolution wide dashboard, multi-card comparison, 3-column KPI tiles, and side-by-side transaction tables.
+  * **Mobile Touch**: 100% fluid touch layout, full-width cards without horizontal overflow, mobile-optimized headers, and tap-friendly buttons.
+  * **PWA & Android Support**: Progressive Web App with `manifest.json` and `sw.js` for "Add to Home Screen", plus an Android Studio WebView wrapper in `android/` for native APK builds.
 
-* 🏷️ **Unified Named Friend EMI Receipts**: Consolidates multi-date loan setup charges (processing fees, IGST/CGST/SGST, and cashback reversals) and monthly installments into standalone cards labeled with your friend's nickname (e.g., `🏷️ Naveen S25Edge`, `🏷️ Vasanth LG Tv`).
+* 🔀 **Interactive 3D Physical Card Shuffling & Idle Animations**:
+  * **Auto 3D Shuffle**: Realistic physical deck cycling with spring physics, elevation depth, and specular glare.
+  * **3D Fan-Out Deck Spread**: Expands all 3 cards in an arc (`-11°`, `0°`, `+11°`) to view Swiggy HDFC, Amazon Pay ICICI, and SBI SimplyCLICK simultaneously.
+  * **Click-to-Focus Spotlight**: Tap or click any card (or badge) to immediately bring it into the spotlight with spring damping.
+  * **Hover / Idle Glare**: Moving the pointer or tilting the device glints holographic light reflections across embossed cardholder names.
 
-* 🎨 **Automated Tax Inheritance & Arrow Linking**: Automatically computes 18% GST relationships and links tax rows directly beneath their parent Interest (Indigo theme) or Processing Fee (Amber theme) with calculated descriptions (`↳ 18% IGST on Interest`).
+* 🔒 **Device-Local Browser Password Vault with Instant Notifications**:
+  * Passwords live strictly in your device's browser `localStorage` via a zero-height client bridge (`local_storage_bridge`).
+  * Automatic toast notifications inform you when saved passwords are restored on session start or when newly saved.
+  * Zero credentials or passwords ever touch server storage.
 
-* 📲 **1-Click WhatsApp Receipt Sharing & Clipboard Image Copy**: Generates a high-resolution HTML5 2D Canvas receipt snapshot with evenly spread 3-column KPI tiles, copies the PNG image directly to your clipboard for instant `Ctrl + V` pasting in WhatsApp, and pre-fills the itemized message.
+* 🏷️ **Unified Named Friend EMI Receipts**:
+  * Consolidates multi-date loan setup charges (processing fees, 18% IGST/CGST/SGST, and cashback reversals) into individual friend cards (e.g., `🏷️ Naveen S25Edge`, `🏷️ Vasanth LG Tv`).
+  * Calculates tax parent-child relationships with visual arrows (`↳ 18% IGST on Interest`).
 
-* 🟢 **Payment Status Tracker ("Paid / Pending")**: Toggle each friend's installment receipt between Paid and Pending with live **Collected vs. Pending** reimbursement totals.
+* 📸 **1-Click Snapshot & Clipboard Image Copy (Mobile & PC)**:
+  * Generates high-resolution PNG receipt snapshots with 1 click.
+  * Copies directly to the OS clipboard for instant `Ctrl + V` pasting into WhatsApp, Slack, or email.
 
-* 🌐 **Consolidated Multi-Bank View & Category Filters**: Merge multiple credit card statements chronologically or filter with one click between **🔘 All Activity**, **🏷️ EMI Receipts Only**, **💳 Regular Card Spends**, and **⚡ Pre-EMI & Credits**.
+* 📊 **Google Sheets Webhook Sync**:
+  * Optionally connect your personal Google Sheet Web App URL to append monthly summaries and friend EMI splits automatically.
 
-* 🎁 **Cashback & Rewards Reconciler**: Audits earned cashback against bank EMI conversion reversals to show your true net cashback.
+---
 
-* 📊 **Google Sheets Multi-Month Sync**: Optionally connect your own Google Sheet Web App URL to log monthly summaries and friend EMI splits.
+## 🔑 Statement Password Patterns
+
+Save your passwords once in the sidebar (**💾 Save Passwords on This Device**) so your browser automatically unlocks statements on upload:
+
+| Card / Bank | Password Pattern | Example |
+| :--- | :--- | :--- |
+| **HDFC Bank (Swiggy)** | First 4 letters of Name (**UPPERCASE**) + `DDMM` of Birth | `SARA3105` |
+| **ICICI Bank (Amazon Pay)** | First 4 letters of Name (**lowercase**) + `DDMM` of Birth | `sara3105` |
+| **SBI Card (SimplyCLICK)** | Date of Birth (**DDMMYYYY**) + **Last 4 digits** of Primary Card | `150819954321` |
+
+---
 
 ## 🚀 Quick Start
 
-### 1. Clone the Repository
+### 1. Run the Streamlit Web App (Recommended for Mobile & PC)
 
-```
-git clone https://github.com/xrvnsp/smart-bill-segregator.git
-cd smart-bill-segregator
+Double-click `run_streamlit.bat` on Windows, or run in terminal:
 
-
-```
-
-### 2. Install Dependencies
-
-```
+```bash
 pip install -r requirements.txt
-
-
-```
-
-### 3. Run the App
-
-#### Option A: Streamlit Web App (PC & Mobile) — *Recommended*
-
-Double-click `run_streamlit.bat` on Windows, or run:
-
-```
 streamlit run app.py
-
-
 ```
 
-* **Local PC**: Opens at `http://localhost:8501`.
+* **Local PC & Mobile Wi-Fi**: Opens at `http://localhost:8501` (or your local IP on mobile browser).
+* **Live Cloud Deployment**: Accessible at [smartbills.streamlit.app](https://smartbills.streamlit.app).
 
-* **Live Cloud App**: Try it directly at <https://smartbills.streamlit.app>.
-
-#### Option B: Zero-Dependency Local Web Server
+### 2. Run with Zero-Dependency Local Web Server
 
 Double-click `run_web_server.bat` or run:
 
-```
+```bash
 python web_server.py
-
-
 ```
 
-#### Option C: Desktop GUI Launcher (Windows)
+### 3. Run the Windows Desktop GUI
 
-```
+Double-click `unlock_statements.pyw` for windowless desktop mode, or run:
+
+```bash
 python unlock_statements.py
-
-
 ```
 
-## 🔑 Statement Password Formats
+---
 
-Save your passwords once in the sidebar (**💾 Save Passwords on This Device**) so your browser remembers them across reloads:
-
-* **ICICI Bank (Amazon Pay)**: First 4 letters of your name in **lowercase** + `DDMM` of birth (e.g., `sara3105`).
-
-* **HDFC Bank (Swiggy)**: First 4 letters of your name in **UPPERCASE** + `DDMM` of birth (e.g., `SARA3105`).
-* **SBI Card (SimplyCLICK)**: Date of Birth in **DDMMYYYY** + **Last 4 digits** of your primary credit card (e.g. born 15 Aug 1995 with card ending 4321 = `150819954321`).
-
-## 📁 Project Structure
+## 📁 Repository Structure
 
 ```
-├── app.py                   # Streamlit web app (100% in-RAM processing & device-local storage)
-├── local_storage_bridge/    # Custom component bridging browser localStorage with Streamlit
-├── unlock_statements.py     # Core statement parser, Apple Design HTML generator & desktop GUI
+├── app.py                   # Streamlit web app (Zero-Disk RAM architecture, 3D card animations & notifications)
+├── local_storage_bridge/    # Custom component bridging browser localStorage securely with Streamlit
+├── unlock_statements.py     # Core statement parser (HDFC, ICICI & SBI), Apple Design HTML generator & desktop GUI
 ├── unlock_statements.pyw    # Windowless desktop launcher for Windows
 ├── web_server.py            # Lightweight local HTTP server for PC & mobile Wi-Fi access
 ├── card-facia-swiggy.jpg    # Official HDFC Swiggy card artwork
 ├── card-facia-amazon.png    # Official Amazon Pay ICICI card artwork
+├── simply-click-card-face.png # Official SBI SimplyCLICK card artwork
 ├── run_streamlit.bat        # 1-click Windows launcher for Streamlit
 ├── run_web_server.bat       # 1-click Windows launcher for local web server
-├── copy_and_push_to_git.bat # 1-click script to sync files to Drive H: & push to GitHub
-├── android/                 # Native Android WebView wrapper project
-├── manifest.json            # PWA manifest for mobile home screen installation
-├── sw.js                    # Service worker for PWA support
+├── copy_and_push_to_git.bat # 1-click deployment & GitHub push script (excluded in .gitignore)
+├── android/                 # Native Android WebView wrapper project for building mobile APK
+├── manifest.json            # PWA Web App Manifest for mobile home screen installation
+├── sw.js                    # Service worker for offline caching & PWA
 ├── requirements.txt         # Python dependencies (pypdf, cryptography, streamlit)
-├── passwords.json.example   # Example template for offline desktop configuration
-├── .gitignore               # Blocks all PDFs, credentials, and personal artifacts from Git
+├── passwords.json.example   # Template for offline desktop configuration
+├── .gitignore               # Strict gitignore blocking all PDFs, credentials, and local scripts
 └── README.md                # Project documentation
-
-
 ```
 
-## 🔒 Security & Privacy
+---
 
-* **100% Zero-Disk Privacy**: Statements are processed in RAM & never stored on the server — also I don't have money to buy a server 😜
+## 🛡️ Security & Privacy Guardrails
 
-* **Client-Only Password Persistence**: Your statement passwords live exclusively in your device's browser `localStorage` and are never written to any server file.
+1. **100% Zero-Disk Execution**: Uploaded statements are decrypted in memory (`io.BytesIO`) and purged as soon as the session closes.
+2. **Client-Only Storage**: Stored passwords never cross the network to any backend server.
+3. **No Accidental Leaks**: The `.gitignore` prevents `*.pdf`, `passwords.json`, `emi_names.json`, and `copy_and_push_to_git.bat` from ever being pushed to public repositories.
 
-* **Strict Git Exclusions**: `.gitignore` blocks `*.pdf`, `passwords.json`, `emi_names.json`, and `Statement_Dashboard.html` from ever being committed.
+---
 
-## ❤️ Footer
-
-**Made with ❤️ for friends — because splitting EMIs shouldn't ruin friendships (or give you a migraine) 🍕💳**
+Made with ❤️ for friends — because splitting EMIs shouldn't ruin friendships (or give you a migraine) 🍕💳
