@@ -1,3 +1,27 @@
+import base64
+import os
+def get_card_b64(fname, base_dir=None):
+  """Loads and base64-encodes a card image from known asset paths."""
+  candidates = []
+  if base_dir:
+    candidates.append(os.path.join(base_dir, fname))
+  candidates.extend([
+      os.path.join(os.path.dirname(os.path.abspath(__file__)), fname),
+      os.path.join(".", fname),
+      os.path.join("/working_dir/c_a77ecec1bad766ad/user_uploaded_files/ttl=63d/user_uploaded", fname)
+  ])
+  for p in candidates:
+    if os.path.exists(p):
+      try:
+        with open(p, "rb") as f:
+          b64 = base64.b64encode(f.read()).decode("utf-8")
+          ext = os.path.splitext(fname)[1].lower().replace(".", "")
+          mime = "image/jpeg" if ext in ["jpg", "jpeg"] else ("image/webp" if ext == "webp" else "image/png")
+          return f"data:{mime};base64,{b64}"
+      except Exception:
+        pass
+  return ""
+
 """Bank Statement Unlocker & Bill Analyzer with EMI Receipt Section Highlighting
 
 Features:
@@ -20,6 +44,7 @@ Features:
 import calendar
 import csv
 import datetime
+from datetime import datetime
 import json
 from collections import defaultdict
 import os
@@ -411,49 +436,134 @@ def parse_icici_statement(reader, file_path, saved_names):
 def parse_sbi_statement(reader, file_path, saved_names):
   """Dedicated rule for SBI Card (SimplyCLICK) credit card statements."""
   p1_text = reader.pages[0].extract_text() or ""
-  
-  # 1. Total Amount Due
-  m_tot = re.search(r"Total\s+Amount\s+Due[\s:₹Rs\.]*([\d,]+\.\d{2})", p1_text, re.IGNORECASE)
-  if not m_tot:
-    m_tot = re.search(r"Total\s+Payment\s+Due[\s:₹Rs\.]*([\d,]+\.\d{2})", p1_text, re.IGNORECASE)
-  total_due = f"₹{m_tot.group(1)}" if m_tot else "₹0.00"
+  lines = [l.strip() for l in p1_text.splitlines() if l.strip()]
 
-  # 2. Payment Due Date
-  m_due = re.search(r"Payment\s+Due\s+Date[\s:]*([0-9]{1,2}[/-][0-9]{1,2}[/-][0-9]{4}|[0-9]{1,2}\s+[a-zA-Z]+,?\s+[0-9]{4})", p1_text, re.IGNORECASE)
-  due_date = m_due.group(1).replace(",", "") if m_due else "Due Date"
-
-  # 3. Statement Date
-  m_stmt = re.search(r"Statement\s+Date[\s:]*([0-9]{1,2}[/-][0-9]{1,2}[/-][0-9]{4}|[0-9]{1,2}\s+[a-zA-Z]+,?\s+[0-9]{4})", p1_text, re.IGNORECASE)
-  statement_date = m_stmt.group(1).replace(",", "") if m_stmt else "October 2026"
-  clean_month = normalize_month_name(statement_date)
-
-  # 4. Cardholder Name
+  # 1. Cardholder Name (Appears immediately before masked card number XXXX XXXX XXXX XX..)
   cardholder_name = ""
-  for line in p1_text.splitlines():
-    m_title = re.search(r"^(?:MR|MS|MRS|DR)\.?\s+([A-Za-z\s]{2,35})$", line.strip(), re.IGNORECASE)
-    if m_title:
-      cardholder_name = " ".join(m_title.group(1).split()).upper()
-      break
+  for i, line in enumerate(lines):
+    if re.search(r"X{4}\s*X{4}", line, re.IGNORECASE) and i > 0:
+      candidate = lines[i - 1].strip()
+      if len(candidate) < 40 and not any(k in candidate.lower() for k in ["helpline", "plan", "queries", "charges", "statement", "card", "account", "important", "messages", "original", "recipient"]):
+        cardholder_name = candidate
+        break
+
+  if not cardholder_name:
+    for line in lines:
+      m_title = re.search(r"^(?:MR|MS|MRS|DR)\.?\s+([A-Za-z\s]{2,35})$", line, re.IGNORECASE)
+      if m_title:
+        cardholder_name = " ".join(m_title.group(1).split()).upper()
+        break
+
   if not cardholder_name:
     m_dear = re.search(r"Dear\s+(?:Mr\.|Ms\.|Mrs\.)?\s*([A-Za-z\s]{3,35})", p1_text, re.IGNORECASE)
     if m_dear:
       cardholder_name = " ".join(m_dear.group(1).split()).upper()
-  if not cardholder_name:
-    cardholder_name = "SARAVANA PRAKASH"
 
-  # 5. Extract transactions across pages
+  if not cardholder_name:
+    cardholder_name = "Cardholder"
+
+  # 2. Extract Financial Summary from SBI Summary Table (Values appear sequentially after CKYC)
+  total_due = "₹0.00"
+  due_date = "No Payment Required"
+  statement_date = ""
+  clean_month = ""
+
+  ckyc_idx = -1
+  for i, l in enumerate(lines):
+    if "CKYC" in l:
+      ckyc_idx = i
+      break
+
+  if ckyc_idx != -1 and len(lines) > ckyc_idx + 13:
+    val_start = ckyc_idx + 3
+    tad_val = lines[val_start + 1].replace(",", "")
+    try:
+      tad_float = float(tad_val)
+      total_due = f"₹{tad_float:,.2f}"
+    except ValueError:
+      pass
+
+    raw_stmt_date = lines[val_start + 9]
+    raw_due_date = lines[val_start + 10]
+
+    for fmt in ["%d %b %Y", "%d %b %y", "%d/%m/%Y", "%d-%m-%Y"]:
+      try:
+        dt = datetime.strptime(raw_stmt_date, fmt)
+        statement_date = dt.strftime("%d/%m/%Y")
+        clean_month = dt.strftime("%B %Y")
+        break
+      except ValueError:
+        pass
+
+    if "NO PAYMENT REQUIRED" in raw_due_date.upper():
+      due_date = "No Payment Required"
+    else:
+      due_date = raw_due_date
+
+  # Regex fallback if table differs
+  if total_due == "₹0.00":
+    m_tot = re.search(r"Total\s+Amount\s+Due[\s:₹Rs\.]*([\d,]+\.\d{2})", p1_text, re.IGNORECASE)
+    if not m_tot:
+      m_tot = re.search(r"Total\s+Payment\s+Due[\s:₹Rs\.]*([\d,]+\.\d{2})", p1_text, re.IGNORECASE)
+    if m_tot:
+      total_due = f"₹{m_tot.group(1)}"
+
+  if not statement_date or not clean_month:
+    m_stmt = re.search(r"Statement\s+Date[\s:]*([0-9]{1,2}[/-][0-9]{1,2}[/-][0-9]{4}|[0-9]{1,2}\s+[a-zA-Z]+,?\s+[0-9]{4})", p1_text, re.IGNORECASE)
+    if m_stmt:
+      raw_s = m_stmt.group(1).replace(",", "")
+      for fmt in ["%d %b %Y", "%d %b %y", "%d/%m/%Y"]:
+        try:
+          dt = datetime.strptime(raw_s, fmt)
+          statement_date = dt.strftime("%d/%m/%Y")
+          clean_month = dt.strftime("%B %Y")
+          break
+        except ValueError:
+          pass
+
+  if not clean_month:
+    clean_month = "July 2026"
+
+  if due_date == "Due Date" or not due_date:
+    if "NO PAYMENT REQUIRED" in p1_text.upper():
+      due_date = "No Payment Required"
+    else:
+      m_due = re.search(r"Payment\s+Due\s+Date[\s:]*([0-9]{1,2}[/-][0-9]{1,2}[/-][0-9]{4}|[0-9]{1,2}\s+[a-zA-Z]+,?\s+[0-9]{4})", p1_text, re.IGNORECASE)
+      due_date = m_due.group(1).replace(",", "") if m_due else "No Payment Required"
+
+  # Reward points balance
+  reward_points = ""
+  for i, line in enumerate(lines):
+    if "Closing Balance" in line and i > 4:
+      for k in range(max(0, i - 10), i):
+        if lines[k].isdigit() and int(lines[k]) > 0:
+          reward_points = f"{int(lines[k]):,} pts"
+          break
+      if reward_points:
+        break
+
+  # 3. Extract Transactions across pages (Handles DD Mon YY e.g. 11 Jun 26 & DD/MM/YYYY)
   txns = []
   date_groups = defaultdict(lambda: {"total": 0.0, "items": [], "has_emi": False})
-  date_pat = re.compile(r"^\s*(\d{2}[/-]\d{2}[/-]\d{4})\s+(.*?)\s+([\d,]+\.\d{2})\s*(C|D|CR|DR)?\s*$", re.IGNORECASE)
+  txn_pat = re.compile(r"^\s*(\d{1,2}\s+[A-Za-z]{3}\s+\d{2,4}|\d{2}[/-]\d{2}[/-]\d{2,4})\s+(.*?)\s+([\d,]+\.\d{2})\s*(C|D|CR|DR)?\s*$", re.IGNORECASE)
 
   for page in reader.pages:
     txt = page.extract_text() or ""
     for line in txt.splitlines():
-      m_txn = date_pat.match(line.strip())
+      line_s = line.strip()
+      m_txn = txn_pat.match(line_s)
       if m_txn:
-        dt, desc, amt_str, cr_dr = m_txn.groups()
+        raw_dt, desc, amt_str, cr_dr = m_txn.groups()
         amt = float(amt_str.replace(",", ""))
         is_cr = bool(cr_dr and cr_dr.upper() in ["C", "CR"])
+        dt = raw_dt
+        for fmt in ["%d %b %y", "%d %b %Y", "%d/%m/%Y", "%d-%m-%Y"]:
+          try:
+            dt = datetime.strptime(raw_dt, fmt).strftime("%d/%m/%Y")
+            break
+          except ValueError:
+            pass
+
         is_emi = is_emi_desc(desc)
         t_obj = {
             "date": dt,
@@ -478,8 +588,8 @@ def parse_sbi_statement(reader, file_path, saved_names):
       "date_groups": dict(date_groups),
       "all_txns": txns,
       "ongoing_emis": [],
+      "reward_points": reward_points,
   }
-
 
 def parse_hdfc_statement(reader, file_path, saved_names):
   """Dedicated rule for HDFC Bank (Swiggy) credit card statements."""
@@ -709,7 +819,8 @@ def process_statement_file(file_path, base_downloads_dir=None, custom_passwords=
         "statement_month": fin["statement_month"],
         "total_due": fin["total_due"],
         "due_date": fin["due_date"],
-        "cardholder_name": fin.get("cardholder_name", "SARAVANA PRAKASH"),
+        "cardholder_name": fin.get("cardholder_name") or "Cardholder",
+        "reward_points": fin.get("reward_points", ""),
         "date_groups": fin["date_groups"],
         "all_txns": fin["all_txns"],
         "ongoing_emis": fin.get("ongoing_emis", []),
@@ -733,10 +844,12 @@ def generate_modern_dashboard_html(results_list, output_dir=".", write_to_disk=T
 
   swiggy_card_b64 = ""
   amazon_card_b64 = ""
+  sbi_card_b64 = ""
   for cdir in [output_dir, os.path.dirname(os.path.abspath(__file__)), ".", "/working_dir/c_a77ecec1bad766ad/user_uploaded_files/ttl=63d/user_uploaded"]:
     sp = os.path.join(cdir, "card-facia-swiggy.jpg")
     ap = os.path.join(cdir, "card-facia-amazon.png")
     ap_orig = os.path.join(cdir, "amazon-card-banner.webp")
+    sbp = os.path.join(cdir, "simply-click-card-face.png")
     if os.path.exists(sp) and not swiggy_card_b64:
       try:
         with open(sp, "rb") as f:
@@ -751,6 +864,11 @@ def generate_modern_dashboard_html(results_list, output_dir=".", write_to_disk=T
       try:
         with open(ap_orig, "rb") as f:
           amazon_card_b64 = "data:image/webp;base64," + base64.b64encode(f.read()).decode("utf-8")
+      except Exception: pass
+    if os.path.exists(sbp) and not sbi_card_b64:
+      try:
+        with open(sbp, "rb") as f:
+          sbi_card_b64 = "data:image/png;base64," + base64.b64encode(f.read()).decode("utf-8")
       except Exception: pass
 
   html_content = f"""<!DOCTYPE html>
@@ -1070,7 +1188,7 @@ def generate_modern_dashboard_html(results_list, output_dir=".", write_to_disk=T
   </main>
 
   <script>
-    const CARD_IMAGES = {{ swiggy: "{swiggy_card_b64}", amazon: "{amazon_card_b64}" }};
+    const CARD_IMAGES = {{ swiggy: "{swiggy_card_b64}", amazon: "{amazon_card_b64}", sbi: "{sbi_card_b64}" }};
     const statements = {data_json};
     let activeIndex = 0;
 
@@ -1871,9 +1989,10 @@ def generate_modern_dashboard_html(results_list, output_dir=".", write_to_disk=T
         const bName = (stmt.bank_name || stmt.bank_short || '').toLowerCase();
         const isSwiggy = bName.includes('swiggy') || bName.includes('hdfc');
         const isAmazon = bName.includes('amazon') || bName.includes('icici');
+        const isSbi = bName.includes('sbi') || bName.includes('simplyclick');
 
-        let dotColor = isSwiggy ? 'bg-[#fc8019]' : (isAmazon ? 'bg-[#ff9900]' : 'bg-blue-600');
-        let icon = isSwiggy ? '🛵' : (isAmazon ? '🛒' : '🏛️');
+        let dotColor = isSwiggy ? 'bg-[#fc8019]' : (isAmazon ? 'bg-[#ff9900]' : (isSbi ? 'bg-[#882438]' : 'bg-blue-600'));
+        let icon = isSwiggy ? '🛵' : (isAmazon ? '🛒' : (isSbi ? '💳' : '🏛️'));
 
         btn.className = `apple-tab-btn px-5 py-2.5 rounded-xl text-xs font-bold transition flex items-center gap-2 ${{
           isActive 
@@ -1908,6 +2027,19 @@ def generate_modern_dashboard_html(results_list, output_dir=".", write_to_disk=T
       }};
     }}
 
+    window.cycleStackedCards = function() {{
+      const c1 = document.getElementById('stack-card-1');
+      const c2 = document.getElementById('stack-card-2');
+      const c3 = document.getElementById('stack-card-3');
+      if (!c1 || !c2 || !c3) return;
+      const bg1 = c1.style.background;
+      const bg2 = c2.style.background;
+      const bg3 = c3.style.background;
+      c1.style.background = bg2;
+      c2.style.background = bg3;
+      c3.style.background = bg1;
+    }};
+
     function renderHero() {{
       const stmt = getActiveStatement();
       const hero = document.getElementById('statement-hero');
@@ -1922,6 +2054,8 @@ def generate_modern_dashboard_html(results_list, output_dir=".", write_to_disk=T
       let cardBadgeText = 'Multi-Card Portfolio';
       let cardBadgeClass = 'bg-indigo-100 text-indigo-900 border-indigo-200';
 
+      const isSbi = bName.includes('sbi') || bName.includes('simplyclick');
+
       if (isSwiggy) {{
         ambientColor = 'rgba(252, 128, 25, 0.28)';
         cardBadgeText = 'Swiggy HDFC Bank Card';
@@ -1932,7 +2066,7 @@ def generate_modern_dashboard_html(results_list, output_dir=".", write_to_disk=T
             <!-- Embossed Cardholder Name -->
             <div class="absolute bottom-4 left-5 z-20 pointer-events-none select-none">
               <div class="text-[12px] sm:text-[13px] font-black tracking-[0.14em] uppercase text-white/95 font-mono drop-shadow-[0_1.5px_2px_rgba(0,0,0,0.85)]">
-                ${{stmt.cardholder_name || 'SARAVANA PRAKASH'}}
+                ${{stmt.cardholder_name || 'Cardholder'}}
               </div>
             </div>
           </div>
@@ -1947,27 +2081,46 @@ def generate_modern_dashboard_html(results_list, output_dir=".", write_to_disk=T
             <!-- Embossed Cardholder Name -->
             <div class="absolute bottom-4 left-5 z-20 pointer-events-none select-none">
               <div class="text-[12px] sm:text-[13px] font-black tracking-[0.14em] uppercase text-amber-200/95 font-mono drop-shadow-[0_1.5px_2px_rgba(0,0,0,0.9)]">
-                ${{stmt.cardholder_name || 'SARAVANA PRAKASH'}}
+                ${{stmt.cardholder_name || 'Cardholder'}}
+              </div>
+            </div>
+          </div>
+        `;
+      }} else if (isSbi) {{
+        ambientColor = 'rgba(136, 36, 56, 0.28)';
+        cardBadgeText = 'SBI Card SimplyCLICK';
+        cardBadgeClass = 'bg-rose-100 text-rose-950 border-rose-200';
+        cardStageHtml = `
+          <div id="apple-active-card" class="apple-physical-card shadow-2xl relative" style="background: url('${{CARD_IMAGES.sbi}}') center/cover no-repeat;">
+            <div class="apple-card-glare"></div>
+            <!-- Embossed Cardholder Name -->
+            <div class="absolute bottom-4 left-5 z-20 pointer-events-none select-none">
+              <div class="text-[12px] sm:text-[13px] font-black tracking-[0.14em] uppercase text-white/95 font-mono drop-shadow-[0_1.5px_2px_rgba(0,0,0,0.9)]">
+                ${{stmt.cardholder_name || 'KAYALVIZHI R'}}
               </div>
             </div>
           </div>
         `;
       }} else {{
         ambientColor = 'rgba(99, 102, 241, 0.22)';
-        cardBadgeText = 'Consolidated Dual Cards';
+        cardBadgeText = 'Consolidated Multi-Card Portfolio';
         cardBadgeClass = 'bg-indigo-100 text-indigo-900 border-indigo-200';
         cardStageHtml = `
-          <div class="relative w-full max-w-[380px] h-[230px] flex items-center justify-center">
-            <!-- Back Card (ICICI Amazon) -->
-            <div class="apple-physical-card absolute w-[88%] shadow-lg top-0 right-2 -rotate-3 opacity-90 transition hover:rotate-0 hover:z-20 hover:opacity-100" style="background: url('${{CARD_IMAGES.amazon}}') center/cover no-repeat;">
+          <div class="relative w-full max-w-[380px] h-[230px] flex items-center justify-center cursor-pointer group" onclick="cycleStackedCards()" title="Click to shuffle cards">
+            <!-- Back Card (SBI SimplyCLICK) -->
+            <div id="stack-card-3" class="apple-physical-card absolute w-[84%] shadow-md -top-2 right-1 -rotate-6 opacity-80 transition-all duration-500 ease-out group-hover:-translate-y-2 group-hover:rotate-0" style="background: url('${{CARD_IMAGES.sbi}}') center/cover no-repeat; z-index: 10;">
+              <div class="apple-card-glare"></div>
+            </div>
+            <!-- Middle Card (ICICI Amazon) -->
+            <div id="stack-card-2" class="apple-physical-card absolute w-[88%] shadow-lg top-0 right-2 -rotate-2 opacity-90 transition-all duration-500 ease-out group-hover:translate-x-3 group-hover:rotate-1" style="background: url('${{CARD_IMAGES.amazon}}') center/cover no-repeat; z-index: 15;">
               <div class="apple-card-glare"></div>
             </div>
             <!-- Front Card (HDFC Swiggy) -->
-            <div id="apple-active-card" class="apple-physical-card absolute w-[92%] shadow-2xl bottom-1 left-2 rotate-2 transition hover:rotate-0" style="background: url('${{CARD_IMAGES.swiggy}}') center/cover no-repeat;">
+            <div id="stack-card-1" class="apple-physical-card absolute w-[92%] shadow-2xl bottom-1 left-2 rotate-2 transition-all duration-500 ease-out group-hover:scale-102" style="background: url('${{CARD_IMAGES.swiggy}}') center/cover no-repeat; z-index: 20;">
               <div class="apple-card-glare"></div>
               <div class="absolute bottom-4 left-5 z-20 pointer-events-none select-none">
                 <div class="text-[12px] sm:text-[13px] font-black tracking-[0.14em] uppercase text-white/95 font-mono drop-shadow-[0_1.5px_2px_rgba(0,0,0,0.85)]">
-                  ${{stmt.cardholder_name || 'SARAVANA PRAKASH'}}
+                  ${{stmt.cardholder_name || 'Portfolio Cards'}}
                 </div>
               </div>
             </div>

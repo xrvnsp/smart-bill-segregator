@@ -1,3 +1,309 @@
+def get_card_shuffle_html():
+    swiggy_b64 = unlock_statements.get_card_b64("card-facia-swiggy.jpg")
+    amazon_b64 = unlock_statements.get_card_b64("card-facia-amazon.png")
+    sbi_b64 = unlock_statements.get_card_b64("simply-click-card-face.png")
+
+    return f"""<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    * {{ box-sizing: border-box; margin: 0; padding: 0; font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif; }}
+    body {{ background: transparent; display: flex; justify-content: center; align-items: center; padding: 6px; }}
+    
+    .showcase-card {{
+      width: 100%;
+      max-width: 860px;
+      background: rgba(255, 255, 255, 0.85);
+      backdrop-filter: blur(24px) saturate(180%);
+      -webkit-backdrop-filter: blur(24px) saturate(180%);
+      border: 1px solid rgba(226, 232, 240, 0.85);
+      border-radius: 28px;
+      padding: 32px 20px;
+      text-align: center;
+      box-shadow: 0 12px 35px -8px rgba(0, 0, 0, 0.05);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }}
+
+    .headline-pill {{
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 14px;
+      border-radius: 9999px;
+      background: #f1f5f9;
+      border: 1px solid #cbd5e1;
+      color: #334155;
+      font-size: 11px;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      margin-bottom: 10px;
+    }}
+
+    .title {{
+      font-size: 22px;
+      font-weight: 800;
+      color: #0f172a;
+      letter-spacing: -0.02em;
+      margin-bottom: 6px;
+    }}
+
+    .subtitle {{
+      font-size: 13px;
+      color: #64748b;
+      max-width: 560px;
+      line-height: 1.5;
+      margin-bottom: 16px;
+    }}
+
+    /* 3D Physical Card Shuffling Stage */
+    .card-stage-wrap {{
+      perspective: 1200px;
+      perspective-origin: center center;
+      width: 350px;
+      height: 225px;
+      position: relative;
+      margin: 10px auto 24px auto;
+    }}
+
+    .physical-card {{
+      width: 320px;
+      height: 202px;
+      border-radius: 16px;
+      position: absolute;
+      top: 0;
+      left: 15px;
+      transform-style: preserve-3d;
+      will-change: transform, opacity;
+      cursor: pointer;
+      user-select: none;
+      box-shadow: 0 20px 40px -10px rgba(0, 0, 0, 0.28);
+      transition: transform 0.4s cubic-bezier(0.34, 1.3, 0.64, 1), box-shadow 0.3s ease;
+      background-size: cover !important;
+      background-position: center !important;
+      background-repeat: no-repeat !important;
+    }}
+
+    .physical-card::after {{
+      content: '';
+      position: absolute;
+      inset: 0;
+      border-radius: 16px;
+      border: 1px solid rgba(255, 255, 255, 0.25);
+      pointer-events: none;
+    }}
+
+    .card-glare {{
+      position: absolute;
+      inset: 0;
+      border-radius: 16px;
+      background: linear-gradient(135deg, rgba(255,255,255,0.4) 0%, rgba(255,255,255,0.05) 50%, rgba(0,0,0,0.15) 100%);
+      pointer-events: none;
+    }}
+
+    .embossed-name {{
+      position: absolute;
+      bottom: 14px;
+      left: 18px;
+      font-size: 11px;
+      font-weight: 900;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      font-family: monospace;
+      color: rgba(255,255,255,0.95);
+      text-shadow: 0 1.5px 2px rgba(0,0,0,0.85);
+      pointer-events: none;
+    }}
+
+    /* Card Shuffling 3D Loop Animation (9s total, 3s per card phase) */
+    .card-swiggy {{
+      background-image: url('{swiggy_b64}');
+      animation: shuffleSwiggy 9s cubic-bezier(0.34, 1.25, 0.64, 1) infinite;
+    }}
+    .card-amazon {{
+      background-image: url('{amazon_b64}');
+      animation: shuffleAmazon 9s cubic-bezier(0.34, 1.25, 0.64, 1) infinite;
+    }}
+    .card-sbi {{
+      background-image: url('{sbi_b64}');
+      animation: shuffleSbi 9s cubic-bezier(0.34, 1.25, 0.64, 1) infinite;
+    }}
+
+    .card-stage-wrap:hover .physical-card {{
+      animation-play-state: paused;
+    }}
+
+    @keyframes shuffleSwiggy {{
+      0%, 28% {{
+        transform: translate3d(0, 0, 40px) scale(1) rotate(0deg);
+        z-index: 30;
+        opacity: 1;
+        box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.35);
+      }}
+      33%, 61% {{
+        transform: translate3d(45px, -15px, 0px) scale(0.92) rotate(4deg);
+        z-index: 20;
+        opacity: 0.88;
+        box-shadow: 0 16px 32px -10px rgba(0, 0, 0, 0.22);
+      }}
+      66%, 95% {{
+        transform: translate3d(-40px, -22px, -40px) scale(0.85) rotate(-5deg);
+        z-index: 10;
+        opacity: 0.72;
+        box-shadow: 0 10px 20px -8px rgba(0, 0, 0, 0.18);
+      }}
+      100% {{
+        transform: translate3d(0, 0, 40px) scale(1) rotate(0deg);
+        z-index: 30;
+        opacity: 1;
+        box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.35);
+      }}
+    }}
+
+    @keyframes shuffleAmazon {{
+      0%, 28% {{
+        transform: translate3d(45px, -15px, 0px) scale(0.92) rotate(4deg);
+        z-index: 20;
+        opacity: 0.88;
+        box-shadow: 0 16px 32px -10px rgba(0, 0, 0, 0.22);
+      }}
+      33%, 61% {{
+        transform: translate3d(-40px, -22px, -40px) scale(0.85) rotate(-5deg);
+        z-index: 10;
+        opacity: 0.72;
+        box-shadow: 0 10px 20px -8px rgba(0, 0, 0, 0.18);
+      }}
+      66%, 95% {{
+        transform: translate3d(0, 0, 40px) scale(1) rotate(0deg);
+        z-index: 30;
+        opacity: 1;
+        box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.35);
+      }}
+      100% {{
+        transform: translate3d(45px, -15px, 0px) scale(0.92) rotate(4deg);
+        z-index: 20;
+        opacity: 0.88;
+        box-shadow: 0 16px 32px -10px rgba(0, 0, 0, 0.22);
+      }}
+    }}
+
+    @keyframes shuffleSbi {{
+      0%, 28% {{
+        transform: translate3d(-40px, -22px, -40px) scale(0.85) rotate(-5deg);
+        z-index: 10;
+        opacity: 0.72;
+        box-shadow: 0 10px 20px -8px rgba(0, 0, 0, 0.18);
+      }}
+      33%, 61% {{
+        transform: translate3d(0, 0, 40px) scale(1) rotate(0deg);
+        z-index: 30;
+        opacity: 1;
+        box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.35);
+      }}
+      66%, 95% {{
+        transform: translate3d(45px, -15px, 0px) scale(0.92) rotate(4deg);
+        z-index: 20;
+        opacity: 0.88;
+        box-shadow: 0 16px 32px -10px rgba(0, 0, 0, 0.22);
+      }}
+      100% {{
+        transform: translate3d(-40px, -22px, -40px) scale(0.85) rotate(-5deg);
+        z-index: 10;
+        opacity: 0.72;
+        box-shadow: 0 10px 20px -8px rgba(0, 0, 0, 0.18);
+      }}
+    }}
+
+    .cards-badges-row {{
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 10px;
+      margin-top: 4px;
+      margin-bottom: 20px;
+    }}
+
+    .card-badge {{
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 14px;
+      border-radius: 12px;
+      font-size: 12px;
+      font-weight: 700;
+      border: 1px solid rgba(226, 232, 240, 0.8);
+      background: #ffffff;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+    }}
+
+    .badge-hdfc {{ color: #c2410c; border-color: #fed7aa; background: #fff7ed; }}
+    .badge-icici {{ color: #b45309; border-color: #fde68a; background: #fefce8; }}
+    .badge-sbi {{ color: #882438; border-color: #fecdd3; background: #fff1f2; }}
+
+    .privacy-pill {{
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 8px 16px;
+      border-radius: 9999px;
+      background: #f0fdf4;
+      border: 1px solid #bbf7d0;
+      color: #166534;
+      font-size: 12px;
+      font-weight: 700;
+      line-height: 1.4;
+    }}
+  </style>
+</head>
+<body>
+  <div class="showcase-card">
+    <div class="headline-pill">
+      <span>🔀</span>
+      <span>3 Credit Cards Supported & Auto-Detected</span>
+    </div>
+    <h2 class="title">No Statement Loaded in This Session</h2>
+    <p class="subtitle">
+      Upload your <b>HDFC Bank (Swiggy)</b>, <b>ICICI Bank (Amazon Pay)</b>, or <b>SBI Card (SimplyCLICK)</b> statement PDF above to view your interactive Apple-style dashboard, friend EMI receipts, and cashback reconciliation.
+    </p>
+
+    <!-- 3D Card Shuffling Animation Stage -->
+    <div class="card-stage-wrap" title="Hover to pause • 3 cards cycling in 3D perspective">
+      <!-- Card 1: HDFC Swiggy -->
+      <div class="physical-card card-swiggy">
+        <div class="card-glare"></div>
+        <div class="embossed-name">SWIGGY HDFC</div>
+      </div>
+      <!-- Card 2: ICICI Amazon Pay -->
+      <div class="physical-card card-amazon">
+        <div class="card-glare"></div>
+        <div class="embossed-name" style="color: #fde68a;">AMAZON PAY ICICI</div>
+      </div>
+      <!-- Card 3: SBI Card SimplyCLICK -->
+      <div class="physical-card card-sbi">
+        <div class="card-glare"></div>
+        <div class="embossed-name">SBI SIMPLYCLICK</div>
+      </div>
+    </div>
+
+    <!-- Supported Card Pills -->
+    <div class="cards-badges-row">
+      <span class="card-badge badge-hdfc"><span>🛵</span><span>Swiggy HDFC Bank</span></span>
+      <span class="card-badge badge-icici"><span>🛒</span><span>Amazon Pay ICICI</span></span>
+      <span class="card-badge badge-sbi"><span>💳</span><span>SBI Card SimplyCLICK</span></span>
+    </div>
+
+    <div class="privacy-pill">
+      <span>🔒</span>
+      <span>100% Zero-Disk Privacy: Statements are processed in RAM & never stored on the server — also I don't have money to buy a server 😜</span>
+    </div>
+  </div>
+</body>
+</html>"""
+
 """Smart Bill Segregator - Streamlit Web Application
 Renders the exact, authentic, mobile-and-PC responsive web dashboard.
 Strict Zero-Disk Security Architecture:
@@ -258,20 +564,8 @@ if st.session_state.statements_data:
     )
     components.html(dashboard_html, height=1450, scrolling=True)
 else:
-    # Clean Initial State: Zero cached files or disk loaders!
-    st.markdown("""
-    <div style="background: rgba(255, 255, 255, 0.75); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); border-radius: 24px; padding: 48px 32px; border: 1px solid rgba(226, 232, 240, 0.8); text-align: center; margin-top: 16px; box-shadow: 0 10px 30px -5px rgba(0,0,0,0.03);">
-        <div style="font-size: 48px; margin-bottom: 12px;">💳</div>
-        <h2 style="font-size: 22px; font-weight: 800; color: #0f172a; margin-bottom: 6px; letter-spacing: -0.02em;">No Statement Loaded in This Session</h2>
-        <p style="font-size: 14px; color: #64748b; max-width: 540px; margin: 0 auto 12px auto; line-height: 1.5;">
-            Upload your <b>HDFC Bank (Swiggy)</b>, <b>ICICI Bank (Amazon Pay)</b>, or <b>SBI Card (SimplyCLICK)</b> statement PDF above to view your interactive Apple-style dashboard, friend EMI receipts, and cashback reconciliation.
-        </p>
-        <div style="display: inline-flex; align-items: center; gap: 6px; padding: 6px 14px; border-radius: 9999px; background: #f0fdf4; border: 1px solid #bbf7d0; color: #166534; font-size: 12px; font-weight: 700;">
-            <span>🔒</span>
-            <span>100% Zero-Disk Privacy: Statements are processed in RAM & never stored on the server — also I don't have money to buy a server 😜</span>
-        </div>
-    </div>
-    """, unsafe_allow_html=True)
+    # Clean Initial State with Default 3D Card Shuffling Animation Showcase!
+    components.html(get_card_shuffle_html(), height=570, scrolling=False)
 
 # --- Friendly Footer ---
 st.markdown("""
