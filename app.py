@@ -10,6 +10,7 @@ Strict Zero-Disk Security Architecture:
 import io
 import os
 import sys
+import time
 import json
 import base64
 import shutil
@@ -70,15 +71,15 @@ st.markdown("""
         width: 100% !important;
     }
 
-    /* Sidebar 5-second auto-fading toast */
+    /* Sidebar 5-second persistent toast */
     .sidebar-toast-5s {
         animation: fadeOutSidebarToast 5s cubic-bezier(0.4, 0, 0.2, 1) forwards;
     }
 
     @keyframes fadeOutSidebarToast {
-        0% { opacity: 1; transform: translateY(0); max-height: 120px; margin-top: 10px; margin-bottom: 10px; }
-        80% { opacity: 1; transform: translateY(0); max-height: 120px; margin-top: 10px; margin-bottom: 10px; }
-        98% { opacity: 0; transform: translateY(-8px); max-height: 0; padding: 0 12px; margin-top: 0; margin-bottom: 0; }
+        0% { opacity: 1; transform: translateY(0); }
+        85% { opacity: 1; transform: translateY(0); }
+        98% { opacity: 0; transform: translateY(-6px); }
         100% { opacity: 0; display: none; visibility: hidden; height: 0; padding: 0; margin: 0; }
     }
 
@@ -169,16 +170,19 @@ with st.sidebar:
                 "sbi": sbi_val.strip(),
                 "sheets_webhook_url": webhook_val.strip()
             }
+            # Set 5-second persistence timestamp so bridge reruns do not clear the toast prematurely
+            st.session_state["sidebar_toast_until"] = time.time() + 5.0
             st.session_state["sidebar_toast_notice"] = {
                 "type": "success",
                 "title": "Passwords Saved Locally!",
-                "desc": "Saved in this browser for 1-click auto-unlock."
+                "desc": "Saved in this browser vault for 1-click auto-unlock."
             }
             st.rerun()
 
         if st.button("🗑️ Forget Saved Passwords", use_container_width=True, help="Clear saved passwords from this browser"):
             st.session_state.session_passwords = {"icici": "", "hdfc": "", "sbi": "", "sheets_webhook_url": ""}
             st.session_state["pending_clear_vault"] = True
+            st.session_state["sidebar_toast_until"] = time.time() + 5.0
             st.session_state["sidebar_toast_notice"] = {
                 "type": "info",
                 "title": "Passwords Cleared",
@@ -186,51 +190,49 @@ with st.sidebar:
             }
             st.rerun()
 
-        # 5-Second Auto-Fading Toast strictly in Sidebar (disappears after 5s)
-        if "sidebar_toast_notice" in st.session_state:
-            s_notice = st.session_state.pop("sidebar_toast_notice")
-            st.markdown(f"""
-            <div class="sidebar-toast-5s" style="
-                background: linear-gradient(135deg, rgba(240, 253, 244, 0.98) 0%, rgba(220, 252, 231, 0.98) 100%);
-                border: 1px solid #86efac;
-                border-radius: 12px;
-                padding: 10px 12px;
-                box-shadow: 0 4px 14px -2px rgba(22, 101, 52, 0.15);
-                display: flex;
-                align-items: center;
-                gap: 8px;
-            ">
-                <span style="font-size: 18px; line-height: 1;">🔒</span>
-                <div>
-                    <div style="font-size: 12px; font-weight: 800; color: #166534;">{s_notice['title']}</div>
-                    <div style="font-size: 11px; color: #15803d; font-weight: 600; margin-top: 1px;">{s_notice['desc']}</div>
+        # 5-Second Persistent Toast in Sidebar (survives component reruns for a full 5s)
+        now_time = time.time()
+        if "sidebar_toast_until" in st.session_state:
+            if now_time < st.session_state["sidebar_toast_until"]:
+                rem_sec = max(0.5, st.session_state["sidebar_toast_until"] - now_time)
+                s_notice = st.session_state.get("sidebar_toast_notice", {
+                    "title": "Passwords Saved Locally!",
+                    "desc": "Saved in this browser vault for 1-click auto-unlock."
+                })
+                st.markdown(f"""
+                <div id="sidebar-toast-box" class="sidebar-toast-5s" style="
+                    background: linear-gradient(135deg, rgba(240, 253, 244, 0.98) 0%, rgba(220, 252, 231, 0.98) 100%);
+                    border: 1px solid #86efac;
+                    border-radius: 12px;
+                    padding: 10px 12px;
+                    margin-top: 10px;
+                    margin-bottom: 8px;
+                    box-shadow: 0 4px 14px -2px rgba(22, 101, 52, 0.15);
+                    display: flex;
+                    align-items: center;
+                    gap: 8px;
+                    transition: opacity 0.5s ease, transform 0.5s ease;
+                ">
+                    <span style="font-size: 18px; line-height: 1;">🔒</span>
+                    <div>
+                        <div style="font-size: 12px; font-weight: 800; color: #166534;">{s_notice['title']}</div>
+                        <div style="font-size: 11px; color: #15803d; font-weight: 600; margin-top: 1px;">{s_notice['desc']}</div>
+                    </div>
                 </div>
-            </div>
-            """, unsafe_allow_html=True)
-
-    # --- 3D Card Animation Settings (Moved to Sidebar!) ---
-    with st.expander("🎨 3D Card Animation Settings", expanded=True):
-        st.caption("Choose idle motion style for the 3D card showcase:")
-        anim_modes = [
-            ("cut", "✂️ Cut the Deck (Spring)"),
-            ("shuffle", "🔀 3D Auto-Shuffle"),
-            ("fan", "🃏 Fan-Out Deck Spread"),
-            ("spotlight", "👆 Click to Focus / Spotlight")
-        ]
-        curr_mode = st.session_state.get("card_anim_mode", "cut")
-        mode_keys = [m[0] for m in anim_modes]
-        default_idx = mode_keys.index(curr_mode) if curr_mode in mode_keys else 0
-
-        selected_label = st.radio(
-            "Card Animation Style:",
-            options=[m[1] for m in anim_modes],
-            index=default_idx,
-            label_visibility="collapsed"
-        )
-        for m_key, m_lbl in anim_modes:
-            if m_lbl == selected_label:
-                st.session_state["card_anim_mode"] = m_key
-                break
+                <script>
+                    setTimeout(function() {{
+                        var el = document.getElementById('sidebar-toast-box');
+                        if (el) {{
+                            el.style.opacity = '0';
+                            el.style.transform = 'translateY(-6px)';
+                            setTimeout(function() {{ el.style.display = 'none'; }}, 500);
+                        }}
+                    }}, {int(rem_sec * 1000)});
+                </script>
+                """, unsafe_allow_html=True)
+            else:
+                st.session_state.pop("sidebar_toast_until", None)
+                st.session_state.pop("sidebar_toast_notice", None)
 
     st.link_button(
         "📋 Copy Google Sheet Template",
@@ -244,7 +246,7 @@ with st.sidebar:
 if "statements_data" not in st.session_state:
     st.session_state.statements_data = {}
 
-# --- Main Page Header & Visible Upload Card (Zero Gap & No Toasts in Main Window) ---
+# --- Main Page Header & Visible Upload Card (Zero Gap & Clean Presentation) ---
 st.markdown("<div style='margin-top: 0px; margin-bottom: 4px;'><h1 style='font-size: 26px; font-weight: 800; color: inherit; margin: 0; letter-spacing: -0.02em;'>💳 Smart Bill Segregator</h1></div>", unsafe_allow_html=True)
 st.caption("Auto-segregates bank statements, friend EMIs, cashback, and regular card spends.")
 
@@ -334,6 +336,7 @@ if uploaded_files:
                         if inline_pwd.strip():
                             st.session_state.session_passwords[bank_key] = inline_pwd.strip()
                             st.session_state["pending_save_vault"] = dict(st.session_state.session_passwords)
+                            st.session_state["sidebar_toast_until"] = time.time() + 5.0
                             st.session_state["sidebar_toast_notice"] = {
                                 "type": "success",
                                 "title": f"Password Saved for {selected_bank}",
@@ -358,8 +361,8 @@ if st.session_state.statements_data:
             st.session_state.statements_data = {}
             st.rerun()
 
-# --- Generator for the Clean 3D Card Showcase (Controlled by Sidebar) ---
-def get_card_shuffle_html(mode="cut"):
+# --- Pure 3D Auto-Shuffle Showcase (Default & Exclusive Animation) ---
+def get_card_shuffle_html():
     swiggy_b64 = unlock_statements.get_card_b64("card-facia-swiggy.jpg")
     amazon_b64 = unlock_statements.get_card_b64("card-facia-amazon.png")
     sbi_b64 = unlock_statements.get_card_b64("simply-click-card-face.png")
@@ -376,7 +379,7 @@ def get_card_shuffle_html(mode="cut"):
     
     .showcase-card {{
       width: 100%;
-      max-width: 880px;
+      max-width: 860px;
       background: rgba(255, 255, 255, 0.88);
       backdrop-filter: blur(24px) saturate(180%);
       -webkit-backdrop-filter: blur(24px) saturate(180%);
@@ -384,7 +387,7 @@ def get_card_shuffle_html(mode="cut"):
       border-radius: 26px;
       padding: 24px 18px;
       text-align: center;
-      box-shadow: 0 12px 35px -8px rgba(0, 0, 0, 0.05);
+      box-shadow: 0 10px 30px -8px rgba(0, 0, 0, 0.05);
       display: flex;
       flex-direction: column;
       align-items: center;
@@ -419,7 +422,7 @@ def get_card_shuffle_html(mode="cut"):
       color: #64748b;
       max-width: 580px;
       line-height: 1.45;
-      margin-bottom: 12px;
+      margin-bottom: 14px;
     }}
 
     /* 3D Physical Card Stage with Perspective */
@@ -434,7 +437,6 @@ def get_card_shuffle_html(mode="cut"):
       display: flex;
       justify-content: center;
       align-items: center;
-      cursor: pointer;
     }}
 
     .physical-card {{
@@ -484,57 +486,39 @@ def get_card_shuffle_html(mode="cut"):
     }}
 
     /* Card Background Artworks */
-    #card-1 {{ background-image: url('{swiggy_b64}'); }}
-    #card-2 {{ background-image: url('{amazon_b64}'); }}
-    #card-3 {{ background-image: url('{sbi_b64}'); }}
-
-    /* ====================================================================
-       MODE 1: Spring-Loaded "Cut the Deck" Shuffle
-       ==================================================================== */
-    .mode-cut #card-1 {{ animation: cutDeckCard1 4.5s cubic-bezier(0.34, 1.35, 0.64, 1) infinite; }}
-    .mode-cut #card-2 {{ animation: cutDeckCard2 4.5s cubic-bezier(0.34, 1.35, 0.64, 1) infinite; }}
-    .mode-cut #card-3 {{ animation: cutDeckCard3 4.5s cubic-bezier(0.34, 1.35, 0.64, 1) infinite; }}
-
-    @keyframes cutDeckCard1 {{
-      0%, 15% {{ transform: translate3d(0, 0, 40px) scale(1) rotate(0deg); z-index: 30; opacity: 1; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.35); }}
-      30%, 45% {{ transform: translate3d(-110px, -25px, 65px) scale(0.97) rotate(-11deg); z-index: 35; opacity: 1; box-shadow: 0 30px 60px -10px rgba(0, 0, 0, 0.45); }}
-      60% {{ transform: translate3d(-20px, 15px, -15px) scale(0.91) rotate(-3deg); z-index: 10; opacity: 0.8; }}
-      75%, 100% {{ transform: translate3d(-35px, -18px, -35px) scale(0.86) rotate(-5deg); z-index: 10; opacity: 0.72; }}
+    #card-1 {{
+      background-image: url('{swiggy_b64}');
+      animation: shuffleSwiggy 9s cubic-bezier(0.34, 1.25, 0.64, 1) infinite;
+    }}
+    #card-2 {{
+      background-image: url('{amazon_b64}');
+      animation: shuffleAmazon 9s cubic-bezier(0.34, 1.25, 0.64, 1) infinite;
+    }}
+    #card-3 {{
+      background-image: url('{sbi_b64}');
+      animation: shuffleSbi 9s cubic-bezier(0.34, 1.25, 0.64, 1) infinite;
     }}
 
-    @keyframes cutDeckCard2 {{
-      0%, 15% {{ transform: translate3d(45px, -15px, 0px) scale(0.92) rotate(4deg); z-index: 20; opacity: 0.88; }}
-      30%, 45% {{ transform: translate3d(105px, 20px, 35px) scale(0.96) rotate(9deg); z-index: 25; opacity: 1; box-shadow: 0 25px 50px -10px rgba(0, 0, 0, 0.35); }}
-      60% {{ transform: translate3d(20px, -8px, 15px) scale(0.95) rotate(2deg); z-index: 20; opacity: 0.9; }}
-      75%, 100% {{ transform: translate3d(40px, -12px, 0px) scale(0.92) rotate(4deg); z-index: 20; opacity: 0.88; }}
+    /* Hover pauses animation so user can inspect card */
+    .card-stage-wrap:hover .physical-card {{
+      animation-play-state: paused;
     }}
 
-    @keyframes cutDeckCard3 {{
-      0%, 15% {{ transform: translate3d(-35px, -18px, -35px) scale(0.86) rotate(-5deg); z-index: 10; opacity: 0.72; }}
-      30%, 45% {{ transform: translate3d(0px, 15px, -5px) scale(0.9) rotate(0deg); z-index: 10; opacity: 0.85; }}
-      60% {{ transform: translate3d(0px, -15px, 60px) scale(1.04) rotate(1deg); z-index: 40; opacity: 1; }}
-      75%, 100% {{ transform: translate3d(0, 0, 40px) scale(1) rotate(0deg); z-index: 30; opacity: 1; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.35); }}
-    }}
-
-    /* ====================================================================
-       MODE 2: 3D Auto-Shuffle (Continuous Smooth Carousel)
-       ==================================================================== */
-    .mode-shuffle #card-1 {{ animation: shuffleSwiggy 9s cubic-bezier(0.34, 1.25, 0.64, 1) infinite; }}
-    .mode-shuffle #card-2 {{ animation: shuffleAmazon 9s cubic-bezier(0.34, 1.25, 0.64, 1) infinite; }}
-    .mode-shuffle #card-3 {{ animation: shuffleSbi 9s cubic-bezier(0.34, 1.25, 0.64, 1) infinite; }}
-
+    /* Continuous 3D Auto-Shuffle Cycle */
     @keyframes shuffleSwiggy {{
       0%, 28% {{ transform: translate3d(0, 0, 40px) scale(1) rotate(0deg); z-index: 30; opacity: 1; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.35); }}
       33%, 61% {{ transform: translate3d(45px, -15px, 0px) scale(0.92) rotate(4deg); z-index: 20; opacity: 0.88; box-shadow: 0 16px 32px -10px rgba(0, 0, 0, 0.22); }}
       66%, 95% {{ transform: translate3d(-40px, -22px, -40px) scale(0.85) rotate(-5deg); z-index: 10; opacity: 0.72; box-shadow: 0 10px 20px -8px rgba(0, 0, 0, 0.18); }}
       100% {{ transform: translate3d(0, 0, 40px) scale(1) rotate(0deg); z-index: 30; opacity: 1; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.35); }}
     }}
+
     @keyframes shuffleAmazon {{
       0%, 28% {{ transform: translate3d(45px, -15px, 0px) scale(0.92) rotate(4deg); z-index: 20; opacity: 0.88; box-shadow: 0 16px 32px -10px rgba(0, 0, 0, 0.22); }}
       33%, 61% {{ transform: translate3d(-40px, -22px, -40px) scale(0.85) rotate(-5deg); z-index: 10; opacity: 0.72; box-shadow: 0 10px 20px -8px rgba(0, 0, 0, 0.18); }}
       66%, 95% {{ transform: translate3d(0, 0, 40px) scale(1) rotate(0deg); z-index: 30; opacity: 1; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.35); }}
       100% {{ transform: translate3d(45px, -15px, 0px) scale(0.92) rotate(4deg); z-index: 20; opacity: 0.88; box-shadow: 0 16px 32px -10px rgba(0, 0, 0, 0.22); }}
     }}
+
     @keyframes shuffleSbi {{
       0%, 28% {{ transform: translate3d(-40px, -22px, -40px) scale(0.85) rotate(-5deg); z-index: 10; opacity: 0.72; box-shadow: 0 10px 20px -8px rgba(0, 0, 0, 0.18); }}
       33%, 61% {{ transform: translate3d(0, 0, 40px) scale(1) rotate(0deg); z-index: 30; opacity: 1; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.35); }}
@@ -542,34 +526,13 @@ def get_card_shuffle_html(mode="cut"):
       100% {{ transform: translate3d(-40px, -22px, -40px) scale(0.85) rotate(-5deg); z-index: 10; opacity: 0.72; box-shadow: 0 10px 20px -8px rgba(0, 0, 0, 0.18); }}
     }}
 
-    /* ====================================================================
-       MODE 3: 3D Fan-Out Deck Spread (Shows all 3 cards simultaneously)
-       ==================================================================== */
-    .mode-fan #card-1 {{ transform: translate3d(-75px, 6px, 10px) rotate(-11deg) scale(0.94); z-index: 10; opacity: 0.95; animation: fanBreatheLeft 4s ease-in-out infinite; }}
-    .mode-fan #card-2 {{ transform: translate3d(0px, -8px, 30px) rotate(0deg) scale(1.02); z-index: 30; opacity: 1; box-shadow: 0 25px 50px -10px rgba(0,0,0,0.35); animation: fanBreatheCenter 4s ease-in-out infinite; }}
-    .mode-fan #card-3 {{ transform: translate3d(75px, 6px, 10px) rotate(11deg) scale(0.94); z-index: 20; opacity: 0.95; animation: fanBreatheRight 4s ease-in-out infinite; }}
-
-    @keyframes fanBreatheCenter {{ 0%, 100% {{ transform: translate3d(0px, -8px, 30px) rotate(0deg) scale(1.02); }} 50% {{ transform: translate3d(0px, -14px, 35px) rotate(0deg) scale(1.03); }} }}
-    @keyframes fanBreatheLeft {{ 0%, 100% {{ transform: translate3d(-75px, 6px, 10px) rotate(-11deg) scale(0.94); }} 50% {{ transform: translate3d(-80px, 4px, 10px) rotate(-13deg) scale(0.94); }} }}
-    @keyframes fanBreatheRight {{ 0%, 100% {{ transform: translate3d(75px, 6px, 10px) rotate(11deg) scale(0.94); }} 50% {{ transform: translate3d(80px, 4px, 10px) rotate(13deg) scale(0.94); }} }}
-
-    /* ====================================================================
-       MODE 4: Click to Focus Spotlight
-       ==================================================================== */
-    .mode-spotlight #card-1.spotlight {{ transform: translate3d(0, 0, 50px) scale(1.04) rotate(0deg); z-index: 30; opacity: 1; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.4); }}
-    .mode-spotlight #card-1:not(.spotlight) {{ transform: translate3d(-40px, -18px, -20px) scale(0.88) rotate(-6deg); z-index: 10; opacity: 0.7; }}
-    .mode-spotlight #card-2.spotlight {{ transform: translate3d(0, 0, 50px) scale(1.04) rotate(0deg); z-index: 30; opacity: 1; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.4); }}
-    .mode-spotlight #card-2:not(.spotlight) {{ transform: translate3d(40px, -14px, -10px) scale(0.9) rotate(5deg); z-index: 15; opacity: 0.75; }}
-    .mode-spotlight #card-3.spotlight {{ transform: translate3d(0, 0, 50px) scale(1.04) rotate(0deg); z-index: 30; opacity: 1; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.4); }}
-    .mode-spotlight #card-3:not(.spotlight) {{ transform: translate3d(45px, -18px, -20px) scale(0.88) rotate(6deg); z-index: 10; opacity: 0.7; }}
-
     .cards-badges-row {{
       display: flex;
       flex-wrap: wrap;
       justify-content: center;
       gap: 8px;
       margin-top: 4px;
-      margin-bottom: 12px;
+      margin-bottom: 14px;
     }}
 
     .card-badge {{
@@ -583,10 +546,7 @@ def get_card_shuffle_html(mode="cut"):
       border: 1px solid rgba(226, 232, 240, 0.8);
       background: #ffffff;
       box-shadow: 0 1px 3px rgba(0,0,0,0.05);
-      cursor: pointer;
-      transition: all 0.2s cubic-bezier(0.34, 1.3, 0.64, 1);
     }}
-    .card-badge:hover {{ transform: scale(1.04); }}
 
     .badge-hdfc {{ color: #c2410c; border-color: #fed7aa; background: #fff7ed; }}
     .badge-icici {{ color: #b45309; border-color: #fde68a; background: #fefce8; }}
@@ -616,20 +576,6 @@ def get_card_shuffle_html(mode="cut"):
         height: 190px;
         max-width: 320px;
       }}
-      .mode-fan #card-1 {{ transform: translate3d(-50px, 4px, 10px) rotate(-10deg) scale(0.92); }}
-      .mode-fan #card-3 {{ transform: translate3d(50px, 4px, 10px) rotate(10deg) scale(0.92); }}
-      @keyframes cutDeckCard1 {{
-        0%, 15% {{ transform: translate3d(0, 0, 40px) scale(1) rotate(0deg); z-index: 30; opacity: 1; }}
-        30%, 45% {{ transform: translate3d(-75px, -20px, 50px) scale(0.97) rotate(-11deg); z-index: 35; opacity: 1; }}
-        60% {{ transform: translate3d(-15px, 10px, -15px) scale(0.91) rotate(-3deg); z-index: 10; opacity: 0.8; }}
-        75%, 100% {{ transform: translate3d(-25px, -12px, -30px) scale(0.86) rotate(-5deg); z-index: 10; opacity: 0.72; }}
-      }}
-      @keyframes cutDeckCard2 {{
-        0%, 15% {{ transform: translate3d(30px, -10px, 0px) scale(0.92) rotate(4deg); z-index: 20; opacity: 0.88; }}
-        30%, 45% {{ transform: translate3d(75px, 15px, 25px) scale(0.96) rotate(9deg); z-index: 25; opacity: 1; }}
-        60% {{ transform: translate3d(15px, -5px, 10px) scale(0.95) rotate(2deg); z-index: 20; opacity: 0.9; }}
-        75%, 100% {{ transform: translate3d(25px, -8px, 0px) scale(0.92) rotate(4deg); z-index: 20; opacity: 0.88; }}
-      }}
     }}
   </style>
 </head>
@@ -644,8 +590,8 @@ def get_card_shuffle_html(mode="cut"):
       Upload your <b>HDFC Bank (Swiggy)</b>, <b>ICICI Bank (Amazon Pay)</b>, or <b>SBI Card (SimplyCLICK)</b> statement PDF above to view your interactive Apple-style dashboard, friend EMI receipts, and cashback reconciliation.
     </p>
 
-    <!-- 3D Card Animation Stage: Click Anywhere on Deck to Cut/Shuffle! -->
-    <div id="card-stage" class="card-stage-wrap mode-{mode}" onclick="triggerInteractiveCut()" title="Click anywhere on the deck to cut and shuffle!">
+    <!-- 3D Card Animation Stage: Continuous Auto-Shuffle (Hover to Inspect) -->
+    <div id="card-stage" class="card-stage-wrap" title="Hover to inspect card details">
       <div id="card-1" class="physical-card">
         <div class="card-glare"></div>
         <div class="embossed-name">SWIGGY HDFC</div>
@@ -654,7 +600,7 @@ def get_card_shuffle_html(mode="cut"):
         <div class="card-glare"></div>
         <div class="embossed-name" style="color: #fde68a;">AMAZON PAY ICICI</div>
       </div>
-      <div id="card-3" class="physical-card spotlight">
+      <div id="card-3" class="physical-card">
         <div class="card-glare"></div>
         <div class="embossed-name">SBI SIMPLYCLICK</div>
       </div>
@@ -662,9 +608,9 @@ def get_card_shuffle_html(mode="cut"):
 
     <!-- Supported Card Pills -->
     <div class="cards-badges-row">
-      <span class="card-badge badge-hdfc" onclick="setSpotlight(1)"><span>🛵</span><span>Swiggy HDFC Bank (10% Food)</span></span>
-      <span class="card-badge badge-icici" onclick="setSpotlight(2)"><span>🛒</span><span>Amazon Pay ICICI (5% Shopping)</span></span>
-      <span class="card-badge badge-sbi" onclick="setSpotlight(3)"><span>💳</span><span>SBI SimplyCLICK (10X Online)</span></span>
+      <span class="card-badge badge-hdfc"><span>🛵</span><span>Swiggy HDFC Bank (10% Food)</span></span>
+      <span class="card-badge badge-icici"><span>🛒</span><span>Amazon Pay ICICI (5% Shopping)</span></span>
+      <span class="card-badge badge-sbi"><span>💳</span><span>SBI Card SimplyCLICK (10X Online)</span></span>
     </div>
 
     <div class="privacy-pill">
@@ -672,36 +618,6 @@ def get_card_shuffle_html(mode="cut"):
       <span>100% Zero-Disk Privacy: Statements are processed in RAM & never stored on the server — also I don't have money to buy a server 😜</span>
     </div>
   </div>
-
-  <script>
-    let currentMode = '{mode}';
-    let currentSpotlight = 3;
-
-    function triggerInteractiveCut() {{
-      const stage = document.getElementById('card-stage');
-      if (!stage) return;
-      // Re-trigger animation cleanly by momentarily removing and restoring class
-      stage.classList.remove('mode-cut');
-      void stage.offsetWidth; // Trigger reflow
-      stage.classList.add('mode-cut');
-    }}
-
-    function setSpotlight(num) {{
-      spotlightCard(num);
-    }}
-
-    function spotlightCard(num) {{
-      currentSpotlight = num;
-      const stage = document.getElementById('card-stage');
-      if (stage && !stage.classList.contains('mode-spotlight')) {{
-        stage.className = 'card-stage-wrap mode-spotlight';
-      }}
-      for (let i = 1; i <= 3; i++) {{
-        const c = document.getElementById('card-' + i);
-        if (c) c.classList.toggle('spotlight', i === num);
-      }}
-    }}
-  </script>
 </body>
 </html>"""
 
@@ -714,9 +630,8 @@ if st.session_state.statements_data:
     )
     components.html(dashboard_html, height=1450, scrolling=True)
 else:
-    # Clean Initial State: Driven dynamically by Sidebar Animation Settings
-    active_anim_mode = st.session_state.get("card_anim_mode", "cut")
-    components.html(get_card_shuffle_html(mode=active_anim_mode), height=490, scrolling=False)
+    # Clean Initial State: Default 3D Auto-Shuffle Showcase
+    components.html(get_card_shuffle_html(), height=485, scrolling=False)
 
 # --- Friendly Footer ---
 st.markdown("""
