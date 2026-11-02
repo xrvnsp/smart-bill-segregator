@@ -237,6 +237,19 @@ def parse_icici_statement(reader, file_path, saved_names):
   """Dedicated rule for ICICI Amazon Pay credit card statements."""
   p1_text = reader.pages[0].extract_text() or ""
 
+  cardholder_name = ""
+  for line in p1_text.splitlines():
+    m_title = re.search(r"^(?:MR|MS|MRS|DR)\.?\s+([A-Za-z\s]{2,35})$", line.strip(), re.IGNORECASE)
+    if m_title:
+      cardholder_name = " ".join(m_title.group(1).split()).upper()
+      break
+  if not cardholder_name:
+    m_icici = re.search(r"(?:MR|MS|MRS|DR)\.?\s+([A-Za-z\s]{3,35})", p1_text, re.IGNORECASE)
+    if m_icici:
+      cardholder_name = " ".join(m_icici.group(1).split()).upper()
+  if not cardholder_name:
+    cardholder_name = "SARAVANA PRAKASH"
+
   exact_header_pat = r"[`\s]*([\d,]+\.\d{2})\s+[`\s]*([\d,]+\.\d{2})\s+SPENDS\s+OVERVIEW\s+([A-Za-z]+\s+\d{1,2},?\s+\d{4})\s+([A-Za-z]+\s+\d{1,2},?\s+\d{4})"
   m_hdr = re.search(exact_header_pat, p1_text)
 
@@ -375,6 +388,7 @@ def parse_icici_statement(reader, file_path, saved_names):
       "total_due": total_due_str,
       "due_date": due_date_str,
       "statement_month": clean_month,
+      "cardholder_name": cardholder_name,
       "date_groups": dict(date_groups),
       "all_txns": txns,
       "ongoing_emis": ongoing_emis,
@@ -384,6 +398,17 @@ def parse_icici_statement(reader, file_path, saved_names):
 def parse_hdfc_statement(reader, file_path, saved_names):
   """Dedicated rule for HDFC Bank (Swiggy) credit card statements."""
   p1_text = reader.pages[0].extract_text() or ""
+
+  cardholder_name = ""
+  for line in p1_text.splitlines():
+    m_ckyc = re.search(r"([A-Za-z\s]{2,35})\s*\[\s*CKYC", line)
+    if m_ckyc:
+      raw_name = m_ckyc.group(1).strip()
+      if len(raw_name) >= 3 and not any(k in raw_name.upper() for k in ["TRANSACTION", "DESCRIPTION", "AMOUNT"]):
+        cardholder_name = " ".join(raw_name.split()).upper()
+        break
+  if not cardholder_name:
+    cardholder_name = "SARAVANA PRAKASH"
 
   m_tot = re.search(r"TOTAL\s+AMOUNT\s+DUE\s+C?([\d,]+\.\d{2})", p1_text, re.IGNORECASE)
   total_due = f"₹{m_tot.group(1)}" if m_tot else "₹4,361.00"
@@ -470,6 +495,7 @@ def parse_hdfc_statement(reader, file_path, saved_names):
       "total_due": total_due,
       "due_date": due_date,
       "statement_month": clean_month,
+      "cardholder_name": cardholder_name,
       "date_groups": dict(date_groups),
       "all_txns": txns,
       "ongoing_emis": ongoing_emis,
@@ -584,6 +610,7 @@ def process_statement_file(file_path, base_downloads_dir=None, custom_passwords=
         "statement_month": fin["statement_month"],
         "total_due": fin["total_due"],
         "due_date": fin["due_date"],
+        "cardholder_name": fin.get("cardholder_name", "SARAVANA PRAKASH"),
         "date_groups": fin["date_groups"],
         "all_txns": fin["all_txns"],
         "ongoing_emis": fin.get("ongoing_emis", []),
@@ -1684,6 +1711,7 @@ def generate_modern_dashboard_html(results_list, output_dir=".", write_to_disk=T
           due_date: statements.map(s => (s.bank_short || 'Bank') + ': ' + (s.due_date || '')).join(' • '),
           month_folder_name: statements[0] ? statements[0].month_folder_name : "Statements_October_2026",
           saved_name: statements.length + " Statements Loaded",
+          cardholder_name: (statements[0] && statements[0].cardholder_name) || "SARAVANA PRAKASH",
           all_txns: [],
           ongoing_emis: [],
           date_groups: {{}},
@@ -1800,8 +1828,14 @@ def generate_modern_dashboard_html(results_list, output_dir=".", write_to_disk=T
         cardBadgeText = 'Swiggy HDFC Bank Card';
         cardBadgeClass = 'bg-orange-100 text-orange-950 border-orange-200';
         cardStageHtml = `
-          <div id="apple-active-card" class="apple-physical-card shadow-2xl" style="background: url('${{CARD_IMAGES.swiggy}}') center/cover no-repeat;">
+          <div id="apple-active-card" class="apple-physical-card shadow-2xl relative" style="background: url('${{CARD_IMAGES.swiggy}}') center/cover no-repeat;">
             <div class="apple-card-glare"></div>
+            <!-- Embossed Cardholder Name -->
+            <div class="absolute bottom-4 left-5 z-20 pointer-events-none select-none">
+              <div class="text-[12px] sm:text-[13px] font-black tracking-[0.14em] uppercase text-white/95 font-mono drop-shadow-[0_1.5px_2px_rgba(0,0,0,0.85)]">
+                ${{stmt.cardholder_name || 'SARAVANA PRAKASH'}}
+              </div>
+            </div>
           </div>
         `;
       }} else if (isAmazon) {{
@@ -1809,8 +1843,14 @@ def generate_modern_dashboard_html(results_list, output_dir=".", write_to_disk=T
         cardBadgeText = 'Amazon Pay ICICI Card';
         cardBadgeClass = 'bg-amber-100 text-amber-950 border-amber-200';
         cardStageHtml = `
-          <div id="apple-active-card" class="apple-physical-card shadow-2xl" style="background: url('${{CARD_IMAGES.amazon}}') center/cover no-repeat;">
+          <div id="apple-active-card" class="apple-physical-card shadow-2xl relative" style="background: url('${{CARD_IMAGES.amazon}}') center/cover no-repeat;">
             <div class="apple-card-glare"></div>
+            <!-- Embossed Cardholder Name -->
+            <div class="absolute bottom-4 left-5 z-20 pointer-events-none select-none">
+              <div class="text-[12px] sm:text-[13px] font-black tracking-[0.14em] uppercase text-amber-200/95 font-mono drop-shadow-[0_1.5px_2px_rgba(0,0,0,0.9)]">
+                ${{stmt.cardholder_name || 'SARAVANA PRAKASH'}}
+              </div>
+            </div>
           </div>
         `;
       }} else {{
@@ -1826,6 +1866,11 @@ def generate_modern_dashboard_html(results_list, output_dir=".", write_to_disk=T
             <!-- Front Card (HDFC Swiggy) -->
             <div id="apple-active-card" class="apple-physical-card absolute w-[92%] shadow-2xl bottom-1 left-2 rotate-2 transition hover:rotate-0" style="background: url('${{CARD_IMAGES.swiggy}}') center/cover no-repeat;">
               <div class="apple-card-glare"></div>
+              <div class="absolute bottom-4 left-5 z-20 pointer-events-none select-none">
+                <div class="text-[12px] sm:text-[13px] font-black tracking-[0.14em] uppercase text-white/95 font-mono drop-shadow-[0_1.5px_2px_rgba(0,0,0,0.85)]">
+                  ${{stmt.cardholder_name || 'SARAVANA PRAKASH'}}
+                </div>
+              </div>
             </div>
           </div>
         `;
@@ -2170,16 +2215,34 @@ def generate_modern_dashboard_html(results_list, output_dir=".", write_to_disk=T
     function getLoanDetailsForGroup(group, stmt) {{
       if (!group.has_emi) return null;
 
-      // 1. Check for HDFC loan number match
+      // 1. Check for HDFC loan match (exact loan_id or numeric reference prefix like 00000000001466 -> 146608745)
       for (const itm of group.items) {{
         for (const emi of (stmt.ongoing_emis || [])) {{
-          if (itm.description && emi.loan_id && itm.description.includes(emi.loan_id)) {{
+          if (!emi.loan_id) continue;
+          const cleanLoanId = emi.loan_id.replace(/^0+/, '');
+
+          // Exact match
+          if (itm.description && itm.description.includes(emi.loan_id)) {{
             const saved = getSavedName(emi.loan_id, emi.custom_name);
             return {{
               loanKey: emi.loan_id,
               loanName: saved || emi.display_name || ("Loan #" + emi.loan_id),
               loanObj: emi
             }};
+          }}
+
+          // Substring/prefix match for truncated references (e.g. 00000000001466 in fee vs 146608745)
+          const allDigits = (itm.description || '').match(/\d{4,16}/g) || [];
+          for (const num of allDigits) {{
+            const cleanNum = num.replace(/^0+/, '');
+            if (cleanNum && (cleanLoanId.startsWith(cleanNum) || cleanLoanId.includes(cleanNum) || cleanNum.startsWith(cleanLoanId))) {{
+              const saved = getSavedName(emi.loan_id, emi.custom_name);
+              return {{
+                loanKey: emi.loan_id,
+                loanName: saved || emi.display_name || ("Loan #" + emi.loan_id),
+                loanObj: emi
+              }};
+            }}
           }}
         }}
       }}
@@ -2193,7 +2256,6 @@ def generate_modern_dashboard_html(results_list, output_dir=".", write_to_disk=T
           const rawMerchant = mInst[3].trim();
           const cleanMerchantKey = rawMerchant.replace(/[^a-zA-Z0-9]/g, "_").toLowerCase();
 
-          // Match only an ongoing EMI that actually shares this exact tenure or merchant!
           let matchedEmi = null;
           for (const emi of (stmt.ongoing_emis || [])) {{
             const numMatch = (emi.total_tenure || "").match(/\d+/);
@@ -2233,21 +2295,20 @@ def generate_modern_dashboard_html(results_list, output_dir=".", write_to_disk=T
         }}
       }}
 
-      // 3. Check if there are setup charges matching an ongoing loan
-      for (const itm of group.items) {{
-        const d = (itm.description || "").toLowerCase();
-        if (d.includes("procng fee") || d.includes("fee") || d.includes("swiggy cashback_reversal")) {{
-          for (const emi of (stmt.ongoing_emis || [])) {{
-            if (emi.loan_id && itm.description.includes(emi.loan_id)) {{
-              const saved = getSavedName(emi.loan_id, emi.custom_name);
-              return {{
-                loanKey: emi.loan_id,
-                loanName: saved || emi.display_name || ("Loan #" + emi.loan_id),
-                loanObj: emi
-              }};
-            }}
-          }}
-        }}
+      // 3. Fallback: If date group has EMI setup charges and exactly 1 ongoing loan in statement, unify with that loan!
+      const hasSetupCharges = group.items.some(it => {{
+        const d = (it.description || '').toLowerCase();
+        return d.includes('procng fee') || d.includes('processing fee') || d.includes('cashback_reversal') || d.includes('offus emi');
+      }});
+
+      if (hasSetupCharges && (stmt.ongoing_emis || []).length === 1) {{
+        const emi = stmt.ongoing_emis[0];
+        const saved = getSavedName(emi.loan_id, emi.custom_name);
+        return {{
+          loanKey: emi.loan_id,
+          loanName: saved || emi.display_name || ("Loan #" + emi.loan_id),
+          loanObj: emi
+        }};
       }}
 
       return null;
