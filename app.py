@@ -33,10 +33,10 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# --- Responsive Stylesheet: Zero Header Gap & Foolproof Elevated Toasts ---
+# --- Responsive Stylesheet: Zero Header Gap & Sidebar 5-Second Toast ---
 st.markdown("""
 <style>
-    /* Collapse Streamlit header without hiding toasts */
+    /* Collapse Streamlit header without causing white/black gap */
     header[data-testid="stHeader"], header {
         background: transparent !important;
         height: 0 !important;
@@ -63,30 +63,23 @@ st.markdown("""
     #MainMenu {visibility: hidden;}
     footer {visibility: hidden;}
 
-    /* Force Streamlit native toasts to be unmissable and highly elevated */
-    [data-testid="stToastContainer"], div[data-testid="stToastContainer"] {
-        display: block !important;
-        visibility: visible !important;
-        z-index: 9999999 !important;
-        position: fixed !important;
-        bottom: 24px !important;
-        right: 24px !important;
-    }
-    [data-testid="stToast"] {
-        background: rgba(15, 23, 42, 0.96) !important;
-        color: #ffffff !important;
-        border-radius: 16px !important;
-        border: 1px solid rgba(255, 255, 255, 0.2) !important;
-        box-shadow: 0 20px 40px -10px rgba(0, 0, 0, 0.5) !important;
-        font-weight: 600 !important;
-        z-index: 9999999 !important;
-    }
-    
     iframe {
         border-radius: 20px;
         box-shadow: 0 4px 25px -3px rgba(0, 0, 0, 0.08);
         border: 1px solid #e2e8f0;
         width: 100% !important;
+    }
+
+    /* Sidebar 5-second auto-fading toast */
+    .sidebar-toast-5s {
+        animation: fadeOutSidebarToast 5s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+    }
+
+    @keyframes fadeOutSidebarToast {
+        0% { opacity: 1; transform: translateY(0); max-height: 120px; margin-top: 10px; margin-bottom: 10px; }
+        80% { opacity: 1; transform: translateY(0); max-height: 120px; margin-top: 10px; margin-bottom: 10px; }
+        98% { opacity: 0; transform: translateY(-8px); max-height: 0; padding: 0 12px; margin-top: 0; margin-bottom: 0; }
+        100% { opacity: 0; display: none; visibility: hidden; height: 0; padding: 0; margin: 0; }
     }
 
     /* Mobile adjustments */
@@ -96,16 +89,6 @@ st.markdown("""
             padding-left: 0.5rem !important;
             padding-right: 0.5rem !important;
         }
-        [data-testid="stToastContainer"] {
-            bottom: 12px !important;
-            right: 12px !important;
-            left: 12px !important;
-        }
-    }
-
-    @keyframes slideDownToast {
-        0% { transform: translateY(-16px); opacity: 0; }
-        100% { transform: translateY(0); opacity: 1; }
     }
 </style>
 """, unsafe_allow_html=True)
@@ -138,10 +121,6 @@ if client_vault and isinstance(client_vault, dict):
             restored_keys.append(b_name)
     if not st.session_state.session_passwords.get("sheets_webhook_url") and client_vault.get("sheets_webhook_url"):
         st.session_state.session_passwords["sheets_webhook_url"] = client_vault["sheets_webhook_url"].strip()
-
-    if restored_keys and "vault_restored_toast" not in st.session_state:
-        st.session_state["vault_restored_toast"] = True
-        st.toast(f"🔑 Loaded saved passwords from this device: {', '.join(restored_keys)}!", icon="✅")
 
 # --- Sidebar Controls ---
 with st.sidebar:
@@ -190,22 +169,68 @@ with st.sidebar:
                 "sbi": sbi_val.strip(),
                 "sheets_webhook_url": webhook_val.strip()
             }
-            st.session_state["vault_action_notice"] = {
+            st.session_state["sidebar_toast_notice"] = {
                 "type": "success",
-                "title": "Passwords Saved on This Device",
-                "desc": "Saved strictly in your browser's local vault. Next statement uploads will unlock automatically!"
+                "title": "Passwords Saved Locally!",
+                "desc": "Saved in this browser for 1-click auto-unlock."
             }
             st.rerun()
 
         if st.button("🗑️ Forget Saved Passwords", use_container_width=True, help="Clear saved passwords from this browser"):
             st.session_state.session_passwords = {"icici": "", "hdfc": "", "sbi": "", "sheets_webhook_url": ""}
             st.session_state["pending_clear_vault"] = True
-            st.session_state["vault_action_notice"] = {
+            st.session_state["sidebar_toast_notice"] = {
                 "type": "info",
                 "title": "Passwords Cleared",
-                "desc": "Saved passwords have been removed from this browser."
+                "desc": "Wiped from this device's browser vault."
             }
             st.rerun()
+
+        # 5-Second Auto-Fading Toast strictly in Sidebar (disappears after 5s)
+        if "sidebar_toast_notice" in st.session_state:
+            s_notice = st.session_state.pop("sidebar_toast_notice")
+            st.markdown(f"""
+            <div class="sidebar-toast-5s" style="
+                background: linear-gradient(135deg, rgba(240, 253, 244, 0.98) 0%, rgba(220, 252, 231, 0.98) 100%);
+                border: 1px solid #86efac;
+                border-radius: 12px;
+                padding: 10px 12px;
+                box-shadow: 0 4px 14px -2px rgba(22, 101, 52, 0.15);
+                display: flex;
+                align-items: center;
+                gap: 8px;
+            ">
+                <span style="font-size: 18px; line-height: 1;">🔒</span>
+                <div>
+                    <div style="font-size: 12px; font-weight: 800; color: #166534;">{s_notice['title']}</div>
+                    <div style="font-size: 11px; color: #15803d; font-weight: 600; margin-top: 1px;">{s_notice['desc']}</div>
+                </div>
+            </div>
+            """, unsafe_allow_html=True)
+
+    # --- 3D Card Animation Settings (Moved to Sidebar!) ---
+    with st.expander("🎨 3D Card Animation Settings", expanded=True):
+        st.caption("Choose idle motion style for the 3D card showcase:")
+        anim_modes = [
+            ("cut", "✂️ Cut the Deck (Spring)"),
+            ("shuffle", "🔀 3D Auto-Shuffle"),
+            ("fan", "🃏 Fan-Out Deck Spread"),
+            ("spotlight", "👆 Click to Focus / Spotlight")
+        ]
+        curr_mode = st.session_state.get("card_anim_mode", "cut")
+        mode_keys = [m[0] for m in anim_modes]
+        default_idx = mode_keys.index(curr_mode) if curr_mode in mode_keys else 0
+
+        selected_label = st.radio(
+            "Card Animation Style:",
+            options=[m[1] for m in anim_modes],
+            index=default_idx,
+            label_visibility="collapsed"
+        )
+        for m_key, m_lbl in anim_modes:
+            if m_lbl == selected_label:
+                st.session_state["card_anim_mode"] = m_key
+                break
 
     st.link_button(
         "📋 Copy Google Sheet Template",
@@ -219,36 +244,7 @@ with st.sidebar:
 if "statements_data" not in st.session_state:
     st.session_state.statements_data = {}
 
-# --- Visible In-App Toast & Floating Banner for Saved Passwords ---
-if "vault_action_notice" in st.session_state:
-    notice = st.session_state.pop("vault_action_notice")
-    st.toast(f"{notice['title']} — {notice['desc']}", icon="🔒")
-    st.markdown(f"""
-    <div style="
-        background: linear-gradient(135deg, rgba(240, 253, 244, 0.98) 0%, rgba(220, 252, 231, 0.98) 100%);
-        border: 1px solid #86efac;
-        border-radius: 16px;
-        padding: 12px 18px;
-        margin-bottom: 12px;
-        box-shadow: 0 10px 25px -5px rgba(22, 101, 52, 0.12);
-        animation: slideDownToast 0.4s cubic-bezier(0.34, 1.3, 0.64, 1);
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        gap: 12px;
-    ">
-        <div style="display: flex; align-items: center; gap: 12px;">
-            <div style="font-size: 24px; line-height: 1;">🔒</div>
-            <div>
-                <div style="font-size: 13px; font-weight: 800; color: #166534; letter-spacing: -0.01em;">{notice['title']}</div>
-                <div style="font-size: 12px; color: #15803d; font-weight: 600; margin-top: 1px;">{notice['desc']}</div>
-            </div>
-        </div>
-        <span style="font-size: 11px; font-weight: 800; color: #166534; background: rgba(255,255,255,0.8); padding: 4px 10px; border-radius: 9999px; border: 1px solid #bbf7d0;">Device Vault Active</span>
-    </div>
-    """, unsafe_allow_html=True)
-
-# --- Main Page Header & Visible Upload Card (Zero Gap) ---
+# --- Main Page Header & Visible Upload Card (Zero Gap & No Toasts in Main Window) ---
 st.markdown("<div style='margin-top: 0px; margin-bottom: 4px;'><h1 style='font-size: 26px; font-weight: 800; color: inherit; margin: 0; letter-spacing: -0.02em;'>💳 Smart Bill Segregator</h1></div>", unsafe_allow_html=True)
 st.caption("Auto-segregates bank statements, friend EMIs, cashback, and regular card spends.")
 
@@ -338,10 +334,10 @@ if uploaded_files:
                         if inline_pwd.strip():
                             st.session_state.session_passwords[bank_key] = inline_pwd.strip()
                             st.session_state["pending_save_vault"] = dict(st.session_state.session_passwords)
-                            st.session_state["vault_action_notice"] = {
+                            st.session_state["sidebar_toast_notice"] = {
                                 "type": "success",
                                 "title": f"Password Saved for {selected_bank}",
-                                "desc": "Stored in your browser vault. Unlocking your statement now..."
+                                "desc": "Stored in browser vault for this device."
                             }
                             st.rerun()
 
@@ -362,8 +358,8 @@ if st.session_state.statements_data:
             st.session_state.statements_data = {}
             st.rerun()
 
-# --- Generator for the Spring-Loaded "Cut the Deck" & Interactive 3D Showcase ---
-def get_card_shuffle_html():
+# --- Generator for the Clean 3D Card Showcase (Controlled by Sidebar) ---
+def get_card_shuffle_html(mode="cut"):
     swiggy_b64 = unlock_statements.get_card_b64("card-facia-swiggy.jpg")
     amazon_b64 = unlock_statements.get_card_b64("card-facia-amazon.png")
     sbi_b64 = unlock_statements.get_card_b64("simply-click-card-face.png")
@@ -376,7 +372,7 @@ def get_card_shuffle_html():
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500;600;700;800;900&display=swap" rel="stylesheet">
   <style>
     * {{ box-sizing: border-box; margin: 0; padding: 0; font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif; }}
-    body {{ background: transparent; display: flex; justify-content: center; align-items: center; padding: 6px; overflow: hidden; }}
+    body {{ background: transparent; display: flex; justify-content: center; align-items: center; padding: 4px; overflow: hidden; }}
     
     .showcase-card {{
       width: 100%;
@@ -426,42 +422,6 @@ def get_card_shuffle_html():
       margin-bottom: 12px;
     }}
 
-    /* Interactive Animation Mode Selector */
-    .mode-bar {{
-      display: flex;
-      gap: 6px;
-      background: rgba(241, 245, 249, 0.95);
-      padding: 4px;
-      border-radius: 14px;
-      border: 1px solid #e2e8f0;
-      margin-bottom: 12px;
-      flex-wrap: wrap;
-      justify-content: center;
-    }}
-
-    .mode-btn {{
-      padding: 6px 14px;
-      border-radius: 10px;
-      font-size: 11px;
-      font-weight: 800;
-      border: none;
-      cursor: pointer;
-      background: transparent;
-      color: #64748b;
-      transition: all 0.2s cubic-bezier(0.34, 1.3, 0.64, 1);
-      display: flex;
-      align-items: center;
-      gap: 5px;
-    }}
-
-    .mode-btn.active {{
-      background: #ffffff;
-      color: #0f172a;
-      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
-      border: 1px solid rgba(226, 232, 240, 0.9);
-      transform: scale(1.02);
-    }}
-
     /* 3D Physical Card Stage with Perspective */
     .card-stage-wrap {{
       perspective: 1200px;
@@ -470,7 +430,7 @@ def get_card_shuffle_html():
       max-width: 380px;
       height: 220px;
       position: relative;
-      margin: 4px auto 14px auto;
+      margin: 8px auto 16px auto;
       display: flex;
       justify-content: center;
       align-items: center;
@@ -507,7 +467,6 @@ def get_card_shuffle_html():
       border-radius: 16px;
       background: linear-gradient(135deg, rgba(255,255,255,0.4) 0%, rgba(255,255,255,0.05) 50%, rgba(0,0,0,0.15) 100%);
       pointer-events: none;
-      transition: opacity 0.3s ease;
     }}
 
     .embossed-name {{
@@ -530,7 +489,7 @@ def get_card_shuffle_html():
     #card-3 {{ background-image: url('{sbi_b64}'); }}
 
     /* ====================================================================
-       MODE 1: Spring-Loaded "Cut the Deck" Shuffle (Card Dealer Cut & Riffle)
+       MODE 1: Spring-Loaded "Cut the Deck" Shuffle
        ==================================================================== */
     .mode-cut #card-1 {{ animation: cutDeckCard1 4.5s cubic-bezier(0.34, 1.35, 0.64, 1) infinite; }}
     .mode-cut #card-2 {{ animation: cutDeckCard2 4.5s cubic-bezier(0.34, 1.35, 0.64, 1) infinite; }}
@@ -538,27 +497,21 @@ def get_card_shuffle_html():
 
     @keyframes cutDeckCard1 {{
       0%, 15% {{ transform: translate3d(0, 0, 40px) scale(1) rotate(0deg); z-index: 30; opacity: 1; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.35); }}
-      /* Lift & Cut Out to Left */
       30%, 45% {{ transform: translate3d(-110px, -25px, 65px) scale(0.97) rotate(-11deg); z-index: 35; opacity: 1; box-shadow: 0 30px 60px -10px rgba(0, 0, 0, 0.45); }}
-      /* Spring back and interlace under */
       60% {{ transform: translate3d(-20px, 15px, -15px) scale(0.91) rotate(-3deg); z-index: 10; opacity: 0.8; }}
       75%, 100% {{ transform: translate3d(-35px, -18px, -35px) scale(0.86) rotate(-5deg); z-index: 10; opacity: 0.72; }}
     }}
 
     @keyframes cutDeckCard2 {{
       0%, 15% {{ transform: translate3d(45px, -15px, 0px) scale(0.92) rotate(4deg); z-index: 20; opacity: 0.88; }}
-      /* Slide Out to Right */
       30%, 45% {{ transform: translate3d(105px, 20px, 35px) scale(0.96) rotate(9deg); z-index: 25; opacity: 1; box-shadow: 0 25px 50px -10px rgba(0, 0, 0, 0.35); }}
-      /* Riffle into middle */
       60% {{ transform: translate3d(20px, -8px, 15px) scale(0.95) rotate(2deg); z-index: 20; opacity: 0.9; }}
       75%, 100% {{ transform: translate3d(40px, -12px, 0px) scale(0.92) rotate(4deg); z-index: 20; opacity: 0.88; }}
     }}
 
     @keyframes cutDeckCard3 {{
       0%, 15% {{ transform: translate3d(-35px, -18px, -35px) scale(0.86) rotate(-5deg); z-index: 10; opacity: 0.72; }}
-      /* Bottom packet prepares */
       30%, 45% {{ transform: translate3d(0px, 15px, -5px) scale(0.9) rotate(0deg); z-index: 10; opacity: 0.85; }}
-      /* Slaps onto the top with snap glare! */
       60% {{ transform: translate3d(0px, -15px, 60px) scale(1.04) rotate(1deg); z-index: 40; opacity: 1; }}
       75%, 100% {{ transform: translate3d(0, 0, 40px) scale(1) rotate(0deg); z-index: 30; opacity: 1; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.35); }}
     }}
@@ -691,16 +644,8 @@ def get_card_shuffle_html():
       Upload your <b>HDFC Bank (Swiggy)</b>, <b>ICICI Bank (Amazon Pay)</b>, or <b>SBI Card (SimplyCLICK)</b> statement PDF above to view your interactive Apple-style dashboard, friend EMI receipts, and cashback reconciliation.
     </p>
 
-    <!-- Interactive Animation Mode Selector with Spring Cut the Deck -->
-    <div class="mode-bar">
-      <button class="mode-btn active" id="btn-mode-cut" onclick="setMode('cut')"><span>✂️</span><span>Cut the Deck (Spring)</span></button>
-      <button class="mode-btn" id="btn-mode-shuffle" onclick="setMode('shuffle')"><span>🔀</span><span>3D Shuffle</span></button>
-      <button class="mode-btn" id="btn-mode-fan" onclick="setMode('fan')"><span>🃏</span><span>Fan-Out Deck</span></button>
-      <button class="mode-btn" id="btn-mode-spotlight" onclick="setMode('spotlight')"><span>👆</span><span>Click to Focus</span></button>
-    </div>
-
-    <!-- 3D Card Animation Stage: Click Anywhere to Cut the Deck! -->
-    <div id="card-stage" class="card-stage-wrap mode-cut" onclick="triggerInteractiveCut()" title="Click anywhere on the deck to cut and shuffle!">
+    <!-- 3D Card Animation Stage: Click Anywhere on Deck to Cut/Shuffle! -->
+    <div id="card-stage" class="card-stage-wrap mode-{mode}" onclick="triggerInteractiveCut()" title="Click anywhere on the deck to cut and shuffle!">
       <div id="card-1" class="physical-card">
         <div class="card-glare"></div>
         <div class="embossed-name">SWIGGY HDFC</div>
@@ -729,48 +674,27 @@ def get_card_shuffle_html():
   </div>
 
   <script>
-    let currentMode = 'cut';
+    let currentMode = '{mode}';
     let currentSpotlight = 3;
-    let cardOrder = [1, 2, 3];
-
-    function setMode(mode) {{
-      currentMode = mode;
-      const stage = document.getElementById('card-stage');
-      stage.className = 'card-stage-wrap mode-' + mode;
-      
-      document.getElementById('btn-mode-cut').classList.toggle('active', mode === 'cut');
-      document.getElementById('btn-mode-shuffle').classList.toggle('active', mode === 'shuffle');
-      document.getElementById('btn-mode-fan').classList.toggle('active', mode === 'fan');
-      document.getElementById('btn-mode-spotlight').classList.toggle('active', mode === 'spotlight');
-    }}
 
     function triggerInteractiveCut() {{
-      if (currentMode !== 'cut') {{
-        setMode('cut');
-        return;
-      }}
-      // Physical cut: rotate backgrounds and spring animate
-      const c1 = document.getElementById('card-1');
-      const c2 = document.getElementById('card-2');
-      const c3 = document.getElementById('card-3');
-      if (!c1 || !c2 || !c3) return;
-
-      // Re-trigger animation cleanly by momentarily removing and restoring class
       const stage = document.getElementById('card-stage');
+      if (!stage) return;
+      // Re-trigger animation cleanly by momentarily removing and restoring class
       stage.classList.remove('mode-cut');
       void stage.offsetWidth; // Trigger reflow
       stage.classList.add('mode-cut');
     }}
 
     function setSpotlight(num) {{
-      setMode('spotlight');
       spotlightCard(num);
     }}
 
     function spotlightCard(num) {{
       currentSpotlight = num;
-      if (currentMode !== 'spotlight') {{
-        setMode('spotlight');
+      const stage = document.getElementById('card-stage');
+      if (stage && !stage.classList.contains('mode-spotlight')) {{
+        stage.className = 'card-stage-wrap mode-spotlight';
       }}
       for (let i = 1; i <= 3; i++) {{
         const c = document.getElementById('card-' + i);
@@ -790,8 +714,9 @@ if st.session_state.statements_data:
     )
     components.html(dashboard_html, height=1450, scrolling=True)
 else:
-    # Clean Initial State with Spring-Loaded "Cut the Deck" & 3D Showcase!
-    components.html(get_card_shuffle_html(), height=550, scrolling=False)
+    # Clean Initial State: Driven dynamically by Sidebar Animation Settings
+    active_anim_mode = st.session_state.get("card_anim_mode", "cut")
+    components.html(get_card_shuffle_html(mode=active_anim_mode), height=490, scrolling=False)
 
 # --- Friendly Footer ---
 st.markdown("""
