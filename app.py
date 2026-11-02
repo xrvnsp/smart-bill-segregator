@@ -71,16 +71,16 @@ st.markdown("""
         width: 100% !important;
     }
 
-    /* Sidebar 5-second persistent toast */
+    /* Sidebar 5-second persistent toast (Never shrinks height, only fades opacity) */
     .sidebar-toast-5s {
-        animation: fadeOutSidebarToast 5s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+        animation: toastFade5s 5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
     }
 
-    @keyframes fadeOutSidebarToast {
-        0% { opacity: 1; transform: translateY(0); }
-        85% { opacity: 1; transform: translateY(0); }
-        98% { opacity: 0; transform: translateY(-6px); }
-        100% { opacity: 0; display: none; visibility: hidden; height: 0; padding: 0; margin: 0; }
+    @keyframes toastFade5s {
+        0% { opacity: 0; transform: translateY(-6px); }
+        8% { opacity: 1; transform: translateY(0); }
+        84% { opacity: 1; transform: translateY(0); }
+        100% { opacity: 0; transform: translateY(-6px); }
     }
 
     /* Mobile adjustments */
@@ -190,7 +190,7 @@ with st.sidebar:
             }
             st.rerun()
 
-        # 5-Second Persistent Toast in Sidebar (survives component reruns for a full 5s)
+        # 5-Second Persistent Toast in Sidebar (Rock-solid background box that never collapses)
         now_time = time.time()
         if "sidebar_toast_until" in st.session_state:
             if now_time < st.session_state["sidebar_toast_until"]:
@@ -201,31 +201,28 @@ with st.sidebar:
                 })
                 st.markdown(f"""
                 <div id="sidebar-toast-box" class="sidebar-toast-5s" style="
-                    background: linear-gradient(135deg, rgba(240, 253, 244, 0.98) 0%, rgba(220, 252, 231, 0.98) 100%);
-                    border: 1px solid #86efac;
+                    background: #064e3b;
+                    border: 1.5px solid #10b981;
                     border-radius: 12px;
-                    padding: 10px 12px;
+                    padding: 12px 14px;
                     margin-top: 10px;
                     margin-bottom: 8px;
-                    box-shadow: 0 4px 14px -2px rgba(22, 101, 52, 0.15);
+                    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.35);
                     display: flex;
                     align-items: center;
-                    gap: 8px;
-                    transition: opacity 0.5s ease, transform 0.5s ease;
+                    gap: 10px;
                 ">
-                    <span style="font-size: 18px; line-height: 1;">🔒</span>
-                    <div>
-                        <div style="font-size: 12px; font-weight: 800; color: #166534;">{s_notice['title']}</div>
-                        <div style="font-size: 11px; color: #15803d; font-weight: 600; margin-top: 1px;">{s_notice['desc']}</div>
+                    <span style="font-size: 20px; line-height: 1;">🔒</span>
+                    <div style="flex: 1; min-width: 0;">
+                        <div style="font-size: 12px; font-weight: 800; color: #ffffff; letter-spacing: -0.01em;">{s_notice['title']}</div>
+                        <div style="font-size: 11px; color: #a7f3d0; font-weight: 600; margin-top: 2px; line-height: 1.35;">{s_notice['desc']}</div>
                     </div>
                 </div>
                 <script>
                     setTimeout(function() {{
                         var el = document.getElementById('sidebar-toast-box');
                         if (el) {{
-                            el.style.opacity = '0';
-                            el.style.transform = 'translateY(-6px)';
-                            setTimeout(function() {{ el.style.display = 'none'; }}, 500);
+                            el.style.display = 'none';
                         }}
                     }}, {int(rem_sec * 1000)});
                 </script>
@@ -361,7 +358,7 @@ if st.session_state.statements_data:
             st.session_state.statements_data = {}
             st.rerun()
 
-# --- Pure 3D Auto-Shuffle Showcase (Default & Exclusive Animation) ---
+# --- Pure 3D Auto-Shuffle Showcase (Fully Visible Parent Card with Zero Clipping) ---
 def get_card_shuffle_html():
     swiggy_b64 = unlock_statements.get_card_b64("card-facia-swiggy.jpg")
     amazon_b64 = unlock_statements.get_card_b64("card-facia-amazon.png")
@@ -375,22 +372,23 @@ def get_card_shuffle_html():
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500;600;700;800;900&display=swap" rel="stylesheet">
   <style>
     * {{ box-sizing: border-box; margin: 0; padding: 0; font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif; }}
-    body {{ background: transparent; display: flex; justify-content: center; align-items: center; padding: 4px; overflow: hidden; }}
+    body {{ background: transparent; display: flex; justify-content: center; align-items: flex-start; padding: 8px 6px; overflow: hidden; }}
     
     .showcase-card {{
       width: 100%;
       max-width: 860px;
-      background: rgba(255, 255, 255, 0.88);
+      background: rgba(255, 255, 255, 0.90);
       backdrop-filter: blur(24px) saturate(180%);
       -webkit-backdrop-filter: blur(24px) saturate(180%);
       border: 1px solid rgba(226, 232, 240, 0.88);
       border-radius: 26px;
-      padding: 24px 18px;
+      padding: 22px 18px 24px 18px;
       text-align: center;
-      box-shadow: 0 10px 30px -8px rgba(0, 0, 0, 0.05);
+      box-shadow: 0 12px 35px -8px rgba(0, 0, 0, 0.06);
       display: flex;
       flex-direction: column;
       align-items: center;
+      margin: 0 auto;
     }}
 
     .headline-pill {{
@@ -422,7 +420,7 @@ def get_card_shuffle_html():
       color: #64748b;
       max-width: 580px;
       line-height: 1.45;
-      margin-bottom: 14px;
+      margin-bottom: 12px;
     }}
 
     /* 3D Physical Card Stage with Perspective */
@@ -431,9 +429,9 @@ def get_card_shuffle_html():
       perspective-origin: center center;
       width: 100%;
       max-width: 380px;
-      height: 220px;
+      height: 210px;
       position: relative;
-      margin: 8px auto 16px auto;
+      margin: 6px auto 14px auto;
       display: flex;
       justify-content: center;
       align-items: center;
@@ -630,8 +628,8 @@ if st.session_state.statements_data:
     )
     components.html(dashboard_html, height=1450, scrolling=True)
 else:
-    # Clean Initial State: Default 3D Auto-Shuffle Showcase
-    components.html(get_card_shuffle_html(), height=485, scrolling=False)
+    # Clean Initial State: Pure 3D Auto-Shuffle with ample height buffer to ensure parent card is 100% visible
+    components.html(get_card_shuffle_html(), height=535, scrolling=False)
 
 # --- Friendly Footer ---
 st.markdown("""
