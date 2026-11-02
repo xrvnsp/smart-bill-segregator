@@ -32,15 +32,17 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# --- Responsive Stylesheet: Prevents Header Clipping & Theme Adaptation ---
+# --- Responsive Stylesheet: Tight Header Spacing & Zero Blank Gaps ---
 st.markdown("""
 <style>
-    /* Prevent Streamlit header from obscuring title and content */
+    /* Make Streamlit header flow naturally without floating over content or creating huge voids */
     [data-testid="stHeader"], header {
+        position: relative !important;
         background: transparent !important;
+        height: 2.25rem !important;
     }
     .block-container {
-        padding-top: 4.5rem !important;
+        padding-top: 0.5rem !important;
         padding-bottom: 2rem !important;
         padding-left: 1.5rem !important;
         padding-right: 1.5rem !important;
@@ -58,9 +60,9 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# --- Initialize Private Session Passwords ---
+# --- Initialize Private Session Passwords (Supports HDFC, ICICI & SBI SimplyCLICK) ---
 if "session_passwords" not in st.session_state:
-    st.session_state.session_passwords = {"icici": "", "hdfc": "", "sheets_webhook_url": ""}
+    st.session_state.session_passwords = {"icici": "", "hdfc": "", "sbi": "", "sheets_webhook_url": ""}
 
 # --- Device-Local Browser Storage Bridge (Client-Side localStorage) ---
 bridge_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "local_storage_bridge")
@@ -83,6 +85,8 @@ if client_vault and isinstance(client_vault, dict):
         st.session_state.session_passwords["icici"] = client_vault["icici"]
     if not st.session_state.session_passwords.get("hdfc") and client_vault.get("hdfc"):
         st.session_state.session_passwords["hdfc"] = client_vault["hdfc"]
+    if not st.session_state.session_passwords.get("sbi") and client_vault.get("sbi"):
+        st.session_state.session_passwords["sbi"] = client_vault["sbi"]
     if not st.session_state.session_passwords.get("sheets_webhook_url") and client_vault.get("sheets_webhook_url"):
         st.session_state.session_passwords["sheets_webhook_url"] = client_vault["sheets_webhook_url"]
 
@@ -98,15 +102,22 @@ with st.sidebar:
             "ICICI Password",
             value=st.session_state.session_passwords.get("icici", ""),
             type="password",
-            help="Lowercase name (4) + DDMM",
+            help="Lowercase name (4) + DDMM (e.g. sara3105)",
             key="input_icici_pwd"
         )
         hdfc_val = st.text_input(
             "HDFC Password",
             value=st.session_state.session_passwords.get("hdfc", ""),
             type="password",
-            help="UPPERCASE name (4) + DDMM",
+            help="UPPERCASE name (4) + DDMM (e.g. SARA3105)",
             key="input_hdfc_pwd"
+        )
+        sbi_val = st.text_input(
+            "SBI SimplyCLICK Password",
+            value=st.session_state.session_passwords.get("sbi", ""),
+            type="password",
+            help="Date of birth in DDMMYYYY + Last 4 digits of card (e.g. 150819954321)",
+            key="input_sbi_pwd"
         )
         webhook_val = st.text_input(
             "Google Sheets Web App URL",
@@ -118,17 +129,19 @@ with st.sidebar:
         if st.button("💾 Save Passwords on This Device", use_container_width=True, type="primary"):
             st.session_state.session_passwords["icici"] = icici_val.strip()
             st.session_state.session_passwords["hdfc"] = hdfc_val.strip()
+            st.session_state.session_passwords["sbi"] = sbi_val.strip()
             st.session_state.session_passwords["sheets_webhook_url"] = webhook_val.strip()
             st.session_state["pending_save_vault"] = {
                 "icici": icici_val.strip(),
                 "hdfc": hdfc_val.strip(),
+                "sbi": sbi_val.strip(),
                 "sheets_webhook_url": webhook_val.strip()
             }
             st.success("Passwords saved to this browser!")
             st.rerun()
 
         if st.button("🗑️ Forget Saved Passwords", use_container_width=True, help="Clear saved passwords from this browser"):
-            st.session_state.session_passwords = {"icici": "", "hdfc": "", "sheets_webhook_url": ""}
+            st.session_state.session_passwords = {"icici": "", "hdfc": "", "sbi": "", "sheets_webhook_url": ""}
             st.session_state["pending_clear_vault"] = True
             st.info("Cleared passwords from this browser.")
             st.rerun()
@@ -145,8 +158,8 @@ with st.sidebar:
 if "statements_data" not in st.session_state:
     st.session_state.statements_data = {}
 
-# --- Main Page Header & Visible Upload Card ---
-st.markdown("<div style='margin-bottom: 8px;'><h1 style='font-size: 28px; font-weight: 800; color: inherit; margin: 0; letter-spacing: -0.02em;'>💳 Smart Bill Segregator</h1></div>", unsafe_allow_html=True)
+# --- Main Page Header & Visible Upload Card (Tight Spacing Under Toolbar) ---
+st.markdown("<div style='margin-bottom: 4px;'><h1 style='font-size: 28px; font-weight: 800; color: inherit; margin: 0; letter-spacing: -0.02em;'>💳 Smart Bill Segregator</h1></div>", unsafe_allow_html=True)
 st.caption("Auto-segregates bank statements, friend EMIs, cashback, and regular card spends.")
 
 with st.container():
@@ -157,16 +170,18 @@ with st.container():
             "📁 Upload Statement PDF(s) to Unlock & Analyze (100% In-Memory):",
             type=["pdf"],
             accept_multiple_files=True,
-            help="Drag and drop or select HDFC / ICICI bank statement PDFs. Processed strictly in RAM and never saved to server disk."
+            help="Drag and drop or select HDFC, ICICI, or SBI SimplyCLICK bank statement PDFs. Processed strictly in RAM and never saved to server disk."
         )
 
     with info_col:
         st.markdown("**🔑 Device Password Status:**")
         icici_set = bool(st.session_state.session_passwords.get("icici"))
         hdfc_set = bool(st.session_state.session_passwords.get("hdfc"))
-        st.markdown(f"- ICICI: {'🟢 Saved in Browser' if icici_set else '⚪ Not Set'}")
-        st.markdown(f"- HDFC: {'🟢 Saved in Browser' if hdfc_set else '⚪ Not Set'}")
-        if not icici_set or not hdfc_set:
+        sbi_set = bool(st.session_state.session_passwords.get("sbi"))
+        st.markdown(f"- ICICI: {'🟢 Active' if icici_set else '⚪ Not Set'}")
+        st.markdown(f"- HDFC: {'🟢 Active' if hdfc_set else '⚪ Not Set'}")
+        st.markdown(f"- SBI SimplyCLICK: {'🟢 Active' if sbi_set else '⚪ Not Set'}")
+        if not icici_set or not hdfc_set or not sbi_set:
             st.caption("Save passwords in the sidebar to auto-unlock PDFs on this device.")
 
 # --- Process Uploaded Files Strictly in RAM (Zero Disk Writes!) ---
@@ -188,11 +203,15 @@ if uploaded_files:
             st.error(f"⚠️ {up_file.name}: {msg}")
             if "password" in msg.lower():
                 with st.form(key=f"pwd_unlock_{up_file.name}"):
-                    st.markdown(f"**Enter password for `{up_file.name}` (Saved only in your browser):**")
+                    fname_low = up_file.name.lower()
+                    hint = "DDMMYYYY + Last 4 digits of card (e.g. 150819954321)" if ("sbi" in fname_low or "simplyclick" in fname_low) else ("Lowercase name (4) + DDMM" if "icici" in fname_low else "UPPERCASE name (4) + DDMM")
+                    st.markdown(f"**Enter password for `{up_file.name}` ({hint}):**")
                     inline_pwd = st.text_input("Statement password:", type="password", key=f"inp_{up_file.name}")
                     if st.form_submit_button("🔓 Unlock & Save in Browser", use_container_width=True):
                         if inline_pwd.strip():
-                            if "icici" in up_file.name.lower() or "amazon" in up_file.name.lower():
+                            if "sbi" in fname_low or "simplyclick" in fname_low:
+                                st.session_state.session_passwords["sbi"] = inline_pwd.strip()
+                            elif "icici" in fname_low or "amazon" in fname_low:
                                 st.session_state.session_passwords["icici"] = inline_pwd.strip()
                             else:
                                 st.session_state.session_passwords["hdfc"] = inline_pwd.strip()
@@ -231,8 +250,8 @@ else:
     <div style="background: rgba(255, 255, 255, 0.75); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); border-radius: 24px; padding: 48px 32px; border: 1px solid rgba(226, 232, 240, 0.8); text-align: center; margin-top: 16px; box-shadow: 0 10px 30px -5px rgba(0,0,0,0.03);">
         <div style="font-size: 48px; margin-bottom: 12px;">💳</div>
         <h2 style="font-size: 22px; font-weight: 800; color: #0f172a; margin-bottom: 6px; letter-spacing: -0.02em;">No Statement Loaded in This Session</h2>
-        <p style="font-size: 14px; color: #64748b; max-width: 520px; margin: 0 auto 12px auto; line-height: 1.5;">
-            Upload your <b>HDFC Bank (Swiggy)</b> or <b>ICICI Bank (Amazon Pay)</b> statement PDF above to view your interactive Apple-style dashboard, friend EMI receipts, and cashback reconciliation.
+        <p style="font-size: 14px; color: #64748b; max-width: 540px; margin: 0 auto 12px auto; line-height: 1.5;">
+            Upload your <b>HDFC Bank (Swiggy)</b>, <b>ICICI Bank (Amazon Pay)</b>, or <b>SBI Card (SimplyCLICK)</b> statement PDF above to view your interactive Apple-style dashboard, friend EMI receipts, and cashback reconciliation.
         </p>
         <div style="display: inline-flex; align-items: center; gap: 6px; padding: 6px 14px; border-radius: 9999px; background: #f0fdf4; border: 1px solid #bbf7d0; color: #166534; font-size: 12px; font-weight: 700;">
             <span>🔒</span>
@@ -243,7 +262,7 @@ else:
 
 # --- Friendly Footer ---
 st.markdown("""
-<div style="text-align: center; margin-top: 36px; padding: 18px 16px; border-top: 1px solid rgba(226, 232, 240, 0.5); color: #64748b; font-size: 13px; font-weight: 600;">
+<div style="text-align: center; margin-top: 36px; padding: 18px 16px; border-top: 1px solid rgba(226, 232, 240, 0.3); color: #64748b; font-size: 13px; font-weight: 600;">
     Made with ❤️ for friends — because splitting EMIs shouldn't ruin friendships (or give you a migraine) 🍕💳
 </div>
 """, unsafe_allow_html=True)

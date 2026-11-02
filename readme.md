@@ -86,6 +86,7 @@ Save your passwords once in the sidebar (**💾 Save Passwords on This Device**)
 * **ICICI Bank (Amazon Pay)**: First 4 letters of your name in **lowercase** + `DDMM` of birth (e.g., `sara3105`).
 
 * **HDFC Bank (Swiggy)**: First 4 letters of your name in **UPPERCASE** + `DDMM` of birth (e.g., `SARA3105`).
+* **SBI Card (SimplyCLICK)**: Date of Birth in **DDMMYYYY** + **Last 4 digits** of your primary credit card (e.g. born 15 Aug 1995 with card ending 4321 = `150819954321`).
 
 ## 📁 Project Structure
 

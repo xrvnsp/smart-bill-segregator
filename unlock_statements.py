@@ -77,6 +77,12 @@ KNOWN_BANKS = [
         "short_name": "HDFC",
         "hints": ["hdfc", "5268"],
     },
+    {
+        "name": "SBI Card (SimplyCLICK)",
+        "key": "sbi",
+        "short_name": "SBI SimplyCLICK",
+        "hints": ["sbi", "simplyclick", "simply click", "sbicard"],
+    },
 ]
 
 
@@ -98,11 +104,12 @@ def load_stored_passwords(folder="."):
             return {
                 "hdfc": str(data.get("hdfc", "")).strip(),
                 "icici": str(data.get("icici", "")).strip(),
+                "sbi": str(data.get("sbi", "")).strip(),
                 "sheets_webhook_url": str(data.get("sheets_webhook_url", "")).strip(),
             }
         except Exception:
           pass
-  return {"hdfc": "", "icici": "", "sheets_webhook_url": ""}
+  return {"hdfc": "", "icici": "", "sbi": "", "sheets_webhook_url": ""}
 
 
 def save_stored_passwords(hdfc_pass, icici_pass, sheets_webhook_url="", folder="."):
@@ -213,18 +220,24 @@ def save_emi_names_to_disk(names_dict, folder="."):
 
 def identify_bank(file_path, text, unlocked_bank_key=None):
   text_upper = text.upper() if text else ""
-  fname_lower = os.path.basename(file_path).lower()
+  fname_lower = os.path.basename(str(file_path)).lower()
 
+  if "SIMPLYCLICK" in text_upper or "SIMPLY CLICK" in text_upper or "SBICARD" in text_upper or ("SBI" in text_upper and "CARD" in text_upper):
+    return "SBI Card (SimplyCLICK)", "SBI SimplyCLICK"
   if "ICICI" in text_upper or "AMAZON PAY" in text_upper:
     return "ICICI Bank (Amazon Pay)", "ICICI Amazon"
   if "HDFC" in text_upper or "SWIGGY HDFC" in text_upper:
     return "HDFC Bank (Swiggy)", "HDFC"
 
+  if unlocked_bank_key == "sbi":
+    return "SBI Card (SimplyCLICK)", "SBI SimplyCLICK"
   if unlocked_bank_key == "icici":
     return "ICICI Bank (Amazon Pay)", "ICICI Amazon"
   if unlocked_bank_key == "hdfc":
     return "HDFC Bank (Swiggy)", "HDFC"
 
+  if "simplyclick" in fname_lower or "simply click" in fname_lower or "sbicard" in fname_lower or "sbi" in fname_lower:
+    return "SBI Card (SimplyCLICK)", "SBI SimplyCLICK"
   if "4315" in fname_lower or "amazon" in fname_lower or "icici" in fname_lower:
     return "ICICI Bank (Amazon Pay)", "ICICI Amazon"
   if "5268" in fname_lower or "hdfc" in fname_lower:
@@ -395,6 +408,79 @@ def parse_icici_statement(reader, file_path, saved_names):
   }
 
 
+def parse_sbi_statement(reader, file_path, saved_names):
+  """Dedicated rule for SBI Card (SimplyCLICK) credit card statements."""
+  p1_text = reader.pages[0].extract_text() or ""
+  
+  # 1. Total Amount Due
+  m_tot = re.search(r"Total\s+Amount\s+Due[\s:₹Rs\.]*([\d,]+\.\d{2})", p1_text, re.IGNORECASE)
+  if not m_tot:
+    m_tot = re.search(r"Total\s+Payment\s+Due[\s:₹Rs\.]*([\d,]+\.\d{2})", p1_text, re.IGNORECASE)
+  total_due = f"₹{m_tot.group(1)}" if m_tot else "₹0.00"
+
+  # 2. Payment Due Date
+  m_due = re.search(r"Payment\s+Due\s+Date[\s:]*([0-9]{1,2}[/-][0-9]{1,2}[/-][0-9]{4}|[0-9]{1,2}\s+[a-zA-Z]+,?\s+[0-9]{4})", p1_text, re.IGNORECASE)
+  due_date = m_due.group(1).replace(",", "") if m_due else "Due Date"
+
+  # 3. Statement Date
+  m_stmt = re.search(r"Statement\s+Date[\s:]*([0-9]{1,2}[/-][0-9]{1,2}[/-][0-9]{4}|[0-9]{1,2}\s+[a-zA-Z]+,?\s+[0-9]{4})", p1_text, re.IGNORECASE)
+  statement_date = m_stmt.group(1).replace(",", "") if m_stmt else "October 2026"
+  clean_month = normalize_month_name(statement_date)
+
+  # 4. Cardholder Name
+  cardholder_name = ""
+  for line in p1_text.splitlines():
+    m_title = re.search(r"^(?:MR|MS|MRS|DR)\.?\s+([A-Za-z\s]{2,35})$", line.strip(), re.IGNORECASE)
+    if m_title:
+      cardholder_name = " ".join(m_title.group(1).split()).upper()
+      break
+  if not cardholder_name:
+    m_dear = re.search(r"Dear\s+(?:Mr\.|Ms\.|Mrs\.)?\s*([A-Za-z\s]{3,35})", p1_text, re.IGNORECASE)
+    if m_dear:
+      cardholder_name = " ".join(m_dear.group(1).split()).upper()
+  if not cardholder_name:
+    cardholder_name = "SARAVANA PRAKASH"
+
+  # 5. Extract transactions across pages
+  txns = []
+  date_groups = defaultdict(lambda: {"total": 0.0, "items": [], "has_emi": False})
+  date_pat = re.compile(r"^\s*(\d{2}[/-]\d{2}[/-]\d{4})\s+(.*?)\s+([\d,]+\.\d{2})\s*(C|D|CR|DR)?\s*$", re.IGNORECASE)
+
+  for page in reader.pages:
+    txt = page.extract_text() or ""
+    for line in txt.splitlines():
+      m_txn = date_pat.match(line.strip())
+      if m_txn:
+        dt, desc, amt_str, cr_dr = m_txn.groups()
+        amt = float(amt_str.replace(",", ""))
+        is_cr = bool(cr_dr and cr_dr.upper() in ["C", "CR"])
+        is_emi = is_emi_desc(desc)
+        t_obj = {
+            "date": dt,
+            "description": desc.strip(),
+            "amount": amt,
+            "is_credit": is_cr,
+            "is_emi": is_emi,
+            "amount_str": f"₹{amt:,.2f}" + (" Cr" if is_cr else ""),
+        }
+        txns.append(t_obj)
+        if not is_cr:
+          date_groups[dt]["total"] += amt
+        if is_emi:
+          date_groups[dt]["has_emi"] = True
+        date_groups[dt]["items"].append(t_obj)
+
+  return {
+      "total_due": total_due,
+      "due_date": due_date,
+      "statement_month": clean_month,
+      "cardholder_name": cardholder_name,
+      "date_groups": dict(date_groups),
+      "all_txns": txns,
+      "ongoing_emis": [],
+  }
+
+
 def parse_hdfc_statement(reader, file_path, saved_names):
   """Dedicated rule for HDFC Bank (Swiggy) credit card statements."""
   p1_text = reader.pages[0].extract_text() or ""
@@ -518,7 +604,9 @@ def process_statement_file(file_path, base_downloads_dir=None, custom_passwords=
     accepted_pwd = None
 
     fname_lower = os.path.basename(str(file_path)).lower()
-    if "4315" in fname_lower or "amazon" in fname_lower or "icici" in fname_lower:
+    if "simplyclick" in fname_lower or "simply click" in fname_lower or "sbicard" in fname_lower or "sbi" in fname_lower:
+      ordered_banks = [b for b in KNOWN_BANKS if b["key"] == "sbi"]
+    elif "4315" in fname_lower or "amazon" in fname_lower or "icici" in fname_lower:
       ordered_banks = [b for b in KNOWN_BANKS if b["key"] == "icici"]
     elif "5268" in fname_lower or "hdfc" in fname_lower or "swiggy" in fname_lower:
       ordered_banks = [b for b in KNOWN_BANKS if b["key"] == "hdfc"]
@@ -572,7 +660,9 @@ def process_statement_file(file_path, base_downloads_dir=None, custom_passwords=
     p1_text = reader.pages[0].extract_text() or ""
     bank_full_name, bank_short = identify_bank(file_path, p1_text, unlocked_bank_key)
 
-    if bank_short == "ICICI Amazon":
+    if bank_short == "SBI SimplyCLICK":
+      fin = parse_sbi_statement(reader, file_path, saved_emi_names)
+    elif bank_short == "ICICI Amazon":
       fin = parse_icici_statement(reader, file_path, saved_emi_names)
     else:
       fin = parse_hdfc_statement(reader, file_path, saved_emi_names)
