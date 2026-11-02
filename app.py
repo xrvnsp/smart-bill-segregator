@@ -34,23 +34,62 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# --- Responsive Stylesheet: Zero Header Gap & Sidebar 5-Second Toast ---
+# --- Responsive Stylesheet: Visible Sidebar Toggle, Zero Gap & 5s Toast ---
 st.markdown("""
 <style>
-    /* Collapse Streamlit header without causing white/black gap */
+    /* Header styling: transparent background, compact height, keep sidebar toggle visible */
     header[data-testid="stHeader"], header {
         background: transparent !important;
-        height: 0 !important;
-        min-height: 0 !important;
+        height: 2.75rem !important;
+        min-height: 2.75rem !important;
         padding: 0 !important;
         margin: 0 !important;
         overflow: visible !important;
         z-index: 999999 !important;
     }
     
-    /* Hide Streamlit decoration and toolbar */
-    [data-testid="stDecoration"], [data-testid="stToolbar"], [data-testid="stStatusWidget"] {
+    /* Hide ONLY the decorative colored line and deploy button, NEVER hide collapsedControl */
+    [data-testid="stDecoration"], button[data-testid="baseButton-header"], [data-testid="stStatusWidget"] {
         display: none !important;
+    }
+
+    /* Force the Streamlit sidebar toggle button (collapsedControl) to be ALWAYS visible & prominent */
+    [data-testid="collapsedControl"],
+    button[data-testid="stSidebarCollapseButton"],
+    [data-testid="stSidebarCollapsedControl"],
+    header [data-testid="collapsedControl"] {
+        display: flex !important;
+        visibility: visible !important;
+        opacity: 1 !important;
+        z-index: 9999999 !important;
+    }
+
+    [data-testid="collapsedControl"] {
+        position: fixed !important;
+        top: 0.5rem !important;
+        left: 0.75rem !important;
+        background: rgba(255, 255, 255, 0.94) !important;
+        backdrop-filter: blur(14px) !important;
+        border: 1px solid rgba(203, 213, 225, 0.85) !important;
+        border-radius: 12px !important;
+        padding: 5px 10px !important;
+        box-shadow: 0 4px 14px rgba(0, 0, 0, 0.08) !important;
+        color: #0f172a !important;
+        cursor: pointer !important;
+        transition: transform 0.2s ease, box-shadow 0.2s ease !important;
+    }
+    [data-testid="collapsedControl"]:hover {
+        transform: scale(1.05) !important;
+        box-shadow: 0 6px 18px rgba(0, 0, 0, 0.14) !important;
+    }
+
+    /* Dark mode styling for collapsedControl */
+    @media (prefers-color-scheme: dark) {
+        [data-testid="collapsedControl"] {
+            background: rgba(30, 41, 59, 0.94) !important;
+            border-color: rgba(71, 85, 105, 0.9) !important;
+            color: #f8fafc !important;
+        }
     }
 
     /* Container padding: tight top margin for zero blank space */
@@ -69,6 +108,28 @@ st.markdown("""
         box-shadow: 0 4px 25px -3px rgba(0, 0, 0, 0.08);
         border: 1px solid #e2e8f0;
         width: 100% !important;
+    }
+
+    /* In-page menu button */
+    .menu-toggle-btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        background: rgba(241, 245, 249, 0.95);
+        border: 1px solid #cbd5e1;
+        border-radius: 10px;
+        padding: 5px 12px;
+        font-size: 12px;
+        font-weight: 800;
+        color: #334155;
+        cursor: pointer;
+        transition: all 0.2s cubic-bezier(0.34, 1.3, 0.64, 1);
+        text-decoration: none;
+    }
+    .menu-toggle-btn:hover {
+        background: #ffffff;
+        transform: scale(1.04);
+        box-shadow: 0 3px 10px rgba(0,0,0,0.08);
     }
 
     /* Sidebar 5-second persistent toast (Never shrinks height, only fades opacity) */
@@ -170,7 +231,6 @@ with st.sidebar:
                 "sbi": sbi_val.strip(),
                 "sheets_webhook_url": webhook_val.strip()
             }
-            # Set 5-second persistence timestamp so bridge reruns do not clear the toast prematurely
             st.session_state["sidebar_toast_until"] = time.time() + 5.0
             st.session_state["sidebar_toast_notice"] = {
                 "type": "success",
@@ -243,8 +303,35 @@ with st.sidebar:
 if "statements_data" not in st.session_state:
     st.session_state.statements_data = {}
 
-# --- Main Page Header & Visible Upload Card (Zero Gap & Clean Presentation) ---
-st.markdown("<div style='margin-top: 0px; margin-bottom: 4px;'><h1 style='font-size: 26px; font-weight: 800; color: inherit; margin: 0; letter-spacing: -0.02em;'>💳 Smart Bill Segregator</h1></div>", unsafe_allow_html=True)
+# --- Main Page Header with Direct Sidebar Menu Button (Always Openable on Mobile & PC) ---
+st.markdown("""
+<div style='display: flex; align-items: center; justify-content: space-between; margin-top: 0px; margin-bottom: 4px; flex-wrap: wrap; gap: 8px;'>
+    <div style='display: flex; align-items: center; gap: 10px;'>
+        <h1 style='font-size: 26px; font-weight: 800; color: inherit; margin: 0; letter-spacing: -0.02em;'>💳 Smart Bill Segregator</h1>
+        <button onclick="toggleSidebarMenu()" class="menu-toggle-btn" title="Open Sidebar & Passwords">
+            <span>☰</span>
+            <span>Menu & Passwords</span>
+        </button>
+    </div>
+</div>
+<script>
+    function toggleSidebarMenu() {
+        var btn = window.parent.document.querySelector('[data-testid=\"collapsedControl\"] button') || 
+                  window.parent.document.querySelector('[data-testid=\"collapsedControl\"]') ||
+                  document.querySelector('[data-testid=\"collapsedControl\"] button') ||
+                  document.querySelector('[data-testid=\"collapsedControl\"]');
+        if (btn) {
+            btn.click();
+            return;
+        }
+        var s = window.parent.document.querySelector('[data-testid=\"stSidebar\"]') || document.querySelector('[data-testid=\"stSidebar\"]');
+        if (s) {
+            var exp = s.getAttribute('aria-expanded');
+            s.setAttribute('aria-expanded', exp === 'true' ? 'false' : 'true');
+        }
+    }
+</script>
+""", unsafe_allow_html=True)
 st.caption("Auto-segregates bank statements, friend EMIs, cashback, and regular card spends.")
 
 with st.container():
@@ -283,7 +370,7 @@ with st.container():
                     <span>⚪</span><span>No Device Passwords Saved</span>
                 </div>
                 <div style="font-size: 11px; color: #64748b; margin-top: 3px;">
-                    Save passwords in the sidebar to auto-unlock PDFs.
+                    Click <b>☰ Menu & Passwords</b> above to save passwords.
                 </div>
             </div>
             """, unsafe_allow_html=True)
