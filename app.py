@@ -469,14 +469,13 @@ if st.session_state.statements_data:
             st.session_state.statements_data = {}
             st.rerun()
 
-# --- DUAL SHUFFLE SHOWCASE: 3 Portrait Cards (Left) & 3 Landscape Cards (Right) ---
+# --- DUAL SHUFFLE SHOWCASE: 2 Portrait Cards (Left / Mobile Top) & 3 Landscape Cards (Right / Mobile Bottom) ---
 def get_card_shuffle_html():
-    # 3 Portrait Cards
+    # 2 Authentic Portrait Cards (Orange Mastercard & Green RuPay) - Blue removed!
     scapia_orange_b64 = unlock_statements.get_card_b64("card-facia-scapia-orange.png")
     scapia_green_b64 = unlock_statements.get_card_b64("card-facia-scapia-green.png")
-    scapia_blue_b64 = unlock_statements.get_card_b64("card-facia-scapia-blue.png")
 
-    # 3 Landscape Cards
+    # 3 Landscape Cards (Swiggy HDFC, Amazon Pay ICICI, SBI SimplyCLICK)
     swiggy_b64 = unlock_statements.get_card_b64("card-facia-swiggy.jpg")
     amazon_b64 = unlock_statements.get_card_b64("card-facia-amazon.png")
     sbi_b64 = unlock_statements.get_card_b64("simply-click-card-face.png")
@@ -489,7 +488,7 @@ def get_card_shuffle_html():
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500;600;700;800;900&display=swap" rel="stylesheet">
   <style>
     * {{ box-sizing: border-box; margin: 0; padding: 0; font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif; }}
-    body {{ background: transparent; display: flex; justify-content: center; align-items: flex-start; padding: 6px; overflow: hidden; }}
+    body {{ background: transparent; display: flex; justify-content: center; align-items: flex-start; padding: 4px; overflow-x: hidden; }}
     
     .showcase-card {{
       width: 100%;
@@ -499,7 +498,7 @@ def get_card_shuffle_html():
       -webkit-backdrop-filter: blur(24px) saturate(180%);
       border: 1px solid rgba(226, 232, 240, 0.9);
       border-radius: 26px;
-      padding: 20px 22px 22px 22px;
+      padding: 18px 20px 20px 20px;
       text-align: center;
       box-shadow: 0 12px 35px -8px rgba(0, 0, 0, 0.06);
       display: flex;
@@ -540,10 +539,10 @@ def get_card_shuffle_html():
       margin-bottom: 12px;
     }}
 
-    /* Dual Side-by-Side Grid Container */
+    /* Dual Grid Layout: Side-by-Side on Desktop, Top/Bottom Stack on Mobile */
     .dual-grid {{
       display: grid;
-      grid-template-columns: 1fr 1.3fr;
+      grid-template-columns: 1fr 1.35fr;
       gap: 18px;
       width: 100%;
       align-items: center;
@@ -577,7 +576,7 @@ def get_card_shuffle_html():
     .pill-landscape {{ background: #eff6ff; border: 1px solid #bfdbfe; color: #1e40af; }}
 
     /* =========================================================
-       LEFT: 3 Portrait Cards 3D Shuffling Stage
+       SCAPIA SECTION: 2 Portrait Cards (Orange Mastercard & Green RuPay)
        ========================================================= */
     .portrait-stage {{
       perspective: 1200px;
@@ -624,35 +623,36 @@ def get_card_shuffle_html():
       pointer-events: none;
     }}
 
-    #card-p1 {{ background-image: url('{scapia_orange_b64}'); animation: shufflePort1 9s cubic-bezier(0.34, 1.25, 0.64, 1) infinite; }}
-    #card-p2 {{ background-image: url('{scapia_green_b64}'); animation: shufflePort2 9s cubic-bezier(0.34, 1.25, 0.64, 1) infinite; }}
-    #card-p3 {{ background-image: url('{scapia_blue_b64}'); animation: shufflePort3 9s cubic-bezier(0.34, 1.25, 0.64, 1) infinite; }}
+    /* Card 1: Orange Mastercard (Never lost, always explicitly bound!) */
+    #card-p1 {{
+      background-image: url('{scapia_orange_b64}');
+      animation: shufflePortOrange 6s cubic-bezier(0.34, 1.25, 0.64, 1) infinite;
+    }}
+    /* Card 2: Green RuPay (Never duplicated!) */
+    #card-p2 {{
+      background-image: url('{scapia_green_b64}');
+      animation: shufflePortGreen 6s cubic-bezier(0.34, 1.25, 0.64, 1) infinite;
+    }}
 
     .portrait-stage:hover .card-p, .landscape-stage:hover .card-l {{
       animation-play-state: paused;
     }}
 
-    @keyframes shufflePort1 {{
-      0%, 28% {{ transform: translate3d(0, 0, 35px) scale(1) rotate(0deg); z-index: 30; opacity: 1; box-shadow: 0 22px 45px -10px rgba(0, 0, 0, 0.38); }}
-      33%, 61% {{ transform: translate3d(32px, -12px, 0px) scale(0.92) rotate(4deg); z-index: 20; opacity: 0.88; }}
-      66%, 95% {{ transform: translate3d(-30px, -20px, -35px) scale(0.85) rotate(-5deg); z-index: 10; opacity: 0.72; }}
-      100% {{ transform: translate3d(0, 0, 35px) scale(1) rotate(0deg); z-index: 30; opacity: 1; }}
+    /* Continuous 3D Portrait Shuffling for the Two Scapia Editions */
+    @keyframes shufflePortOrange {{
+      0%, 42% {{ transform: translate3d(0, 0, 32px) scale(1) rotate(0deg); z-index: 25; opacity: 1; box-shadow: 0 22px 45px -10px rgba(0, 0, 0, 0.38); }}
+      50%, 92% {{ transform: translate3d(32px, -12px, -32px) scale(0.92) rotate(4deg); z-index: 10; opacity: 0.85; box-shadow: 0 12px 24px -8px rgba(0, 0, 0, 0.22); }}
+      100% {{ transform: translate3d(0, 0, 32px) scale(1) rotate(0deg); z-index: 25; opacity: 1; }}
     }}
-    @keyframes shufflePort2 {{
-      0%, 28% {{ transform: translate3d(32px, -12px, 0px) scale(0.92) rotate(4deg); z-index: 20; opacity: 0.88; }}
-      33%, 61% {{ transform: translate3d(-30px, -20px, -35px) scale(0.85) rotate(-5deg); z-index: 10; opacity: 0.72; }}
-      66%, 95% {{ transform: translate3d(0, 0, 35px) scale(1) rotate(0deg); z-index: 30; opacity: 1; }}
-      100% {{ transform: translate3d(32px, -12px, 0px) scale(0.92) rotate(4deg); z-index: 20; opacity: 0.88; }}
-    }}
-    @keyframes shufflePort3 {{
-      0%, 28% {{ transform: translate3d(-30px, -20px, -35px) scale(0.85) rotate(-5deg); z-index: 10; opacity: 0.72; }}
-      33%, 61% {{ transform: translate3d(0, 0, 35px) scale(1) rotate(0deg); z-index: 30; opacity: 1; }}
-      66%, 95% {{ transform: translate3d(32px, -12px, 0px) scale(0.92) rotate(4deg); z-index: 20; opacity: 0.88; }}
-      100% {{ transform: translate3d(-30px, -20px, -35px) scale(0.85) rotate(-5deg); z-index: 10; opacity: 0.72; }}
+
+    @keyframes shufflePortGreen {{
+      0%, 42% {{ transform: translate3d(32px, -12px, -32px) scale(0.92) rotate(4deg); z-index: 10; opacity: 0.85; box-shadow: 0 12px 24px -8px rgba(0, 0, 0, 0.22); }}
+      50%, 92% {{ transform: translate3d(0, 0, 32px) scale(1) rotate(0deg); z-index: 25; opacity: 1; box-shadow: 0 22px 45px -10px rgba(0, 0, 0, 0.38); }}
+      100% {{ transform: translate3d(32px, -12px, -32px) scale(0.92) rotate(4deg); z-index: 10; opacity: 0.85; }}
     }}
 
     /* =========================================================
-       RIGHT: 3 Landscape Cards 3D Shuffling Stage
+       LANDSCAPE SECTION: 3 Landscape Cards (Swiggy, Amazon, SBI)
        ========================================================= */
     .landscape-stage {{
       perspective: 1200px;
@@ -724,16 +724,16 @@ def get_card_shuffle_html():
       display: flex;
       flex-wrap: wrap;
       justify-content: center;
-      gap: 5px;
+      gap: 6px;
       margin-top: 10px;
     }}
     .mini-badge {{
-      font-size: 10px;
+      font-size: 10.5px;
       font-weight: 800;
-      padding: 3px 8px;
+      padding: 3px 9px;
       border-radius: 8px;
       background: #ffffff;
-      border: 1px solid rgba(203, 213, 225, 0.8);
+      border: 1px solid rgba(203, 213, 225, 0.85);
       color: #334155;
     }}
 
@@ -749,28 +749,43 @@ def get_card_shuffle_html():
       font-size: 11px;
       font-weight: 700;
       line-height: 1.4;
-      margin-top: 2px;
+      margin-top: 4px;
     }}
 
-    /* Mobile Responsive Stacking */
-    @media (max-width: 768px) {{
+    /* Mobile Responsive Stacking: TOP = Scapia, BOTTOM = SBI / ICICI / HDFC */
+    @media (max-width: 859px) {{
       .dual-grid {{
-        grid-template-columns: 1fr;
-        gap: 14px;
+        display: flex;
+        flex-direction: column;
+        gap: 16px;
+        margin-bottom: 12px;
+      }}
+      .deck-section-portrait {{
+        order: 1 !important; /* Top Section on Mobile */
+        width: 100%;
+        padding: 12px 8px 14px 8px;
+      }}
+      .deck-section-landscape {{
+        order: 2 !important; /* Bottom Section on Mobile */
+        width: 100%;
+        padding: 12px 8px 14px 8px;
       }}
       .portrait-stage {{
-        height: 240px;
+        height: 220px;
       }}
       .card-p {{
-        width: 145px;
-        height: 230px;
+        width: 140px;
+        height: 218px;
       }}
       .landscape-stage {{
-        height: 190px;
+        height: 160px;
       }}
       .card-l {{
-        width: 225px;
-        height: 142px;
+        width: 220px;
+        height: 138px;
+      }}
+      .showcase-card {{
+        padding: 14px 12px;
       }}
     }}
   </style>
@@ -779,19 +794,19 @@ def get_card_shuffle_html():
   <div class="showcase-card">
     <div class="headline-pill">
       <span>🔀</span>
-      <span>Dual 3D Shuffling: 3 Portrait Cards & 3 Landscape Cards</span>
+      <span>Dual 3D Shuffling Showcase</span>
     </div>
     <h2 class="title">No Statement Loaded in This Session</h2>
     <p class="subtitle">
       Upload your <b>Axis Bank (Scapia)</b>, <b>HDFC Bank (Swiggy)</b>, <b>ICICI Bank (Amazon Pay)</b>, or <b>SBI Card (SimplyCLICK)</b> statement PDF above to view your interactive Apple-style dashboard.
     </p>
 
-    <!-- Side-by-Side Dual Showcase Grid -->
+    <!-- Side-by-Side Dual Showcase Grid (Top = Scapia, Bottom = Landscape on Mobile) -->
     <div class="dual-grid">
       
-      <!-- LEFT SECTION: 3 Portrait Cards Shuffling -->
-      <div class="deck-section" onclick="cyclePortraitDeck()" title="Click to cycle portrait cards">
-        <span class="section-header-pill pill-portrait"><span>✈️</span><span>3 Portrait Cards (Scapia Editions)</span></span>
+      <!-- TOP ON MOBILE / LEFT ON DESKTOP: Scapia 2 Portrait Cards (Orange & Green) -->
+      <div class="deck-section deck-section-portrait" onclick="cyclePortraitDeck()" title="Click to flip Scapia editions">
+        <span class="section-header-pill pill-portrait"><span>✈️</span><span>Scapia Dual Editions (Portrait)</span></span>
         <div class="portrait-stage" id="portrait-stage">
           <div id="card-p1" class="card-p">
             <div class="card-glare"></div>
@@ -799,20 +814,16 @@ def get_card_shuffle_html():
           <div id="card-p2" class="card-p">
             <div class="card-glare"></div>
           </div>
-          <div id="card-p3" class="card-p">
-            <div class="card-glare"></div>
-          </div>
         </div>
         <div class="mini-badges">
-          <span class="mini-badge" style="color: #ea580c; border-color: #fed7aa;">Orange Mastercard</span>
-          <span class="mini-badge" style="color: #16a34a; border-color: #bbf7d0;">Green RuPay</span>
-          <span class="mini-badge" style="color: #2563eb; border-color: #bfdbfe;">Sapphire Blue</span>
+          <span class="mini-badge" style="color: #ea580c; border-color: #fed7aa; background: #fff7ed;">Scapia Mastercard (Orange)</span>
+          <span class="mini-badge" style="color: #16a34a; border-color: #bbf7d0; background: #f0fdf4;">Scapia RuPay (Green)</span>
         </div>
       </div>
 
-      <!-- RIGHT SECTION: 3 Landscape Cards Shuffling -->
-      <div class="deck-section" onclick="cycleLandscapeDeck()" title="Click to cycle landscape cards">
-        <span class="section-header-pill pill-landscape"><span>💳</span><span>3 Landscape Cards (Core Rewards)</span></span>
+      <!-- BOTTOM ON MOBILE / RIGHT ON DESKTOP: 3 Landscape Cards (Swiggy, Amazon, SBI) -->
+      <div class="deck-section deck-section-landscape" onclick="cycleLandscapeDeck()" title="Click to cycle landscape cards">
+        <span class="section-header-pill pill-landscape"><span>💳</span><span>Core Rewards Cards (Landscape)</span></span>
         <div class="landscape-stage" id="landscape-stage">
           <div id="card-l1" class="card-l">
             <div class="card-glare"></div>
@@ -828,9 +839,9 @@ def get_card_shuffle_html():
           </div>
         </div>
         <div class="mini-badges">
-          <span class="mini-badge" style="color: #c2410c;">Swiggy HDFC (10% Food)</span>
-          <span class="mini-badge" style="color: #b45309;">Amazon Pay (5% Shop)</span>
-          <span class="mini-badge" style="color: #882438;">SBI SimplyCLICK (10X)</span>
+          <span class="mini-badge" style="color: #c2410c; background: #fff7ed;">Swiggy HDFC (10% Food)</span>
+          <span class="mini-badge" style="color: #b45309; background: #fefce8;">Amazon Pay (5% Shop)</span>
+          <span class="mini-badge" style="color: #882438; background: #fff1f2;">SBI SimplyCLICK (10X)</span>
         </div>
       </div>
 
@@ -843,15 +854,15 @@ def get_card_shuffle_html():
   </div>
 
   <script>
+    let isFlipped = false;
     function cyclePortraitDeck() {{
+      isFlipped = !isFlipped;
       const p1 = document.getElementById('card-p1');
       const p2 = document.getElementById('card-p2');
-      const p3 = document.getElementById('card-p3');
-      if (!p1 || !p2 || !p3) return;
-      const b1 = p1.style.backgroundImage;
-      p1.style.backgroundImage = p2.style.backgroundImage || getComputedStyle(p2).backgroundImage;
-      p2.style.backgroundImage = p3.style.backgroundImage || getComputedStyle(p3).backgroundImage;
-      p3.style.backgroundImage = b1 || getComputedStyle(p1).backgroundImage;
+      if (!p1 || !p2) return;
+      // Smoothly swap 3D positions without touching backgroundImage, ensuring Orange is never lost!
+      p1.style.animation = isFlipped ? 'shufflePortGreen 6s cubic-bezier(0.34, 1.25, 0.64, 1) infinite' : 'shufflePortOrange 6s cubic-bezier(0.34, 1.25, 0.64, 1) infinite';
+      p2.style.animation = isFlipped ? 'shufflePortOrange 6s cubic-bezier(0.34, 1.25, 0.64, 1) infinite' : 'shufflePortGreen 6s cubic-bezier(0.34, 1.25, 0.64, 1) infinite';
     }}
 
     function cycleLandscapeDeck() {{
@@ -859,10 +870,12 @@ def get_card_shuffle_html():
       const l2 = document.getElementById('card-l2');
       const l3 = document.getElementById('card-l3');
       if (!l1 || !l2 || !l3) return;
-      const b1 = l1.style.backgroundImage;
-      l1.style.backgroundImage = l2.style.backgroundImage || getComputedStyle(l2).backgroundImage;
-      l2.style.backgroundImage = l3.style.backgroundImage || getComputedStyle(l3).backgroundImage;
-      l3.style.backgroundImage = b1 || getComputedStyle(l1).backgroundImage;
+      const b1 = l1.style.backgroundImage || getComputedStyle(l1).backgroundImage;
+      const b2 = l2.style.backgroundImage || getComputedStyle(l2).backgroundImage;
+      const b3 = l3.style.backgroundImage || getComputedStyle(l3).backgroundImage;
+      l1.style.backgroundImage = b2;
+      l2.style.backgroundImage = b3;
+      l3.style.backgroundImage = b1;
     }}
   </script>
 </body>
@@ -877,8 +890,8 @@ if st.session_state.statements_data:
     )
     components.html(dashboard_html, height=1450, scrolling=True)
 else:
-    # Clean Initial State: Dual Deck Showcase (3 Portrait on Left, 3 Landscape on Right)
-    components.html(get_card_shuffle_html(), height=570, scrolling=False)
+    # Clean Initial State: Dual Deck Showcase (Height 720 ensures BOTH sections are 100% visible on mobile with zero clipping)
+    components.html(get_card_shuffle_html(), height=720, scrolling=False)
 
 # --- Friendly Footer ---
 st.markdown("""
