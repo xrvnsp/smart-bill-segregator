@@ -469,10 +469,17 @@ if st.session_state.statements_data:
             st.session_state.statements_data = {}
             st.rerun()
 
-# --- 3D Portrait Card Shuffling Showcase (Two Scapia Editions in Portrait) ---
+# --- DUAL SHUFFLE SHOWCASE: 3 Portrait Cards (Left) & 3 Landscape Cards (Right) ---
 def get_card_shuffle_html():
+    # 3 Portrait Cards
     scapia_orange_b64 = unlock_statements.get_card_b64("card-facia-scapia-orange.png")
     scapia_green_b64 = unlock_statements.get_card_b64("card-facia-scapia-green.png")
+    scapia_blue_b64 = unlock_statements.get_card_b64("card-facia-scapia-blue.png")
+
+    # 3 Landscape Cards
+    swiggy_b64 = unlock_statements.get_card_b64("card-facia-swiggy.jpg")
+    amazon_b64 = unlock_statements.get_card_b64("card-facia-amazon.png")
+    sbi_b64 = unlock_statements.get_card_b64("simply-click-card-face.png")
 
     return f"""<!DOCTYPE html>
 <html lang="en">
@@ -482,17 +489,17 @@ def get_card_shuffle_html():
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500;600;700;800;900&display=swap" rel="stylesheet">
   <style>
     * {{ box-sizing: border-box; margin: 0; padding: 0; font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif; }}
-    body {{ background: transparent; display: flex; justify-content: center; align-items: flex-start; padding: 8px 6px; overflow: hidden; }}
+    body {{ background: transparent; display: flex; justify-content: center; align-items: flex-start; padding: 6px; overflow: hidden; }}
     
     .showcase-card {{
       width: 100%;
-      max-width: 860px;
-      background: rgba(255, 255, 255, 0.90);
+      max-width: 980px;
+      background: rgba(255, 255, 255, 0.92);
       backdrop-filter: blur(24px) saturate(180%);
       -webkit-backdrop-filter: blur(24px) saturate(180%);
-      border: 1px solid rgba(226, 232, 240, 0.88);
+      border: 1px solid rgba(226, 232, 240, 0.9);
       border-radius: 26px;
-      padding: 22px 18px 24px 18px;
+      padding: 20px 22px 22px 22px;
       text-align: center;
       box-shadow: 0 12px 35px -8px rgba(0, 0, 0, 0.06);
       display: flex;
@@ -505,69 +512,106 @@ def get_card_shuffle_html():
       display: inline-flex;
       align-items: center;
       gap: 6px;
-      padding: 5px 12px;
+      padding: 5px 14px;
       border-radius: 9999px;
-      background: #fff7ed;
-      border: 1px solid #fed7aa;
-      color: #c2410c;
+      background: #f1f5f9;
+      border: 1px solid #cbd5e1;
+      color: #1e293b;
       font-size: 11px;
       font-weight: 800;
       text-transform: uppercase;
       letter-spacing: 0.06em;
-      margin-bottom: 8px;
+      margin-bottom: 6px;
     }}
 
     .title {{
-      font-size: 21px;
+      font-size: 20px;
       font-weight: 800;
       color: #0f172a;
       letter-spacing: -0.02em;
-      margin-bottom: 4px;
+      margin-bottom: 2px;
     }}
 
     .subtitle {{
-      font-size: 13px;
+      font-size: 12.5px;
       color: #64748b;
-      max-width: 580px;
-      line-height: 1.45;
-      margin-bottom: 10px;
+      max-width: 680px;
+      line-height: 1.4;
+      margin-bottom: 12px;
     }}
 
-    /* 3D Portrait Physical Card Stage with Perspective */
-    .card-stage-wrap {{
+    /* Dual Side-by-Side Grid Container */
+    .dual-grid {{
+      display: grid;
+      grid-template-columns: 1fr 1.3fr;
+      gap: 18px;
+      width: 100%;
+      align-items: center;
+      margin-bottom: 14px;
+    }}
+
+    .deck-section {{
+      background: rgba(248, 250, 252, 0.7);
+      border: 1px solid rgba(226, 232, 240, 0.85);
+      border-radius: 20px;
+      padding: 14px 10px 16px 10px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      position: relative;
+    }}
+
+    .section-header-pill {{
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      padding: 4px 10px;
+      border-radius: 9999px;
+      font-size: 10.5px;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin-bottom: 8px;
+    }}
+    .pill-portrait {{ background: #fff7ed; border: 1px solid #fed7aa; color: #c2410c; }}
+    .pill-landscape {{ background: #eff6ff; border: 1px solid #bfdbfe; color: #1e40af; }}
+
+    /* =========================================================
+       LEFT: 3 Portrait Cards 3D Shuffling Stage
+       ========================================================= */
+    .portrait-stage {{
       perspective: 1200px;
       perspective-origin: center center;
       width: 100%;
-      max-width: 320px;
-      height: 330px;
+      max-width: 250px;
+      height: 275px;
       position: relative;
-      margin: 4px auto 14px auto;
       display: flex;
       justify-content: center;
       align-items: center;
       cursor: pointer;
     }}
 
-    .physical-card-portrait {{
-      width: 198px;
-      height: 312px;
-      border-radius: 18px;
+    .card-p {{
+      width: 168px;
+      height: 265px;
+      border-radius: 16px;
       position: absolute;
       transform-style: preserve-3d;
       will-change: transform, opacity;
       user-select: none;
-      box-shadow: 0 20px 40px -10px rgba(0, 0, 0, 0.32);
-      transition: transform 0.6s cubic-bezier(0.34, 1.3, 0.64, 1), opacity 0.4s ease, box-shadow 0.4s ease;
+      box-shadow: 0 18px 36px -10px rgba(0, 0, 0, 0.32);
+      transition: transform 0.6s cubic-bezier(0.34, 1.3, 0.64, 1), opacity 0.4s ease;
       background-size: cover !important;
       background-position: center !important;
       background-repeat: no-repeat !important;
     }}
 
-    .physical-card-portrait::after {{
+    .card-p::after, .card-l::after {{
       content: '';
       position: absolute;
       inset: 0;
-      border-radius: 18px;
+      border-radius: inherit;
       border: 1px solid rgba(255, 255, 255, 0.25);
       pointer-events: none;
     }}
@@ -575,18 +619,76 @@ def get_card_shuffle_html():
     .card-glare {{
       position: absolute;
       inset: 0;
-      border-radius: 18px;
+      border-radius: inherit;
       background: linear-gradient(135deg, rgba(255,255,255,0.4) 0%, rgba(255,255,255,0.05) 50%, rgba(0,0,0,0.15) 100%);
       pointer-events: none;
     }}
 
-    .embossed-name {{
+    #card-p1 {{ background-image: url('{scapia_orange_b64}'); animation: shufflePort1 9s cubic-bezier(0.34, 1.25, 0.64, 1) infinite; }}
+    #card-p2 {{ background-image: url('{scapia_green_b64}'); animation: shufflePort2 9s cubic-bezier(0.34, 1.25, 0.64, 1) infinite; }}
+    #card-p3 {{ background-image: url('{scapia_blue_b64}'); animation: shufflePort3 9s cubic-bezier(0.34, 1.25, 0.64, 1) infinite; }}
+
+    .portrait-stage:hover .card-p, .landscape-stage:hover .card-l {{
+      animation-play-state: paused;
+    }}
+
+    @keyframes shufflePort1 {{
+      0%, 28% {{ transform: translate3d(0, 0, 35px) scale(1) rotate(0deg); z-index: 30; opacity: 1; box-shadow: 0 22px 45px -10px rgba(0, 0, 0, 0.38); }}
+      33%, 61% {{ transform: translate3d(32px, -12px, 0px) scale(0.92) rotate(4deg); z-index: 20; opacity: 0.88; }}
+      66%, 95% {{ transform: translate3d(-30px, -20px, -35px) scale(0.85) rotate(-5deg); z-index: 10; opacity: 0.72; }}
+      100% {{ transform: translate3d(0, 0, 35px) scale(1) rotate(0deg); z-index: 30; opacity: 1; }}
+    }}
+    @keyframes shufflePort2 {{
+      0%, 28% {{ transform: translate3d(32px, -12px, 0px) scale(0.92) rotate(4deg); z-index: 20; opacity: 0.88; }}
+      33%, 61% {{ transform: translate3d(-30px, -20px, -35px) scale(0.85) rotate(-5deg); z-index: 10; opacity: 0.72; }}
+      66%, 95% {{ transform: translate3d(0, 0, 35px) scale(1) rotate(0deg); z-index: 30; opacity: 1; }}
+      100% {{ transform: translate3d(32px, -12px, 0px) scale(0.92) rotate(4deg); z-index: 20; opacity: 0.88; }}
+    }}
+    @keyframes shufflePort3 {{
+      0%, 28% {{ transform: translate3d(-30px, -20px, -35px) scale(0.85) rotate(-5deg); z-index: 10; opacity: 0.72; }}
+      33%, 61% {{ transform: translate3d(0, 0, 35px) scale(1) rotate(0deg); z-index: 30; opacity: 1; }}
+      66%, 95% {{ transform: translate3d(32px, -12px, 0px) scale(0.92) rotate(4deg); z-index: 20; opacity: 0.88; }}
+      100% {{ transform: translate3d(-30px, -20px, -35px) scale(0.85) rotate(-5deg); z-index: 10; opacity: 0.72; }}
+    }}
+
+    /* =========================================================
+       RIGHT: 3 Landscape Cards 3D Shuffling Stage
+       ========================================================= */
+    .landscape-stage {{
+      perspective: 1200px;
+      perspective-origin: center center;
+      width: 100%;
+      max-width: 320px;
+      height: 220px;
+      position: relative;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      cursor: pointer;
+    }}
+
+    .card-l {{
+      width: 255px;
+      height: 160px;
+      border-radius: 14px;
       position: absolute;
-      bottom: 14px;
-      left: 16px;
-      font-size: 11px;
+      transform-style: preserve-3d;
+      will-change: transform, opacity;
+      user-select: none;
+      box-shadow: 0 18px 36px -10px rgba(0, 0, 0, 0.28);
+      transition: transform 0.6s cubic-bezier(0.34, 1.3, 0.64, 1), opacity 0.4s ease;
+      background-size: cover !important;
+      background-position: center !important;
+      background-repeat: no-repeat !important;
+    }}
+
+    .embossed-l {{
+      position: absolute;
+      bottom: 10px;
+      left: 12px;
+      font-size: 10px;
       font-weight: 900;
-      letter-spacing: 0.12em;
+      letter-spacing: 0.1em;
       text-transform: uppercase;
       font-family: monospace;
       color: rgba(255,255,255,0.95);
@@ -594,68 +696,52 @@ def get_card_shuffle_html():
       pointer-events: none;
     }}
 
-    /* Card Background Artworks */
-    #card-scapia-orange {{
-      background-image: url('{scapia_orange_b64}');
-      animation: shufflePortrait1 6s cubic-bezier(0.34, 1.25, 0.64, 1) infinite;
+    #card-l1 {{ background-image: url('{swiggy_b64}'); animation: shuffleLand1 9s cubic-bezier(0.34, 1.25, 0.64, 1) infinite; }}
+    #card-l2 {{ background-image: url('{amazon_b64}'); animation: shuffleLand2 9s cubic-bezier(0.34, 1.25, 0.64, 1) infinite; }}
+    #card-l3 {{ background-image: url('{sbi_b64}'); animation: shuffleLand3 9s cubic-bezier(0.34, 1.25, 0.64, 1) infinite; }}
+
+    @keyframes shuffleLand1 {{
+      0%, 28% {{ transform: translate3d(0, 0, 35px) scale(1) rotate(0deg); z-index: 30; opacity: 1; box-shadow: 0 20px 42px -10px rgba(0, 0, 0, 0.32); }}
+      33%, 61% {{ transform: translate3d(36px, -12px, 0px) scale(0.92) rotate(4deg); z-index: 20; opacity: 0.88; }}
+      66%, 95% {{ transform: translate3d(-34px, -18px, -35px) scale(0.85) rotate(-5deg); z-index: 10; opacity: 0.72; }}
+      100% {{ transform: translate3d(0, 0, 35px) scale(1) rotate(0deg); z-index: 30; opacity: 1; }}
     }}
-    #card-scapia-green {{
-      background-image: url('{scapia_green_b64}');
-      animation: shufflePortrait2 6s cubic-bezier(0.34, 1.25, 0.64, 1) infinite;
+    @keyframes shuffleLand2 {{
+      0%, 28% {{ transform: translate3d(36px, -12px, 0px) scale(0.92) rotate(4deg); z-index: 20; opacity: 0.88; }}
+      33%, 61% {{ transform: translate3d(-34px, -18px, -35px) scale(0.85) rotate(-5deg); z-index: 10; opacity: 0.72; }}
+      66%, 95% {{ transform: translate3d(0, 0, 35px) scale(1) rotate(0deg); z-index: 30; opacity: 1; }}
+      100% {{ transform: translate3d(36px, -12px, 0px) scale(0.92) rotate(4deg); z-index: 20; opacity: 0.88; }}
+    }}
+    @keyframes shuffleLand3 {{
+      0%, 28% {{ transform: translate3d(-34px, -18px, -35px) scale(0.85) rotate(-5deg); z-index: 10; opacity: 0.72; }}
+      33%, 61% {{ transform: translate3d(0, 0, 35px) scale(1) rotate(0deg); z-index: 30; opacity: 1; }}
+      66%, 95% {{ transform: translate3d(36px, -12px, 0px) scale(0.92) rotate(4deg); z-index: 20; opacity: 0.88; }}
+      100% {{ transform: translate3d(-34px, -18px, -35px) scale(0.85) rotate(-5deg); z-index: 10; opacity: 0.72; }}
     }}
 
-    /* Hover pauses animation so user can inspect card */
-    .card-stage-wrap:hover .physical-card-portrait {{
-      animation-play-state: paused;
-    }}
-
-    /* Continuous 3D Portrait Shuffling Cycle (Two Scapia Cards) */
-    @keyframes shufflePortrait1 {{
-      0%, 40% {{ transform: translate3d(0, 0, 35px) scale(1) rotate(0deg); z-index: 20; opacity: 1; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.4); }}
-      50%, 90% {{ transform: translate3d(36px, -15px, -35px) scale(0.92) rotate(4.5deg); z-index: 10; opacity: 0.85; box-shadow: 0 14px 28px -8px rgba(0, 0, 0, 0.25); }}
-      100% {{ transform: translate3d(0, 0, 35px) scale(1) rotate(0deg); z-index: 20; opacity: 1; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.4); }}
-    }}
-
-    @keyframes shufflePortrait2 {{
-      0%, 40% {{ transform: translate3d(36px, -15px, -35px) scale(0.92) rotate(4.5deg); z-index: 10; opacity: 0.85; box-shadow: 0 14px 28px -8px rgba(0, 0, 0, 0.25); }}
-      50%, 90% {{ transform: translate3d(0, 0, 35px) scale(1) rotate(0deg); z-index: 20; opacity: 1; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.4); }}
-      100% {{ transform: translate3d(36px, -15px, -35px) scale(0.92) rotate(4.5deg); z-index: 10; opacity: 0.85; box-shadow: 0 14px 28px -8px rgba(0, 0, 0, 0.25); }}
-    }}
-
-    .cards-badges-row {{
+    /* Badges & Tags Row */
+    .mini-badges {{
       display: flex;
       flex-wrap: wrap;
       justify-content: center;
-      gap: 8px;
-      margin-top: 4px;
-      margin-bottom: 12px;
+      gap: 5px;
+      margin-top: 10px;
     }}
-
-    .card-badge {{
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
-      padding: 6px 14px;
-      border-radius: 12px;
-      font-size: 11px;
+    .mini-badge {{
+      font-size: 10px;
       font-weight: 800;
-      border: 1px solid rgba(226, 232, 240, 0.8);
+      padding: 3px 8px;
+      border-radius: 8px;
       background: #ffffff;
-      box-shadow: 0 1px 3px rgba(0,0,0,0.05);
-      cursor: pointer;
-      transition: transform 0.2s ease;
+      border: 1px solid rgba(203, 213, 225, 0.8);
+      color: #334155;
     }}
-    .card-badge:hover {{ transform: scale(1.04); }}
-
-    .badge-scapia-orange {{ color: #ea580c; border-color: #fed7aa; background: #fff7ed; }}
-    .badge-scapia-green {{ color: #16a34a; border-color: #bbf7d0; background: #f0fdf4; }}
-    .badge-all-banks {{ color: #475569; border-color: #cbd5e1; background: #f8fafc; }}
 
     .privacy-pill {{
       display: inline-flex;
       align-items: center;
       gap: 6px;
-      padding: 7px 14px;
+      padding: 6px 14px;
       border-radius: 9999px;
       background: #f0fdf4;
       border: 1px solid #bbf7d0;
@@ -663,17 +749,28 @@ def get_card_shuffle_html():
       font-size: 11px;
       font-weight: 700;
       line-height: 1.4;
+      margin-top: 2px;
     }}
 
-    /* Mobile responsive card scaling */
-    @media (max-width: 640px) {{
-      .physical-card-portrait {{
-        width: 175px;
-        height: 276px;
+    /* Mobile Responsive Stacking */
+    @media (max-width: 768px) {{
+      .dual-grid {{
+        grid-template-columns: 1fr;
+        gap: 14px;
       }}
-      .card-stage-wrap {{
-        height: 295px;
-        max-width: 280px;
+      .portrait-stage {{
+        height: 240px;
+      }}
+      .card-p {{
+        width: 145px;
+        height: 230px;
+      }}
+      .landscape-stage {{
+        height: 190px;
+      }}
+      .card-l {{
+        width: 225px;
+        height: 142px;
       }}
     }}
   </style>
@@ -681,33 +778,62 @@ def get_card_shuffle_html():
 <body>
   <div class="showcase-card">
     <div class="headline-pill">
-      <span>✈️</span>
-      <span>Axis Bank Scapia Editions (Portrait)</span>
+      <span>🔀</span>
+      <span>Dual 3D Shuffling: 3 Portrait Cards & 3 Landscape Cards</span>
     </div>
     <h2 class="title">No Statement Loaded in This Session</h2>
     <p class="subtitle">
-      Upload your <b>Axis Bank (Scapia)</b>, <b>HDFC Bank (Swiggy)</b>, <b>ICICI Bank (Amazon Pay)</b>, or <b>SBI Card (SimplyCLICK)</b> statement PDF above to view your interactive Apple-style dashboard, friend EMI receipts, and cashback reconciliation.
+      Upload your <b>Axis Bank (Scapia)</b>, <b>HDFC Bank (Swiggy)</b>, <b>ICICI Bank (Amazon Pay)</b>, or <b>SBI Card (SimplyCLICK)</b> statement PDF above to view your interactive Apple-style dashboard.
     </p>
 
-    <!-- 3D Portrait Card Shuffling Stage (Tap to flip) -->
-    <div id="card-stage" class="card-stage-wrap" onclick="flipScapiaCards()" title="Hover to inspect • Tap to flip cards">
-      <!-- Card 1: Scapia Mastercard (Orange) -->
-      <div id="card-scapia-orange" class="physical-card-portrait">
-        <div class="card-glare"></div>
-        <div class="embossed-name">SCAPIA MASTERCARD</div>
+    <!-- Side-by-Side Dual Showcase Grid -->
+    <div class="dual-grid">
+      
+      <!-- LEFT SECTION: 3 Portrait Cards Shuffling -->
+      <div class="deck-section" onclick="cyclePortraitDeck()" title="Click to cycle portrait cards">
+        <span class="section-header-pill pill-portrait"><span>✈️</span><span>3 Portrait Cards (Scapia Editions)</span></span>
+        <div class="portrait-stage" id="portrait-stage">
+          <div id="card-p1" class="card-p">
+            <div class="card-glare"></div>
+          </div>
+          <div id="card-p2" class="card-p">
+            <div class="card-glare"></div>
+          </div>
+          <div id="card-p3" class="card-p">
+            <div class="card-glare"></div>
+          </div>
+        </div>
+        <div class="mini-badges">
+          <span class="mini-badge" style="color: #ea580c; border-color: #fed7aa;">Orange Mastercard</span>
+          <span class="mini-badge" style="color: #16a34a; border-color: #bbf7d0;">Green RuPay</span>
+          <span class="mini-badge" style="color: #2563eb; border-color: #bfdbfe;">Sapphire Blue</span>
+        </div>
       </div>
-      <!-- Card 2: Scapia RuPay (Green) -->
-      <div id="card-scapia-green" class="physical-card-portrait">
-        <div class="card-glare"></div>
-        <div class="embossed-name" style="color: #dcfce7;">SCAPIA RUPAY</div>
-      </div>
-    </div>
 
-    <!-- Supported Card Pills -->
-    <div class="cards-badges-row">
-      <span class="card-badge badge-scapia-orange" onclick="flipScapiaCards()"><span>✈️</span><span>Scapia Mastercard (0% Forex & 10% Coins)</span></span>
-      <span class="card-badge badge-scapia-green" onclick="flipScapiaCards()"><span>🛍️</span><span>Scapia RuPay (UPI on Credit & Lounges)</span></span>
-      <span class="card-badge badge-all-banks"><span>🏛️</span><span>Auto-Detects: Swiggy HDFC • Amazon Pay ICICI • SBI SimplyCLICK</span></span>
+      <!-- RIGHT SECTION: 3 Landscape Cards Shuffling -->
+      <div class="deck-section" onclick="cycleLandscapeDeck()" title="Click to cycle landscape cards">
+        <span class="section-header-pill pill-landscape"><span>💳</span><span>3 Landscape Cards (Core Rewards)</span></span>
+        <div class="landscape-stage" id="landscape-stage">
+          <div id="card-l1" class="card-l">
+            <div class="card-glare"></div>
+            <div class="embossed-l">SWIGGY HDFC</div>
+          </div>
+          <div id="card-l2" class="card-l">
+            <div class="card-glare"></div>
+            <div class="embossed-l" style="color: #fde68a;">AMAZON PAY ICICI</div>
+          </div>
+          <div id="card-l3" class="card-l">
+            <div class="card-glare"></div>
+            <div class="embossed-l">SBI SIMPLYCLICK</div>
+          </div>
+        </div>
+        <div class="mini-badges">
+          <span class="mini-badge" style="color: #c2410c;">Swiggy HDFC (10% Food)</span>
+          <span class="mini-badge" style="color: #b45309;">Amazon Pay (5% Shop)</span>
+          <span class="mini-badge" style="color: #882438;">SBI SimplyCLICK (10X)</span>
+        </div>
+      </div>
+
     </div>
 
     <div class="privacy-pill">
@@ -717,14 +843,26 @@ def get_card_shuffle_html():
   </div>
 
   <script>
-    function flipScapiaCards() {{
-      const c1 = document.getElementById('card-scapia-orange');
-      const c2 = document.getElementById('card-scapia-green');
-      if (!c1 || !c2) return;
-      const anim1 = c1.style.animation;
-      const anim2 = c2.style.animation;
-      c1.style.animation = anim2 || 'shufflePortrait2 6s cubic-bezier(0.34, 1.25, 0.64, 1) infinite';
-      c2.style.animation = anim1 || 'shufflePortrait1 6s cubic-bezier(0.34, 1.25, 0.64, 1) infinite';
+    function cyclePortraitDeck() {{
+      const p1 = document.getElementById('card-p1');
+      const p2 = document.getElementById('card-p2');
+      const p3 = document.getElementById('card-p3');
+      if (!p1 || !p2 || !p3) return;
+      const b1 = p1.style.backgroundImage;
+      p1.style.backgroundImage = p2.style.backgroundImage || getComputedStyle(p2).backgroundImage;
+      p2.style.backgroundImage = p3.style.backgroundImage || getComputedStyle(p3).backgroundImage;
+      p3.style.backgroundImage = b1 || getComputedStyle(p1).backgroundImage;
+    }}
+
+    function cycleLandscapeDeck() {{
+      const l1 = document.getElementById('card-l1');
+      const l2 = document.getElementById('card-l2');
+      const l3 = document.getElementById('card-l3');
+      if (!l1 || !l2 || !l3) return;
+      const b1 = l1.style.backgroundImage;
+      l1.style.backgroundImage = l2.style.backgroundImage || getComputedStyle(l2).backgroundImage;
+      l2.style.backgroundImage = l3.style.backgroundImage || getComputedStyle(l3).backgroundImage;
+      l3.style.backgroundImage = b1 || getComputedStyle(l1).backgroundImage;
     }}
   </script>
 </body>
@@ -739,8 +877,8 @@ if st.session_state.statements_data:
     )
     components.html(dashboard_html, height=1450, scrolling=True)
 else:
-    # Clean Initial State: 3D Portrait Shuffling Showcase (Height 620 to ensure zero card clipping)
-    components.html(get_card_shuffle_html(), height=620, scrolling=False)
+    # Clean Initial State: Dual Deck Showcase (3 Portrait on Left, 3 Landscape on Right)
+    components.html(get_card_shuffle_html(), height=570, scrolling=False)
 
 # --- Friendly Footer ---
 st.markdown("""

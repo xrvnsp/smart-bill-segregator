@@ -975,6 +975,7 @@ def generate_modern_dashboard_html(results_list, output_dir=".", write_to_disk=T
   sbi_card_b64 = ""
   scapia_orange_b64 = ""
   scapia_green_b64 = ""
+  scapia_blue_b64 = ""
   for cdir in [output_dir, os.path.dirname(os.path.abspath(__file__)), ".", "/working_dir/c_a77ecec1bad766ad/user_uploaded_files/ttl=63d/user_uploaded"]:
     sp = os.path.join(cdir, "card-facia-swiggy.jpg")
     ap = os.path.join(cdir, "card-facia-amazon.png")
@@ -987,10 +988,16 @@ def generate_modern_dashboard_html(results_list, output_dir=".", write_to_disk=T
         with open(sco, "rb") as f:
           scapia_orange_b64 = "data:image/png;base64," + base64.b64encode(f.read()).decode("utf-8")
       except Exception: pass
+    scb = os.path.join(cdir, "card-facia-scapia-blue.png")
     if os.path.exists(scg) and not scapia_green_b64:
       try:
         with open(scg, "rb") as f:
           scapia_green_b64 = "data:image/png;base64," + base64.b64encode(f.read()).decode("utf-8")
+      except Exception: pass
+    if os.path.exists(scb) and not scapia_blue_b64:
+      try:
+        with open(scb, "rb") as f:
+          scapia_blue_b64 = "data:image/png;base64," + base64.b64encode(f.read()).decode("utf-8")
       except Exception: pass
     if os.path.exists(sp) and not swiggy_card_b64:
       try:
@@ -1330,7 +1337,7 @@ def generate_modern_dashboard_html(results_list, output_dir=".", write_to_disk=T
   </main>
 
   <script>
-    const CARD_IMAGES = {{ swiggy: "{swiggy_card_b64}", amazon: "{amazon_card_b64}", sbi: "{sbi_card_b64}", scapia_orange: "{scapia_orange_b64}", scapia_green: "{scapia_green_b64}" }};
+    const CARD_IMAGES = {{ swiggy: "{swiggy_card_b64}", amazon: "{amazon_card_b64}", sbi: "{sbi_card_b64}", scapia_orange: "{scapia_orange_b64}", scapia_green: "{scapia_green_b64}", scapia_blue: "{scapia_blue_b64}" }};
     const statements = {data_json};
     let activeIndex = 0;
 
@@ -2174,10 +2181,20 @@ def generate_modern_dashboard_html(results_list, output_dir=".", write_to_disk=T
     window.cycleScapiaCards = function() {{
       const c1 = document.getElementById('scapia-card-1');
       const c2 = document.getElementById('scapia-card-2');
+      const c3 = document.getElementById('scapia-card-3');
       if (!c1 || !c2) return;
+      if (!c3) {{
+        const bg1 = c1.style.background;
+        c1.style.background = c2.style.background;
+        c2.style.background = bg1;
+        return;
+      }}
       const bg1 = c1.style.background;
-      c1.style.background = c2.style.background;
-      c2.style.background = bg1;
+      const bg2 = c2.style.background;
+      const bg3 = c3.style.background;
+      c1.style.background = bg2;
+      c2.style.background = bg3;
+      c3.style.background = bg1;
     }};
 
     window.cycleStackedCards = function() {{
