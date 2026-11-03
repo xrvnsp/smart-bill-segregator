@@ -138,9 +138,9 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# --- Initialize Private Session Passwords (Supports HDFC, ICICI & SBI SimplyCLICK) ---
+# --- Initialize Private Session Passwords (Supports HDFC, ICICI, SBI & Scapia Axis) ---
 if "session_passwords" not in st.session_state:
-    st.session_state.session_passwords = {"icici": "", "hdfc": "", "sbi": "", "sheets_webhook_url": ""}
+    st.session_state.session_passwords = {"icici": "", "hdfc": "", "sbi": "", "scapia": "", "sheets_webhook_url": ""}
 
 # --- Device-Local Browser Storage Bridge (Client-Side localStorage) ---
 bridge_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "local_storage_bridge")
@@ -160,7 +160,7 @@ client_vault = storage_bridge(
 # Restore saved passwords from browser localStorage on this device
 if client_vault and isinstance(client_vault, dict):
     restored_keys = []
-    for b_key, b_name in [("hdfc", "HDFC Bank"), ("icici", "ICICI Bank"), ("sbi", "SBI SimplyCLICK")]:
+    for b_key, b_name in [("hdfc", "HDFC Bank"), ("icici", "ICICI Bank"), ("sbi", "SBI SimplyCLICK"), ("scapia", "Scapia Axis")]:
         if not st.session_state.session_passwords.get(b_key) and client_vault.get(b_key) and client_vault[b_key].strip():
             st.session_state.session_passwords[b_key] = client_vault[b_key].strip()
             restored_keys.append(b_name)
@@ -175,12 +175,12 @@ with st.sidebar:
     with st.expander("🔑 Device Stored Passwords", expanded=True):
         st.caption("🔒 Stored strictly in your browser's local storage on this device. Never saved on any server.")
         
-        icici_val = st.text_input(
-            "ICICI Password",
-            value=st.session_state.session_passwords.get("icici", ""),
+        scapia_val = st.text_input(
+            "Scapia Axis Password",
+            value=st.session_state.session_passwords.get("scapia", ""),
             type="password",
-            help="Lowercase name (4) + DDMM (e.g. rohi2512)",
-            key="input_icici_pwd"
+            help="UPPERCASE name (4) + DDMM (e.g. ROHI2512)",
+            key="input_scapia_pwd"
         )
         hdfc_val = st.text_input(
             "HDFC Password",
@@ -188,6 +188,13 @@ with st.sidebar:
             type="password",
             help="UPPERCASE name (4) + DDMM (e.g. ROHI2512)",
             key="input_hdfc_pwd"
+        )
+        icici_val = st.text_input(
+            "ICICI Password",
+            value=st.session_state.session_passwords.get("icici", ""),
+            type="password",
+            help="Lowercase name (4) + DDMM (e.g. rohi2512)",
+            key="input_icici_pwd"
         )
         sbi_val = st.text_input(
             "SBI SimplyCLICK Password",
@@ -204,11 +211,13 @@ with st.sidebar:
 
         # Stacked full-width buttons so text is 100% readable without truncation!
         if st.button("💾 Save Passwords on This Device", use_container_width=True, type="primary"):
+            st.session_state.session_passwords["scapia"] = scapia_val.strip()
             st.session_state.session_passwords["icici"] = icici_val.strip()
             st.session_state.session_passwords["hdfc"] = hdfc_val.strip()
             st.session_state.session_passwords["sbi"] = sbi_val.strip()
             st.session_state.session_passwords["sheets_webhook_url"] = webhook_val.strip()
             st.session_state["pending_save_vault"] = {
+                "scapia": scapia_val.strip(),
                 "icici": icici_val.strip(),
                 "hdfc": hdfc_val.strip(),
                 "sbi": sbi_val.strip(),
@@ -223,7 +232,7 @@ with st.sidebar:
             st.rerun()
 
         if st.button("🗑️ Forget Saved Passwords", use_container_width=True, help="Clear saved passwords from this browser"):
-            st.session_state.session_passwords = {"icici": "", "hdfc": "", "sbi": "", "sheets_webhook_url": ""}
+            st.session_state.session_passwords = {"scapia": "", "icici": "", "hdfc": "", "sbi": "", "sheets_webhook_url": ""}
             st.session_state["pending_clear_vault"] = True
             st.session_state["sidebar_toast_until"] = time.time() + 5.0
             st.session_state["sidebar_toast_notice"] = {
@@ -298,12 +307,13 @@ with st.container():
             "📁 Upload Statement PDF(s) to Unlock & Analyze (100% In-Memory):",
             type=["pdf"],
             accept_multiple_files=True,
-            help="Drag and drop or select HDFC, ICICI, or SBI SimplyCLICK bank statement PDFs. Processed strictly in RAM and never saved to server disk."
+            help="Drag and drop or select Axis Bank (Scapia), HDFC, ICICI, or SBI SimplyCLICK bank statement PDFs. Processed strictly in RAM and never saved to server disk."
         )
 
     with info_col:
         # Visual Vault Notification Card
         active_vault_list = []
+        if st.session_state.session_passwords.get("scapia"): active_vault_list.append("Scapia")
         if st.session_state.session_passwords.get("hdfc"): active_vault_list.append("HDFC")
         if st.session_state.session_passwords.get("icici"): active_vault_list.append("ICICI")
         if st.session_state.session_passwords.get("sbi"): active_vault_list.append("SBI")
@@ -331,15 +341,15 @@ with st.container():
             </div>
             """, unsafe_allow_html=True)
 
-        # In-Page Quick Password Manager (Native Streamlit Expander - Always Works!)
+        # In-Page Quick Password Manager (Native Streamlit Expander)
         with st.expander("🔑 Quick Device Passwords", expanded=False):
             st.caption("🔒 Stored in your client browser on this device. Never saved on any server.")
-            q_icici = st.text_input(
-                "ICICI Password",
-                value=st.session_state.session_passwords.get("icici", ""),
+            q_scapia = st.text_input(
+                "Scapia Axis Password",
+                value=st.session_state.session_passwords.get("scapia", ""),
                 type="password",
-                help="Lowercase name (4) + DDMM",
-                key="q_inp_icici"
+                help="UPPERCASE name (4) + DDMM",
+                key="q_inp_scapia"
             )
             q_hdfc = st.text_input(
                 "HDFC Password",
@@ -347,6 +357,13 @@ with st.container():
                 type="password",
                 help="UPPERCASE name (4) + DDMM",
                 key="q_inp_hdfc"
+            )
+            q_icici = st.text_input(
+                "ICICI Password",
+                value=st.session_state.session_passwords.get("icici", ""),
+                type="password",
+                help="Lowercase name (4) + DDMM",
+                key="q_inp_icici"
             )
             q_sbi = st.text_input(
                 "SBI Password",
@@ -356,10 +373,12 @@ with st.container():
                 key="q_inp_sbi"
             )
             if st.button("💾 Save to This Device", use_container_width=True, type="primary", key="q_btn_save"):
+                st.session_state.session_passwords["scapia"] = q_scapia.strip()
                 st.session_state.session_passwords["icici"] = q_icici.strip()
                 st.session_state.session_passwords["hdfc"] = q_hdfc.strip()
                 st.session_state.session_passwords["sbi"] = q_sbi.strip()
                 st.session_state["pending_save_vault"] = {
+                    "scapia": q_scapia.strip(),
                     "icici": q_icici.strip(),
                     "hdfc": q_hdfc.strip(),
                     "sbi": q_sbi.strip(),
@@ -393,16 +412,23 @@ if uploaded_files:
             if "password" in msg.lower():
                 with st.form(key=f"pwd_unlock_{up_file.name}"):
                     fname_low = up_file.name.lower()
-                    def_idx = 0 if ("sbi" in fname_low or "simply" in fname_low) else (1 if ("hdfc" in fname_low or "swiggy" in fname_low) else (2 if ("icici" in fname_low or "amazon" in fname_low) else 0))
+                    if "scapia" in fname_low or "axis" in fname_low: def_idx = 0
+                    elif "hdfc" in fname_low or "swiggy" in fname_low: def_idx = 1
+                    elif "icici" in fname_low or "amazon" in fname_low: def_idx = 2
+                    else: def_idx = 3
+
                     st.markdown(f"**Unlock `{up_file.name}`:**")
                     selected_bank = st.radio(
                         "Statement Bank Format:",
-                        ["SBI Card (SimplyCLICK)", "HDFC Bank (Swiggy)", "ICICI Bank (Amazon Pay)"],
+                        ["Axis Bank (Scapia)", "HDFC Bank (Swiggy)", "ICICI Bank (Amazon Pay)", "SBI Card (SimplyCLICK)"],
                         index=def_idx,
                         horizontal=True,
                         key=f"bank_choice_{up_file.name}"
                     )
-                    if "SBI" in selected_bank:
+                    if "Scapia" in selected_bank or "Axis" in selected_bank:
+                        hint_desc = "First 4 letters of name in UPPERCASE + DDMM (e.g. ROHI2512)"
+                        bank_key = "scapia"
+                    elif "SBI" in selected_bank:
                         hint_desc = "Date of Birth in DDMMYYYY + Last 4 digits of card (e.g. 150819954321)"
                         bank_key = "sbi"
                     elif "HDFC" in selected_bank:
@@ -443,11 +469,10 @@ if st.session_state.statements_data:
             st.session_state.statements_data = {}
             st.rerun()
 
-# --- Pure 3D Auto-Shuffle Showcase (Fully Visible Parent Card with Zero Clipping) ---
+# --- 3D Portrait Card Shuffling Showcase (Two Scapia Editions in Portrait) ---
 def get_card_shuffle_html():
-    swiggy_b64 = unlock_statements.get_card_b64("card-facia-swiggy.jpg")
-    amazon_b64 = unlock_statements.get_card_b64("card-facia-amazon.png")
-    sbi_b64 = unlock_statements.get_card_b64("simply-click-card-face.png")
+    scapia_orange_b64 = unlock_statements.get_card_b64("card-facia-scapia-orange.png")
+    scapia_green_b64 = unlock_statements.get_card_b64("card-facia-scapia-green.png")
 
     return f"""<!DOCTYPE html>
 <html lang="en">
@@ -482,9 +507,9 @@ def get_card_shuffle_html():
       gap: 6px;
       padding: 5px 12px;
       border-radius: 9999px;
-      background: #f1f5f9;
-      border: 1px solid #cbd5e1;
-      color: #334155;
+      background: #fff7ed;
+      border: 1px solid #fed7aa;
+      color: #c2410c;
       font-size: 11px;
       font-weight: 800;
       text-transform: uppercase;
@@ -505,43 +530,44 @@ def get_card_shuffle_html():
       color: #64748b;
       max-width: 580px;
       line-height: 1.45;
-      margin-bottom: 12px;
+      margin-bottom: 10px;
     }}
 
-    /* 3D Physical Card Stage with Perspective */
+    /* 3D Portrait Physical Card Stage with Perspective */
     .card-stage-wrap {{
       perspective: 1200px;
       perspective-origin: center center;
       width: 100%;
-      max-width: 380px;
-      height: 210px;
+      max-width: 320px;
+      height: 330px;
       position: relative;
-      margin: 6px auto 14px auto;
+      margin: 4px auto 14px auto;
       display: flex;
       justify-content: center;
       align-items: center;
+      cursor: pointer;
     }}
 
-    .physical-card {{
-      width: 310px;
-      height: 195px;
-      border-radius: 16px;
+    .physical-card-portrait {{
+      width: 198px;
+      height: 312px;
+      border-radius: 18px;
       position: absolute;
       transform-style: preserve-3d;
       will-change: transform, opacity;
       user-select: none;
-      box-shadow: 0 20px 40px -10px rgba(0, 0, 0, 0.28);
+      box-shadow: 0 20px 40px -10px rgba(0, 0, 0, 0.32);
       transition: transform 0.6s cubic-bezier(0.34, 1.3, 0.64, 1), opacity 0.4s ease, box-shadow 0.4s ease;
       background-size: cover !important;
       background-position: center !important;
       background-repeat: no-repeat !important;
     }}
 
-    .physical-card::after {{
+    .physical-card-portrait::after {{
       content: '';
       position: absolute;
       inset: 0;
-      border-radius: 16px;
+      border-radius: 18px;
       border: 1px solid rgba(255, 255, 255, 0.25);
       pointer-events: none;
     }}
@@ -549,14 +575,14 @@ def get_card_shuffle_html():
     .card-glare {{
       position: absolute;
       inset: 0;
-      border-radius: 16px;
+      border-radius: 18px;
       background: linear-gradient(135deg, rgba(255,255,255,0.4) 0%, rgba(255,255,255,0.05) 50%, rgba(0,0,0,0.15) 100%);
       pointer-events: none;
     }}
 
     .embossed-name {{
       position: absolute;
-      bottom: 12px;
+      bottom: 14px;
       left: 16px;
       font-size: 11px;
       font-weight: 900;
@@ -569,44 +595,31 @@ def get_card_shuffle_html():
     }}
 
     /* Card Background Artworks */
-    #card-1 {{
-      background-image: url('{swiggy_b64}');
-      animation: shuffleSwiggy 9s cubic-bezier(0.34, 1.25, 0.64, 1) infinite;
+    #card-scapia-orange {{
+      background-image: url('{scapia_orange_b64}');
+      animation: shufflePortrait1 6s cubic-bezier(0.34, 1.25, 0.64, 1) infinite;
     }}
-    #card-2 {{
-      background-image: url('{amazon_b64}');
-      animation: shuffleAmazon 9s cubic-bezier(0.34, 1.25, 0.64, 1) infinite;
-    }}
-    #card-3 {{
-      background-image: url('{sbi_b64}');
-      animation: shuffleSbi 9s cubic-bezier(0.34, 1.25, 0.64, 1) infinite;
+    #card-scapia-green {{
+      background-image: url('{scapia_green_b64}');
+      animation: shufflePortrait2 6s cubic-bezier(0.34, 1.25, 0.64, 1) infinite;
     }}
 
     /* Hover pauses animation so user can inspect card */
-    .card-stage-wrap:hover .physical-card {{
+    .card-stage-wrap:hover .physical-card-portrait {{
       animation-play-state: paused;
     }}
 
-    /* Continuous 3D Auto-Shuffle Cycle */
-    @keyframes shuffleSwiggy {{
-      0%, 28% {{ transform: translate3d(0, 0, 40px) scale(1) rotate(0deg); z-index: 30; opacity: 1; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.35); }}
-      33%, 61% {{ transform: translate3d(45px, -15px, 0px) scale(0.92) rotate(4deg); z-index: 20; opacity: 0.88; box-shadow: 0 16px 32px -10px rgba(0, 0, 0, 0.22); }}
-      66%, 95% {{ transform: translate3d(-40px, -22px, -40px) scale(0.85) rotate(-5deg); z-index: 10; opacity: 0.72; box-shadow: 0 10px 20px -8px rgba(0, 0, 0, 0.18); }}
-      100% {{ transform: translate3d(0, 0, 40px) scale(1) rotate(0deg); z-index: 30; opacity: 1; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.35); }}
+    /* Continuous 3D Portrait Shuffling Cycle (Two Scapia Cards) */
+    @keyframes shufflePortrait1 {{
+      0%, 40% {{ transform: translate3d(0, 0, 35px) scale(1) rotate(0deg); z-index: 20; opacity: 1; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.4); }}
+      50%, 90% {{ transform: translate3d(36px, -15px, -35px) scale(0.92) rotate(4.5deg); z-index: 10; opacity: 0.85; box-shadow: 0 14px 28px -8px rgba(0, 0, 0, 0.25); }}
+      100% {{ transform: translate3d(0, 0, 35px) scale(1) rotate(0deg); z-index: 20; opacity: 1; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.4); }}
     }}
 
-    @keyframes shuffleAmazon {{
-      0%, 28% {{ transform: translate3d(45px, -15px, 0px) scale(0.92) rotate(4deg); z-index: 20; opacity: 0.88; box-shadow: 0 16px 32px -10px rgba(0, 0, 0, 0.22); }}
-      33%, 61% {{ transform: translate3d(-40px, -22px, -40px) scale(0.85) rotate(-5deg); z-index: 10; opacity: 0.72; box-shadow: 0 10px 20px -8px rgba(0, 0, 0, 0.18); }}
-      66%, 95% {{ transform: translate3d(0, 0, 40px) scale(1) rotate(0deg); z-index: 30; opacity: 1; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.35); }}
-      100% {{ transform: translate3d(45px, -15px, 0px) scale(0.92) rotate(4deg); z-index: 20; opacity: 0.88; box-shadow: 0 16px 32px -10px rgba(0, 0, 0, 0.22); }}
-    }}
-
-    @keyframes shuffleSbi {{
-      0%, 28% {{ transform: translate3d(-40px, -22px, -40px) scale(0.85) rotate(-5deg); z-index: 10; opacity: 0.72; box-shadow: 0 10px 20px -8px rgba(0, 0, 0, 0.18); }}
-      33%, 61% {{ transform: translate3d(0, 0, 40px) scale(1) rotate(0deg); z-index: 30; opacity: 1; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.35); }}
-      66%, 95% {{ transform: translate3d(45px, -15px, 0px) scale(0.92) rotate(4deg); z-index: 20; opacity: 0.88; box-shadow: 0 16px 32px -10px rgba(0, 0, 0, 0.22); }}
-      100% {{ transform: translate3d(-40px, -22px, -40px) scale(0.85) rotate(-5deg); z-index: 10; opacity: 0.72; box-shadow: 0 10px 20px -8px rgba(0, 0, 0, 0.18); }}
+    @keyframes shufflePortrait2 {{
+      0%, 40% {{ transform: translate3d(36px, -15px, -35px) scale(0.92) rotate(4.5deg); z-index: 10; opacity: 0.85; box-shadow: 0 14px 28px -8px rgba(0, 0, 0, 0.25); }}
+      50%, 90% {{ transform: translate3d(0, 0, 35px) scale(1) rotate(0deg); z-index: 20; opacity: 1; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.4); }}
+      100% {{ transform: translate3d(36px, -15px, -35px) scale(0.92) rotate(4.5deg); z-index: 10; opacity: 0.85; box-shadow: 0 14px 28px -8px rgba(0, 0, 0, 0.25); }}
     }}
 
     .cards-badges-row {{
@@ -615,25 +628,28 @@ def get_card_shuffle_html():
       justify-content: center;
       gap: 8px;
       margin-top: 4px;
-      margin-bottom: 14px;
+      margin-bottom: 12px;
     }}
 
     .card-badge {{
       display: inline-flex;
       align-items: center;
       gap: 6px;
-      padding: 6px 12px;
+      padding: 6px 14px;
       border-radius: 12px;
       font-size: 11px;
       font-weight: 800;
       border: 1px solid rgba(226, 232, 240, 0.8);
       background: #ffffff;
       box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+      cursor: pointer;
+      transition: transform 0.2s ease;
     }}
+    .card-badge:hover {{ transform: scale(1.04); }}
 
-    .badge-hdfc {{ color: #c2410c; border-color: #fed7aa; background: #fff7ed; }}
-    .badge-icici {{ color: #b45309; border-color: #fde68a; background: #fefce8; }}
-    .badge-sbi {{ color: #882438; border-color: #fecdd3; background: #fff1f2; }}
+    .badge-scapia-orange {{ color: #ea580c; border-color: #fed7aa; background: #fff7ed; }}
+    .badge-scapia-green {{ color: #16a34a; border-color: #bbf7d0; background: #f0fdf4; }}
+    .badge-all-banks {{ color: #475569; border-color: #cbd5e1; background: #f8fafc; }}
 
     .privacy-pill {{
       display: inline-flex;
@@ -651,13 +667,13 @@ def get_card_shuffle_html():
 
     /* Mobile responsive card scaling */
     @media (max-width: 640px) {{
-      .physical-card {{
-        width: 260px;
-        height: 164px;
+      .physical-card-portrait {{
+        width: 175px;
+        height: 276px;
       }}
       .card-stage-wrap {{
-        height: 190px;
-        max-width: 320px;
+        height: 295px;
+        max-width: 280px;
       }}
     }}
   </style>
@@ -665,35 +681,33 @@ def get_card_shuffle_html():
 <body>
   <div class="showcase-card">
     <div class="headline-pill">
-      <span>🔀</span>
-      <span>3 Credit Cards Supported & Auto-Detected</span>
+      <span>✈️</span>
+      <span>Axis Bank Scapia Editions (Portrait)</span>
     </div>
     <h2 class="title">No Statement Loaded in This Session</h2>
     <p class="subtitle">
-      Upload your <b>HDFC Bank (Swiggy)</b>, <b>ICICI Bank (Amazon Pay)</b>, or <b>SBI Card (SimplyCLICK)</b> statement PDF above to view your interactive Apple-style dashboard, friend EMI receipts, and cashback reconciliation.
+      Upload your <b>Axis Bank (Scapia)</b>, <b>HDFC Bank (Swiggy)</b>, <b>ICICI Bank (Amazon Pay)</b>, or <b>SBI Card (SimplyCLICK)</b> statement PDF above to view your interactive Apple-style dashboard, friend EMI receipts, and cashback reconciliation.
     </p>
 
-    <!-- 3D Card Animation Stage: Continuous Auto-Shuffle (Hover to Inspect) -->
-    <div id="card-stage" class="card-stage-wrap" title="Hover to inspect card details">
-      <div id="card-1" class="physical-card">
+    <!-- 3D Portrait Card Shuffling Stage (Tap to flip) -->
+    <div id="card-stage" class="card-stage-wrap" onclick="flipScapiaCards()" title="Hover to inspect • Tap to flip cards">
+      <!-- Card 1: Scapia Mastercard (Orange) -->
+      <div id="card-scapia-orange" class="physical-card-portrait">
         <div class="card-glare"></div>
-        <div class="embossed-name">SWIGGY HDFC</div>
+        <div class="embossed-name">SCAPIA MASTERCARD</div>
       </div>
-      <div id="card-2" class="physical-card">
+      <!-- Card 2: Scapia RuPay (Green) -->
+      <div id="card-scapia-green" class="physical-card-portrait">
         <div class="card-glare"></div>
-        <div class="embossed-name" style="color: #fde68a;">AMAZON PAY ICICI</div>
-      </div>
-      <div id="card-3" class="physical-card">
-        <div class="card-glare"></div>
-        <div class="embossed-name">SBI SIMPLYCLICK</div>
+        <div class="embossed-name" style="color: #dcfce7;">SCAPIA RUPAY</div>
       </div>
     </div>
 
     <!-- Supported Card Pills -->
     <div class="cards-badges-row">
-      <span class="card-badge badge-hdfc"><span>🛵</span><span>Swiggy HDFC Bank (10% Food)</span></span>
-      <span class="card-badge badge-icici"><span>🛒</span><span>Amazon Pay ICICI (5% Shopping)</span></span>
-      <span class="card-badge badge-sbi"><span>💳</span><span>SBI Card SimplyCLICK (10X Online)</span></span>
+      <span class="card-badge badge-scapia-orange" onclick="flipScapiaCards()"><span>✈️</span><span>Scapia Mastercard (0% Forex & 10% Coins)</span></span>
+      <span class="card-badge badge-scapia-green" onclick="flipScapiaCards()"><span>🛍️</span><span>Scapia RuPay (UPI on Credit & Lounges)</span></span>
+      <span class="card-badge badge-all-banks"><span>🏛️</span><span>Auto-Detects: Swiggy HDFC • Amazon Pay ICICI • SBI SimplyCLICK</span></span>
     </div>
 
     <div class="privacy-pill">
@@ -701,6 +715,18 @@ def get_card_shuffle_html():
       <span>100% Zero-Disk Privacy: Statements are processed in RAM & never stored on the server — also I don't have money to buy a server 😜</span>
     </div>
   </div>
+
+  <script>
+    function flipScapiaCards() {{
+      const c1 = document.getElementById('card-scapia-orange');
+      const c2 = document.getElementById('card-scapia-green');
+      if (!c1 || !c2) return;
+      const anim1 = c1.style.animation;
+      const anim2 = c2.style.animation;
+      c1.style.animation = anim2 || 'shufflePortrait2 6s cubic-bezier(0.34, 1.25, 0.64, 1) infinite';
+      c2.style.animation = anim1 || 'shufflePortrait1 6s cubic-bezier(0.34, 1.25, 0.64, 1) infinite';
+    }}
+  </script>
 </body>
 </html>"""
 
@@ -713,8 +739,8 @@ if st.session_state.statements_data:
     )
     components.html(dashboard_html, height=1450, scrolling=True)
 else:
-    # Clean Initial State: Pure 3D Auto-Shuffle with ample height buffer to ensure parent card is 100% visible
-    components.html(get_card_shuffle_html(), height=535, scrolling=False)
+    # Clean Initial State: 3D Portrait Shuffling Showcase (Height 620 to ensure zero card clipping)
+    components.html(get_card_shuffle_html(), height=620, scrolling=False)
 
 # --- Friendly Footer ---
 st.markdown("""

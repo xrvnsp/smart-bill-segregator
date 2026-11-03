@@ -108,6 +108,12 @@ KNOWN_BANKS = [
         "short_name": "SBI SimplyCLICK",
         "hints": ["sbi", "simplyclick", "simply click", "sbicard"],
     },
+    {
+        "name": "Axis Bank (Scapia)",
+        "key": "scapia",
+        "short_name": "Scapia Axis",
+        "hints": ["scapia", "axis", "axis bank", "federal", "scapiacard"],
+    },
 ]
 
 
@@ -247,12 +253,17 @@ def identify_bank(file_path, text, unlocked_bank_key=None):
   text_upper = text.upper() if text else ""
   fname_lower = os.path.basename(str(file_path)).lower()
 
+  if "SCAPIA" in text_upper or ("AXIS" in text_upper and "CARD" in text_upper):
+    return "Axis Bank (Scapia)", "Scapia Axis"
   if "SIMPLYCLICK" in text_upper or "SIMPLY CLICK" in text_upper or "SBICARD" in text_upper or ("SBI" in text_upper and "CARD" in text_upper):
     return "SBI Card (SimplyCLICK)", "SBI SimplyCLICK"
   if "ICICI" in text_upper or "AMAZON PAY" in text_upper:
     return "ICICI Bank (Amazon Pay)", "ICICI Amazon"
   if "HDFC" in text_upper or "SWIGGY HDFC" in text_upper:
     return "HDFC Bank (Swiggy)", "HDFC"
+
+  if unlocked_bank_key == "scapia":
+    return "Axis Bank (Scapia)", "Scapia Axis"
 
   if unlocked_bank_key == "sbi":
     return "SBI Card (SimplyCLICK)", "SBI SimplyCLICK"
@@ -432,6 +443,121 @@ def parse_icici_statement(reader, file_path, saved_names):
       "ongoing_emis": ongoing_emis,
   }
 
+
+def parse_scapia_statement(reader, file_path, saved_names):
+  """Dedicated parser for Axis Bank / Federal Bank Scapia credit card statements."""
+  p1_text = reader.pages[0].extract_text() or ""
+  lines = [l.strip() for l in p1_text.splitlines() if l.strip()]
+
+  # 1. Cardholder Name
+  cardholder_name = ""
+  for i, line in enumerate(lines):
+    if re.search(r"X{4}\s*X{4}", line, re.IGNORECASE) and i > 0:
+      candidate = lines[i - 1].strip()
+      if len(candidate) < 40 and not any(k in candidate.lower() for k in ["statement", "card", "axis", "scapia", "bank", "account", "important"]):
+        cardholder_name = candidate
+        break
+
+  if not cardholder_name:
+    for line in lines:
+      m_title = re.search(r"^(?:MR|MS|MRS|DR)\.?\s+([A-Za-z\s]{2,35})$", line, re.IGNORECASE)
+      if m_title:
+        cardholder_name = " ".join(m_title.group(1).split()).upper()
+        break
+
+  if not cardholder_name:
+    m_name = re.search(r"(?:Name|Customer Name)[\s:]*([A-Za-z\s]{3,35})", p1_text, re.IGNORECASE)
+    if m_name:
+      candidate = m_name.group(1).strip()
+      if not any(k in candidate.lower() for k in ["statement", "card", "axis", "bank"]):
+        cardholder_name = " ".join(candidate.split()).upper()
+
+  if not cardholder_name:
+    cardholder_name = "Cardholder"
+
+  # 2. Total Amount Due
+  m_tot = re.search(r"(?:Total\s+Amount\s+Due|Total\s+Payment\s+Due|Current\s+Dues|Payment\s+Due)[\s:₹Rs\.]*([\d,]+\.\d{2})", p1_text, re.IGNORECASE)
+  total_due = f"₹{m_tot.group(1)}" if m_tot else "₹0.00"
+
+  # 3. Payment Due Date
+  m_due = re.search(r"(?:Payment\s+Due\s+Date|Due\s+Date|Pay\s+By)[\s:]*([0-9]{1,2}[/-][0-9]{1,2}[/-][0-9]{2,4}|[0-9]{1,2}\s+[a-zA-Z]+,?\s+[0-9]{2,4}|[0-9]{1,2}-[a-zA-Z]{3}-[0-9]{2,4})", p1_text, re.IGNORECASE)
+  if "NO PAYMENT REQUIRED" in p1_text.upper():
+    due_date = "No Payment Required"
+  else:
+    due_date = m_due.group(1).replace(",", "") if m_due else "No Payment Required"
+
+  # 4. Statement Date & Month
+  m_stmt = re.search(r"(?:Statement\s+Date|Billing\s+Date|Statement\s+Period)[\s:]*([0-9]{1,2}[/-][0-9]{1,2}[/-][0-9]{2,4}|[0-9]{1,2}\s+[a-zA-Z]+,?\s+[0-9]{2,4}|[0-9]{1,2}-[a-zA-Z]{3}-[0-9]{2,4})", p1_text, re.IGNORECASE)
+  statement_date = ""
+  clean_month = ""
+  if m_stmt:
+    raw_s = m_stmt.group(1).replace(",", "")
+    for fmt in ["%d/%m/%Y", "%d-%m-%Y", "%d %b %Y", "%d %B %Y", "%d-%b-%Y", "%d/%m/%y"]:
+      try:
+        dt = datetime.strptime(raw_s, fmt)
+        statement_date = dt.strftime("%d/%m/%Y")
+        clean_month = dt.strftime("%B %Y")
+        break
+      except ValueError:
+        pass
+
+  if not clean_month:
+    clean_month = normalize_month_name(p1_text) or "Current Month"
+
+  # 5. Scapia Coins / Rewards
+  reward_points = ""
+  m_coins = re.search(r"(?:Scapia\s+Coins|Coins\s+Earned|Closing\s+Balance|Rewards)[\s:]*([\d,]+)", p1_text, re.IGNORECASE)
+  if m_coins:
+    reward_points = f"{m_coins.group(1)} coins"
+
+  # 6. Transactions across pages
+  txns = []
+  date_groups = defaultdict(lambda: {"total": 0.0, "items": [], "has_emi": False})
+  txn_pat = re.compile(r"^\s*(\d{1,2}[/-]\d{1,2}[/-]\d{2,4}|\d{1,2}\s+[A-Za-z]{3}\s+\d{2,4}|\d{1,2}-[A-Za-z]{3}-\d{2,4})\s+(.*?)\s+([\d,]+\.\d{2})\s*(Cr|Dr|C|D)?\s*$", re.IGNORECASE)
+
+  for page in reader.pages:
+    txt = page.extract_text() or ""
+    for line in txt.splitlines():
+      line_s = line.strip()
+      m_txn = txn_pat.match(line_s)
+      if m_txn:
+        raw_dt, desc, amt_str, cr_dr = m_txn.groups()
+        amt = float(amt_str.replace(",", ""))
+        is_cr = bool(cr_dr and cr_dr.upper() in ["C", "CR"])
+        dt = raw_dt
+        for fmt in ["%d/%m/%Y", "%d-%m-%Y", "%d %b %y", "%d %b %Y", "%d-%b-%Y", "%d/%m/%y"]:
+          try:
+            dt = datetime.strptime(raw_dt, fmt).strftime("%d/%m/%Y")
+            break
+          except ValueError:
+            pass
+
+        is_emi = is_emi_desc(desc)
+        t_obj = {
+            "date": dt,
+            "description": desc.strip(),
+            "amount": amt,
+            "is_credit": is_cr,
+            "is_emi": is_emi,
+            "amount_str": f"₹{amt:,.2f}" + (" Cr" if is_cr else ""),
+        }
+        txns.append(t_obj)
+        if not is_cr:
+          date_groups[dt]["total"] += amt
+        if is_emi:
+          date_groups[dt]["has_emi"] = True
+        date_groups[dt]["items"].append(t_obj)
+
+  return {
+      "total_due": total_due,
+      "due_date": due_date,
+      "statement_month": clean_month,
+      "cardholder_name": cardholder_name,
+      "date_groups": dict(date_groups),
+      "all_txns": txns,
+      "ongoing_emis": [],
+      "reward_points": reward_points,
+  }
 
 def parse_sbi_statement(reader, file_path, saved_names):
   """Dedicated rule for SBI Card (SimplyCLICK) credit card statements."""
@@ -779,7 +905,9 @@ def process_statement_file(file_path, base_downloads_dir=None, custom_passwords=
     p1_text = reader.pages[0].extract_text() or ""
     bank_full_name, bank_short = identify_bank(file_path, p1_text, unlocked_bank_key)
 
-    if bank_short == "SBI SimplyCLICK":
+    if bank_short == "Scapia Axis":
+      fin = parse_scapia_statement(reader, file_path, saved_emi_names)
+    elif bank_short == "SBI SimplyCLICK":
       fin = parse_sbi_statement(reader, file_path, saved_emi_names)
     elif bank_short == "ICICI Amazon":
       fin = parse_icici_statement(reader, file_path, saved_emi_names)
@@ -845,11 +973,25 @@ def generate_modern_dashboard_html(results_list, output_dir=".", write_to_disk=T
   swiggy_card_b64 = ""
   amazon_card_b64 = ""
   sbi_card_b64 = ""
+  scapia_orange_b64 = ""
+  scapia_green_b64 = ""
   for cdir in [output_dir, os.path.dirname(os.path.abspath(__file__)), ".", "/working_dir/c_a77ecec1bad766ad/user_uploaded_files/ttl=63d/user_uploaded"]:
     sp = os.path.join(cdir, "card-facia-swiggy.jpg")
     ap = os.path.join(cdir, "card-facia-amazon.png")
     ap_orig = os.path.join(cdir, "amazon-card-banner.webp")
     sbp = os.path.join(cdir, "simply-click-card-face.png")
+    sco = os.path.join(cdir, "card-facia-scapia-orange.png")
+    scg = os.path.join(cdir, "card-facia-scapia-green.png")
+    if os.path.exists(sco) and not scapia_orange_b64:
+      try:
+        with open(sco, "rb") as f:
+          scapia_orange_b64 = "data:image/png;base64," + base64.b64encode(f.read()).decode("utf-8")
+      except Exception: pass
+    if os.path.exists(scg) and not scapia_green_b64:
+      try:
+        with open(scg, "rb") as f:
+          scapia_green_b64 = "data:image/png;base64," + base64.b64encode(f.read()).decode("utf-8")
+      except Exception: pass
     if os.path.exists(sp) and not swiggy_card_b64:
       try:
         with open(sp, "rb") as f:
@@ -1188,7 +1330,7 @@ def generate_modern_dashboard_html(results_list, output_dir=".", write_to_disk=T
   </main>
 
   <script>
-    const CARD_IMAGES = {{ swiggy: "{swiggy_card_b64}", amazon: "{amazon_card_b64}", sbi: "{sbi_card_b64}" }};
+    const CARD_IMAGES = {{ swiggy: "{swiggy_card_b64}", amazon: "{amazon_card_b64}", sbi: "{sbi_card_b64}", scapia_orange: "{scapia_orange_b64}", scapia_green: "{scapia_green_b64}" }};
     const statements = {data_json};
     let activeIndex = 0;
 
@@ -1990,9 +2132,11 @@ def generate_modern_dashboard_html(results_list, output_dir=".", write_to_disk=T
         const isSwiggy = bName.includes('swiggy') || bName.includes('hdfc');
         const isAmazon = bName.includes('amazon') || bName.includes('icici');
         const isSbi = bName.includes('sbi') || bName.includes('simplyclick');
+      const isScapia = bName.includes('scapia') || bName.includes('axis') || bName.includes('federal');
+        const isScapia = bName.includes('scapia') || bName.includes('axis') || bName.includes('federal');
 
-        let dotColor = isSwiggy ? 'bg-[#fc8019]' : (isAmazon ? 'bg-[#ff9900]' : (isSbi ? 'bg-[#882438]' : 'bg-blue-600'));
-        let icon = isSwiggy ? '🛵' : (isAmazon ? '🛒' : (isSbi ? '💳' : '🏛️'));
+        let dotColor = isSwiggy ? 'bg-[#fc8019]' : (isAmazon ? 'bg-[#ff9900]' : (isSbi ? 'bg-[#882438]' : (isScapia ? 'bg-[#f2530f]' : 'bg-blue-600')));
+        let icon = isSwiggy ? '🛵' : (isAmazon ? '🛒' : (isSbi ? '💳' : (isScapia ? '✈️' : '🏛️')));
 
         btn.className = `apple-tab-btn px-5 py-2.5 rounded-xl text-xs font-bold transition flex items-center gap-2 ${{
           isActive 
@@ -2027,6 +2171,15 @@ def generate_modern_dashboard_html(results_list, output_dir=".", write_to_disk=T
       }};
     }}
 
+    window.cycleScapiaCards = function() {{
+      const c1 = document.getElementById('scapia-card-1');
+      const c2 = document.getElementById('scapia-card-2');
+      if (!c1 || !c2) return;
+      const bg1 = c1.style.background;
+      c1.style.background = c2.style.background;
+      c2.style.background = bg1;
+    }};
+
     window.cycleStackedCards = function() {{
       const c1 = document.getElementById('stack-card-1');
       const c2 = document.getElementById('stack-card-2');
@@ -2055,6 +2208,7 @@ def generate_modern_dashboard_html(results_list, output_dir=".", write_to_disk=T
       let cardBadgeClass = 'bg-indigo-100 text-indigo-900 border-indigo-200';
 
       const isSbi = bName.includes('sbi') || bName.includes('simplyclick');
+      const isScapia = bName.includes('scapia') || bName.includes('axis') || bName.includes('federal');
 
       if (isSwiggy) {{
         ambientColor = 'rgba(252, 128, 25, 0.28)';
@@ -2096,7 +2250,28 @@ def generate_modern_dashboard_html(results_list, output_dir=".", write_to_disk=T
             <!-- Embossed Cardholder Name -->
             <div class="absolute bottom-4 left-5 z-20 pointer-events-none select-none">
               <div class="text-[12px] sm:text-[13px] font-black tracking-[0.14em] uppercase text-white/95 font-mono drop-shadow-[0_1.5px_2px_rgba(0,0,0,0.9)]">
-                ${{stmt.cardholder_name || 'KAYALVIZHI R'}}
+                ${{stmt.cardholder_name || 'Cardholder'}}
+              </div>
+            </div>
+          </div>
+        `;
+      }} else if (isScapia) {{
+        ambientColor = 'rgba(242, 83, 15, 0.28)';
+        cardBadgeText = 'Axis Bank Scapia (Portrait)';
+        cardBadgeClass = 'bg-orange-100 text-orange-950 border-orange-200';
+        cardStageHtml = `
+          <div class="relative w-full max-w-[320px] h-[340px] flex items-center justify-center cursor-pointer group" onclick="cycleScapiaCards()" title="Click to flip between Mastercard & RuPay editions">
+            <!-- Back Card: Scapia RuPay (Green) -->
+            <div id="scapia-card-2" class="apple-physical-card absolute w-[190px] h-[300px] shadow-lg top-2 right-4 -rotate-3 opacity-90 transition-all duration-500 ease-out group-hover:rotate-0 group-hover:translate-x-2" style="background: url('${{CARD_IMAGES.scapia_green}}') center/cover no-repeat; border-radius: 18px; z-index: 10;">
+              <div class="apple-card-glare" style="border-radius: 18px;"></div>
+            </div>
+            <!-- Front Card: Scapia Mastercard (Orange) -->
+            <div id="scapia-card-1" class="apple-physical-card absolute w-[200px] h-[316px] shadow-2xl bottom-1 left-4 rotate-2 transition-all duration-500 ease-out group-hover:rotate-0 group-hover:scale-102" style="background: url('${{CARD_IMAGES.scapia_orange}}') center/cover no-repeat; border-radius: 18px; z-index: 20;">
+              <div class="apple-card-glare" style="border-radius: 18px;"></div>
+              <div class="absolute bottom-4 left-5 z-20 pointer-events-none select-none">
+                <div class="text-[11px] font-black tracking-[0.14em] uppercase text-white/95 font-mono drop-shadow-[0_1.5px_2px_rgba(0,0,0,0.85)]">
+                  ${{stmt.cardholder_name || 'Cardholder'}}
+                </div>
               </div>
             </div>
           </div>
