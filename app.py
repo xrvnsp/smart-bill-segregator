@@ -34,14 +34,14 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# --- Responsive Stylesheet: Professional Fonts & Crazy Comic Disclaimer ---
+# --- Responsive Stylesheet: Clean Typography Without Breaking Material Icons ---
 st.markdown("""
 <style>
     @import url('https://fonts.googleapis.com/css2?family=Gloria+Hallelujah&family=Inter:wght@400;500;600;700;800&family=Plus+Jakarta+Sans:wght@500;600;700;800;900&display=swap');
 
-    /* Global professional font for executive clean UI */
-    html, body, [class*="st-"] {
-        font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
+    /* Apply professional font ONLY to text/markdown elements — NEVER override Material Symbols icon spans! */
+    .stMarkdown, .stText, h1, h2, h3, h4, h5, h6, [data-testid="stCaptionContainer"], [data-testid="stWidgetLabel"] p {
+        font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
     }
 
     /* Crazy comic font for tongue-in-cheek privacy disclaimer */
@@ -70,45 +70,12 @@ st.markdown("""
         display: none !important;
     }
 
-    /* Force Streamlit's native sidebar toggle (collapsedControl & collapseButton) to be ALWAYS visible & clickable */
+    /* Keep Streamlit's native sidebar toggle clean and visible */
     [data-testid="collapsedControl"],
-    [data-testid="collapsedControl"] button,
-    button[data-testid="stSidebarCollapseButton"],
-    [data-testid="stSidebarCollapsedControl"],
-    header [data-testid="collapsedControl"] {
-        display: flex !important;
+    [data-testid="stSidebarCollapsedControl"] {
         visibility: visible !important;
         opacity: 1 !important;
         z-index: 9999999 !important;
-        pointer-events: auto !important;
-    }
-
-    /* Style the native collapsedControl button with a clean Apple-style pill appearance */
-    [data-testid="collapsedControl"] {
-        background: rgba(255, 255, 255, 0.94) !important;
-        backdrop-filter: blur(14px) !important;
-        border: 1px solid rgba(203, 213, 225, 0.85) !important;
-        border-radius: 12px !important;
-        padding: 4px 10px !important;
-        box-shadow: 0 4px 14px rgba(0, 0, 0, 0.08) !important;
-        color: #0f172a !important;
-        cursor: pointer !important;
-        transition: transform 0.2s ease, box-shadow 0.2s ease !important;
-        margin-left: 0.5rem !important;
-        margin-top: 0.25rem !important;
-    }
-    [data-testid="collapsedControl"]:hover {
-        transform: scale(1.05) !important;
-        box-shadow: 0 6px 18px rgba(0, 0, 0, 0.14) !important;
-    }
-
-    /* Dark mode styling for native collapsedControl */
-    @media (prefers-color-scheme: dark) {
-        [data-testid="collapsedControl"] {
-            background: rgba(30, 41, 59, 0.94) !important;
-            border-color: rgba(71, 85, 105, 0.9) !important;
-            color: #f8fafc !important;
-        }
     }
 
     /* Container padding: tight top margin for zero blank space */
@@ -365,7 +332,7 @@ with st.container():
                     <span>⚪</span><span>No Device Passwords Saved</span>
                 </div>
                 <div style="font-size: 11px; color: #64748b; margin-top: 3px;">
-                    Click <b>&gt;</b> top-left or configure below.
+                    Open the sidebar top-left or configure below.
                 </div>
             </div>
             """, unsafe_allow_html=True)

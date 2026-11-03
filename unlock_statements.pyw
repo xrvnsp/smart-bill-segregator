@@ -2132,7 +2132,6 @@ def generate_modern_dashboard_html(results_list, output_dir=".", write_to_disk=T
         const isSwiggy = bName.includes('swiggy') || bName.includes('hdfc');
         const isAmazon = bName.includes('amazon') || bName.includes('icici');
         const isSbi = bName.includes('sbi') || bName.includes('simplyclick');
-      const isScapia = bName.includes('scapia') || bName.includes('axis') || bName.includes('federal');
         const isScapia = bName.includes('scapia') || bName.includes('axis') || bName.includes('federal');
 
         let dotColor = isSwiggy ? 'bg-[#fc8019]' : (isAmazon ? 'bg-[#ff9900]' : (isSbi ? 'bg-[#882438]' : (isScapia ? 'bg-[#f2530f]' : 'bg-blue-600')));
