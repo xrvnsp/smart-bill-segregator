@@ -408,9 +408,9 @@ if uploaded_files:
             if "password" in msg.lower():
                 with st.form(key=f"pwd_unlock_{up_file.name}"):
                     fname_low = up_file.name.lower()
-                    if "scapia" in fname_low or "axis" in fname_low: def_idx = 0
-                    elif "hdfc" in fname_low or "swiggy" in fname_low: def_idx = 1
-                    elif "icici" in fname_low or "amazon" in fname_low: def_idx = 2
+                    if "scapia" in fname_low or "axis" in fname_low or "federal" in fname_low: def_idx = 0
+                    elif "5268" in fname_low or "hdfc" in fname_low or "swiggy" in fname_low: def_idx = 1
+                    elif "4315" in fname_low or "icici" in fname_low or "amazon" in fname_low: def_idx = 2
                     else: def_idx = 3
 
                     st.markdown(f"**Unlock `{up_file.name}`:**")

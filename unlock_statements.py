@@ -848,18 +848,21 @@ def process_statement_file(file_path, base_downloads_dir=None, custom_passwords=
     except Exception:
       pass
 
-    if "simplyclick" in fname_lower or "simply click" in fname_lower or "sbicard" in fname_lower or "sbi" in fname_lower or "sbicpsl" in meta_clues or "sbi card" in meta_clues:
-      ordered_banks = [b for b in KNOWN_BANKS if b["key"] == "sbi"] + [b for b in KNOWN_BANKS if b["key"] != "sbi"]
+    if "scapia" in fname_lower or "axis" in fname_lower or "federal" in fname_lower or "axis" in meta_clues or "scapia" in meta_clues:
+      ordered_banks = [b for b in KNOWN_BANKS if b["key"] == "scapia"]
+    elif "9826" in fname_lower or "simplyclick" in fname_lower or "simply click" in fname_lower or "sbicard" in fname_lower or "sbi" in fname_lower or "sbicpsl" in meta_clues or "sbi card" in meta_clues:
+      ordered_banks = [b for b in KNOWN_BANKS if b["key"] == "sbi"]
     elif "4315" in fname_lower or "amazon" in fname_lower or "icici" in fname_lower or "icici" in meta_clues:
-      ordered_banks = [b for b in KNOWN_BANKS if b["key"] == "icici"] + [b for b in KNOWN_BANKS if b["key"] != "icici"]
+      ordered_banks = [b for b in KNOWN_BANKS if b["key"] == "icici"]
     elif "5268" in fname_lower or "hdfc" in fname_lower or "swiggy" in fname_lower or "hdfc" in meta_clues:
-      ordered_banks = [b for b in KNOWN_BANKS if b["key"] == "hdfc"] + [b for b in KNOWN_BANKS if b["key"] != "hdfc"]
+      ordered_banks = [b for b in KNOWN_BANKS if b["key"] == "hdfc"]
     else:
       ordered_banks = list(KNOWN_BANKS)
 
     parent_folder = base_downloads_dir or os.path.dirname(str(file_path)) or "."
     if custom_passwords is not None:
       stored_pwds = {
+          "scapia": str(custom_passwords.get("scapia", "")).strip(),
           "hdfc": str(custom_passwords.get("hdfc", "")).strip(),
           "icici": str(custom_passwords.get("icici", "")).strip(),
           "sbi": str(custom_passwords.get("sbi", "")).strip(),
