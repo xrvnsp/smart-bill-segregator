@@ -9,7 +9,7 @@ An Apple-inspired interactive web dashboard, Streamlit web application ([smartbi
 ## ✨ Core Highlights
 
 * 🏛️ **4 Major Credit Card Statement Formats Auto-Detected**:
-  * **Axis Bank (Scapia)**: 0% forex markup travel credit card, Scapia Coins reward balance, payments/credits, and dual portrait editions (**Orange Mastercard** & **Green RuPay**).
+  * **Axis Bank (Scapia)**: 0% forex markup travel credit card, Scapia Coins reward balance, payments/credits, and dual editions (**Orange Mastercard** & **Green RuPay**).
   * **HDFC Bank (Swiggy)**: Food delivery, dining 10% cashback audit, processing fees & GST reconciliation.
   * **ICICI Bank (Amazon Pay)**: 5% unlimited shopping rewards, loan amortization & statement breakdown.
   * **SBI Card (SimplyCLICK)**: 10X reward point balances, payments/credits, no-payment-due detection, and online spends tracking.
@@ -19,9 +19,10 @@ An Apple-inspired interactive web dashboard, Streamlit web application ([smartbi
   * **Mobile Touch**: 100% fluid touch layout, full-width cards without horizontal overflow, mobile-optimized headers, and tap-friendly buttons.
   * **PWA & Android Support**: Progressive Web App with `manifest.json` and `sw.js` for "Add to Home Screen", plus an Android Studio WebView wrapper in `android/` for native APK builds.
 
-* 🔀 **Interactive 3D Portrait Physical Card Shuffling**:
-  * **Dual Portrait Editions**: Features the official **Scapia Mastercard** (Orange) and **Scapia RuPay** (Green) cards cycling in authentic portrait 3D orientation.
-  * **Hover & Tap to Flip**: Hovering pauses the animation, and tapping either card smoothly flips between the Mastercard and RuPay editions.
+* 🔀 **Cards Supported So Far**:
+  * **Travel Editions**: Features the official **Scapia Mastercard** (Orange) and **Scapia RuPay** (Green) cards cycling dynamically.
+  * **Daily Rewards Editions**: Features **Swiggy HDFC**, **Amazon Pay ICICI**, and **SBI SimplyCLICK** cards cycling dynamically.
+  * **Hover & Tap to Flip**: Hovering pauses the animation, and tapping either card smoothly flips between the card editions.
   * **Pristine Presentation**: Generous viewport height buffer ensuring zero card clipping on both mobile and PC.
 
 * 🔒 **Device-Local Browser Password Vault with Instant Notifications**:
@@ -91,26 +92,26 @@ python unlock_statements.py
 ## 📁 Repository Structure
 
 ```
-├── app.py                     # Streamlit web app (3D portrait Scapia shuffle, zero-disk RAM architecture)
-├── local_storage_bridge/      # Custom component bridging browser localStorage securely with Streamlit
-├── unlock_statements.py       # Core parser (Scapia Axis, HDFC, ICICI, SBI), Apple Design HTML & desktop GUI
-├── unlock_statements.pyw      # Windowless desktop launcher for Windows
-├── web_server.py              # Lightweight local HTTP server for PC & mobile Wi-Fi access
-├── card-facia-scapia-orange.png # Official Axis Scapia Mastercard portrait artwork (transparent cutouts)
-├── card-facia-scapia-green.png  # Official Axis Scapia RuPay portrait artwork (transparent cutouts)
-├── card-facia-swiggy.jpg      # Official HDFC Swiggy card artwork
-├── card-facia-amazon.png      # Official Amazon Pay ICICI card artwork
-├── simply-click-card-face.png # Official SBI SimplyCLICK card artwork
-├── run_streamlit.bat          # 1-click Windows launcher for Streamlit
-├── run_web_server.bat         # 1-click Windows launcher for local web server
-├── copy_and_push_to_git.bat   # 1-click deployment & GitHub push script (excluded in .gitignore)
-├── android/                   # Native Android WebView wrapper project for building mobile APK
-├── manifest.json              # PWA Web App Manifest for mobile home screen installation
-├── sw.js                      # Service worker for offline caching & PWA
-├── requirements.txt           # Python dependencies (pypdf, cryptography, streamlit)
-├── passwords.json.example     # Template for offline desktop configuration
-├── .gitignore                 # Strict gitignore blocking all PDFs, credentials, and local scripts
-└── README.md                  # Project documentation
+├── app.py                       # Streamlit web app (zero-disk RAM architecture, animated cards)
+├── local_storage_bridge/        # Custom component bridging browser localStorage securely with Streamlit
+├── unlock_statements.py         # Core parser (Scapia Axis, HDFC, ICICI, SBI), Apple Design HTML & desktop GUI
+├── unlock_statements.pyw        # Windowless desktop launcher for Windows
+├── web_server.py                # Lightweight local HTTP server for PC & mobile Wi-Fi access
+├── card-facia-scapia-orange.png # Official Axis Scapia Mastercard artwork (transparent cutouts)
+├── card-facia-scapia-green.png  # Official Axis Scapia RuPay artwork (transparent cutouts)
+├── card-facia-swiggy.jpg        # Official HDFC Swiggy card artwork
+├── card-facia-amazon.png        # Official Amazon Pay ICICI card artwork
+├── simply-click-card-face.png   # Official SBI SimplyCLICK card artwork
+├── run_streamlit.bat            # 1-click Windows launcher for Streamlit
+├── run_web_server.bat           # 1-click Windows launcher for local web server
+├── copy_and_push_to_git.bat     # 1-click deployment & GitHub push script (excluded in .gitignore)
+├── android/                     # Native Android WebView wrapper project for building mobile APK
+├── manifest.json                # PWA Web App Manifest for mobile home screen installation
+├── sw.js                        # Service worker for offline caching & PWA
+├── requirements.txt             # Python dependencies (pypdf, cryptography, streamlit)
+├── passwords.json.example       # Template for offline desktop configuration
+├── .gitignore                   # Strict gitignore blocking all PDFs, credentials, and local scripts
+└── README.md                    # Project documentation
 ```
 
 ---

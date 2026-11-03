@@ -2257,7 +2257,7 @@ def generate_modern_dashboard_html(results_list, output_dir=".", write_to_disk=T
         `;
       }} else if (isScapia) {{
         ambientColor = 'rgba(242, 83, 15, 0.28)';
-        cardBadgeText = 'Axis Bank Scapia (Portrait)';
+        cardBadgeText = 'Axis Bank Scapia Card';
         cardBadgeClass = 'bg-orange-100 text-orange-950 border-orange-200';
         cardStageHtml = `
           <div class="relative w-full max-w-[320px] h-[340px] flex items-center justify-center cursor-pointer group" onclick="cycleScapiaCards()" title="Click to flip between Mastercard & RuPay editions">

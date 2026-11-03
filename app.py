@@ -34,9 +34,22 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# --- Responsive Stylesheet: Restored Native Sidebar Toggle, Zero Gap & 5s Toast ---
+# --- Responsive Stylesheet: Professional Fonts & Crazy Comic Disclaimer ---
 st.markdown("""
 <style>
+    @import url('https://fonts.googleapis.com/css2?family=Gloria+Hallelujah&family=Inter:wght@400;500;600;700;800&family=Plus+Jakarta+Sans:wght@500;600;700;800;900&display=swap');
+
+    /* Global professional font for executive clean UI */
+    html, body, [class*="st-"] {
+        font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
+    }
+
+    /* Crazy comic font for tongue-in-cheek privacy disclaimer */
+    .crazy-comic-font {
+        font-family: 'Gloria Hallelujah', cursive, sans-serif !important;
+        letter-spacing: 0.02em !important;
+    }
+
     /* Header styling: transparent background, compact height, keep native sidebar toggle visible */
     header[data-testid="stHeader"], header {
         background: transparent !important;
@@ -115,7 +128,7 @@ st.markdown("""
         width: 100% !important;
     }
 
-    /* Sidebar 5-second persistent toast (Never shrinks height, only fades opacity) */
+    /* Sidebar 5-second persistent toast */
     .sidebar-toast-5s {
         animation: toastFade5s 5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
     }
@@ -242,7 +255,7 @@ with st.sidebar:
             }
             st.rerun()
 
-        # 5-Second Persistent Toast in Sidebar (Rock-solid background box that never collapses)
+        # 5-Second Persistent Toast in Sidebar
         now_time = time.time()
         if "sidebar_toast_until" in st.session_state:
             if now_time < st.session_state["sidebar_toast_until"]:
@@ -289,25 +302,41 @@ with st.sidebar:
         use_container_width=True
     )
     st.markdown("---")
-    st.caption("🔒 100% Zero-Disk Privacy: Statements are processed in RAM & never stored on the server — also I don't have money to buy a server 😜")
+    
+    # Comic Disclaimer with Crazy Hand-Drawn Font in Sidebar
+    st.markdown("""
+    <div class="crazy-comic-font" style="
+        background: #f0fdf4;
+        border: 1.5px dashed #4ade80;
+        border-radius: 14px;
+        padding: 10px 12px;
+        font-size: 13px;
+        color: #15803d;
+        line-height: 1.45;
+        transform: rotate(-0.5deg);
+        box-shadow: 0 2px 8px rgba(34, 197, 94, 0.1);
+    ">
+        🔒 100% Zero-Disk Privacy: Statements are processed in RAM & never stored on the server — also I don't have money to buy a server 😜
+    </div>
+    """, unsafe_allow_html=True)
 
 # --- Session State for Uploaded Statements ---
 if "statements_data" not in st.session_state:
     st.session_state.statements_data = {}
 
-# --- Main Page Header (Zero Gap & Clean Presentation) ---
+# --- Main Page Header (Zero Gap & Professional Presentation) ---
 st.markdown("<div style='margin-top: 0px; margin-bottom: 4px;'><h1 style='font-size: 26px; font-weight: 800; color: inherit; margin: 0; letter-spacing: -0.02em;'>💳 Smart Bill Segregator</h1></div>", unsafe_allow_html=True)
-st.caption("Auto-segregates bank statements, friend EMIs, cashback, and regular card spends.")
+st.caption("Automatic statement analysis, installment segregation, and cashback audit.")
 
 with st.container():
     up_col, info_col = st.columns([3, 1])
 
     with up_col:
         uploaded_files = st.file_uploader(
-            "📁 Upload Statement PDF(s) to Unlock & Analyze (100% In-Memory):",
+            "📁 Select Statement PDF(s) to Decrypt & Analyze (In-Memory Session):",
             type=["pdf"],
             accept_multiple_files=True,
-            help="Drag and drop or select Axis Bank (Scapia), HDFC, ICICI, or SBI SimplyCLICK bank statement PDFs. Processed strictly in RAM and never saved to server disk."
+            help="Upload your Axis Bank (Scapia), HDFC, ICICI, or SBI SimplyCLICK e-statement PDFs. Decrypted strictly in RAM and never stored on any server."
         )
 
     with info_col:
@@ -469,13 +498,13 @@ if st.session_state.statements_data:
             st.session_state.statements_data = {}
             st.rerun()
 
-# --- DUAL SHUFFLE SHOWCASE: 2 Portrait Cards (Left / Mobile Top) & 3 Landscape Cards (Right / Mobile Bottom) ---
+# --- CARDS SUPPORTED SO FAR: Professional Dual Deck Display with Crazy Comic Disclaimer ---
 def get_card_shuffle_html():
-    # 2 Authentic Portrait Cards (Orange Mastercard & Green RuPay) - Blue removed!
+    # Scapia Dual Travel Editions
     scapia_orange_b64 = unlock_statements.get_card_b64("card-facia-scapia-orange.png")
     scapia_green_b64 = unlock_statements.get_card_b64("card-facia-scapia-green.png")
 
-    # 3 Landscape Cards (Swiggy HDFC, Amazon Pay ICICI, SBI SimplyCLICK)
+    # Core Rewards Cards
     swiggy_b64 = unlock_statements.get_card_b64("card-facia-swiggy.jpg")
     amazon_b64 = unlock_statements.get_card_b64("card-facia-amazon.png")
     sbi_b64 = unlock_statements.get_card_b64("simply-click-card-face.png")
@@ -485,15 +514,15 @@ def get_card_shuffle_html():
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500;600;700;800;900&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Gloria+Hallelujah&family=Inter:wght@400;500;600;700;800;900&family=Plus+Jakarta+Sans:wght@500;600;700;800;900&display=swap" rel="stylesheet">
   <style>
-    * {{ box-sizing: border-box; margin: 0; padding: 0; font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif; }}
+    * {{ box-sizing: border-box; margin: 0; padding: 0; font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }}
     body {{ background: transparent; display: flex; justify-content: center; align-items: flex-start; padding: 4px; overflow-x: hidden; }}
     
     .showcase-card {{
       width: 100%;
       max-width: 980px;
-      background: rgba(255, 255, 255, 0.92);
+      background: rgba(255, 255, 255, 0.94);
       backdrop-filter: blur(24px) saturate(180%);
       -webkit-backdrop-filter: blur(24px) saturate(180%);
       border: 1px solid rgba(226, 232, 240, 0.9);
@@ -527,8 +556,8 @@ def get_card_shuffle_html():
       font-size: 20px;
       font-weight: 800;
       color: #0f172a;
-      letter-spacing: -0.02em;
-      margin-bottom: 2px;
+      letter-spacing: -0.025em;
+      margin-bottom: 3px;
     }}
 
     .subtitle {{
@@ -537,6 +566,7 @@ def get_card_shuffle_html():
       max-width: 680px;
       line-height: 1.4;
       margin-bottom: 12px;
+      font-weight: 500;
     }}
 
     /* Dual Grid Layout: Side-by-Side on Desktop, Top/Bottom Stack on Mobile */
@@ -546,12 +576,12 @@ def get_card_shuffle_html():
       gap: 18px;
       width: 100%;
       align-items: center;
-      margin-bottom: 14px;
+      margin-bottom: 12px;
     }}
 
     .deck-section {{
-      background: rgba(248, 250, 252, 0.7);
-      border: 1px solid rgba(226, 232, 240, 0.85);
+      background: rgba(248, 250, 252, 0.75);
+      border: 1px solid rgba(226, 232, 240, 0.9);
       border-radius: 20px;
       padding: 14px 10px 16px 10px;
       display: flex;
@@ -564,21 +594,21 @@ def get_card_shuffle_html():
       display: inline-flex;
       align-items: center;
       gap: 5px;
-      padding: 4px 10px;
+      padding: 4px 12px;
       border-radius: 9999px;
-      font-size: 10.5px;
+      font-size: 11px;
       font-weight: 800;
       text-transform: uppercase;
       letter-spacing: 0.05em;
       margin-bottom: 8px;
     }}
-    .pill-portrait {{ background: #fff7ed; border: 1px solid #fed7aa; color: #c2410c; }}
-    .pill-landscape {{ background: #eff6ff; border: 1px solid #bfdbfe; color: #1e40af; }}
+    .pill-travel {{ background: #fff7ed; border: 1px solid #fed7aa; color: #c2410c; }}
+    .pill-rewards {{ background: #eff6ff; border: 1px solid #bfdbfe; color: #1e40af; }}
 
     /* =========================================================
-       SCAPIA SECTION: 2 Portrait Cards (Orange Mastercard & Green RuPay)
+       SCAPIA SECTION: Dual Travel Editions
        ========================================================= */
-    .portrait-stage {{
+    .travel-stage {{
       perspective: 1200px;
       perspective-origin: center center;
       width: 100%;
@@ -623,22 +653,22 @@ def get_card_shuffle_html():
       pointer-events: none;
     }}
 
-    /* Card 1: Orange Mastercard (Never lost, always explicitly bound!) */
+    /* Card 1: Orange Mastercard (Always bound directly) */
     #card-p1 {{
       background-image: url('{scapia_orange_b64}');
       animation: shufflePortOrange 6s cubic-bezier(0.34, 1.25, 0.64, 1) infinite;
     }}
-    /* Card 2: Green RuPay (Never duplicated!) */
+    /* Card 2: Green RuPay (Always bound directly) */
     #card-p2 {{
       background-image: url('{scapia_green_b64}');
       animation: shufflePortGreen 6s cubic-bezier(0.34, 1.25, 0.64, 1) infinite;
     }}
 
-    .portrait-stage:hover .card-p, .landscape-stage:hover .card-l {{
+    .travel-stage:hover .card-p, .rewards-stage:hover .card-l {{
       animation-play-state: paused;
     }}
 
-    /* Continuous 3D Portrait Shuffling for the Two Scapia Editions */
+    /* Continuous 3D Shuffling for Scapia Editions */
     @keyframes shufflePortOrange {{
       0%, 42% {{ transform: translate3d(0, 0, 32px) scale(1) rotate(0deg); z-index: 25; opacity: 1; box-shadow: 0 22px 45px -10px rgba(0, 0, 0, 0.38); }}
       50%, 92% {{ transform: translate3d(32px, -12px, -32px) scale(0.92) rotate(4deg); z-index: 10; opacity: 0.85; box-shadow: 0 12px 24px -8px rgba(0, 0, 0, 0.22); }}
@@ -652,9 +682,9 @@ def get_card_shuffle_html():
     }}
 
     /* =========================================================
-       LANDSCAPE SECTION: 3 Landscape Cards (Swiggy, Amazon, SBI)
+       REWARDS SECTION: Core Cashback Cards (Swiggy, Amazon, SBI)
        ========================================================= */
-    .landscape-stage {{
+    .rewards-stage {{
       perspective: 1200px;
       perspective-origin: center center;
       width: 100%;
@@ -729,7 +759,7 @@ def get_card_shuffle_html():
     }}
     .mini-badge {{
       font-size: 10.5px;
-      font-weight: 800;
+      font-weight: 700;
       padding: 3px 9px;
       border-radius: 8px;
       background: #ffffff;
@@ -737,19 +767,26 @@ def get_card_shuffle_html():
       color: #334155;
     }}
 
-    .privacy-pill {{
+    /* Crazy Comic Font Disclaimer */
+    .comic-disclaimer-box {{
+      font-family: 'Gloria Hallelujah', cursive, sans-serif !important;
+      letter-spacing: 0.025em;
+      font-size: 13.5px;
       display: inline-flex;
       align-items: center;
-      gap: 6px;
-      padding: 6px 14px;
+      gap: 8px;
+      padding: 8px 18px;
       border-radius: 9999px;
       background: #f0fdf4;
-      border: 1px solid #bbf7d0;
-      color: #166534;
-      font-size: 11px;
-      font-weight: 700;
-      line-height: 1.4;
-      margin-top: 4px;
+      border: 1.5px dashed #4ade80;
+      color: #15803d;
+      margin-top: 6px;
+      transform: rotate(-0.5deg);
+      box-shadow: 0 2px 8px rgba(34, 197, 94, 0.12);
+      transition: transform 0.2s ease;
+    }}
+    .comic-disclaimer-box:hover {{
+      transform: rotate(0.5deg) scale(1.02);
     }}
 
     /* Mobile Responsive Stacking: TOP = Scapia, BOTTOM = SBI / ICICI / HDFC */
@@ -760,24 +797,24 @@ def get_card_shuffle_html():
         gap: 16px;
         margin-bottom: 12px;
       }}
-      .deck-section-portrait {{
+      .deck-section-travel {{
         order: 1 !important; /* Top Section on Mobile */
         width: 100%;
         padding: 12px 8px 14px 8px;
       }}
-      .deck-section-landscape {{
+      .deck-section-rewards {{
         order: 2 !important; /* Bottom Section on Mobile */
         width: 100%;
         padding: 12px 8px 14px 8px;
       }}
-      .portrait-stage {{
+      .travel-stage {{
         height: 220px;
       }}
       .card-p {{
         width: 140px;
         height: 218px;
       }}
-      .landscape-stage {{
+      .rewards-stage {{
         height: 160px;
       }}
       .card-l {{
@@ -787,27 +824,32 @@ def get_card_shuffle_html():
       .showcase-card {{
         padding: 14px 12px;
       }}
+      .comic-disclaimer-box {{
+        font-size: 12px;
+        padding: 7px 12px;
+        border-radius: 14px;
+      }}
     }}
   </style>
 </head>
 <body>
   <div class="showcase-card">
     <div class="headline-pill">
-      <span>🔀</span>
-      <span>Dual 3D Shuffling Showcase</span>
+      <span>💳</span>
+      <span>Cards Supported So Far</span>
     </div>
-    <h2 class="title">No Statement Loaded in This Session</h2>
+    <h2 class="title">No Statement Loaded in Current Session</h2>
     <p class="subtitle">
-      Upload your <b>Axis Bank (Scapia)</b>, <b>HDFC Bank (Swiggy)</b>, <b>ICICI Bank (Amazon Pay)</b>, or <b>SBI Card (SimplyCLICK)</b> statement PDF above to view your interactive Apple-style dashboard.
+      Upload your <b>Axis Bank (Scapia)</b>, <b>HDFC Bank (Swiggy)</b>, <b>ICICI Bank (Amazon Pay)</b>, or <b>SBI Card (SimplyCLICK)</b> monthly e-statement PDF above to securely decrypt, segregate friend EMIs, and reconcile your billing summary.
     </p>
 
-    <!-- Side-by-Side Dual Showcase Grid (Top = Scapia, Bottom = Landscape on Mobile) -->
+    <!-- Side-by-Side Dual Deck Grid (Top = Scapia Travel, Bottom = Core Rewards on Mobile) -->
     <div class="dual-grid">
       
-      <!-- TOP ON MOBILE / LEFT ON DESKTOP: Scapia 2 Portrait Cards (Orange & Green) -->
-      <div class="deck-section deck-section-portrait" onclick="cyclePortraitDeck()" title="Click to flip Scapia editions">
-        <span class="section-header-pill pill-portrait"><span>✈️</span><span>Scapia Dual Editions (Portrait)</span></span>
-        <div class="portrait-stage" id="portrait-stage">
+      <!-- TOP ON MOBILE / LEFT ON DESKTOP: Scapia Travel Editions (Orange & Green) -->
+      <div class="deck-section deck-section-travel" onclick="cyclePortraitDeck()" title="Click to flip Scapia editions">
+        <span class="section-header-pill pill-travel"><span>✈️</span><span>Axis Bank Scapia Editions</span></span>
+        <div class="travel-stage" id="travel-stage">
           <div id="card-p1" class="card-p">
             <div class="card-glare"></div>
           </div>
@@ -821,10 +863,10 @@ def get_card_shuffle_html():
         </div>
       </div>
 
-      <!-- BOTTOM ON MOBILE / RIGHT ON DESKTOP: 3 Landscape Cards (Swiggy, Amazon, SBI) -->
-      <div class="deck-section deck-section-landscape" onclick="cycleLandscapeDeck()" title="Click to cycle landscape cards">
-        <span class="section-header-pill pill-landscape"><span>💳</span><span>Core Rewards Cards (Landscape)</span></span>
-        <div class="landscape-stage" id="landscape-stage">
+      <!-- BOTTOM ON MOBILE / RIGHT ON DESKTOP: Daily Rewards Cards (Swiggy, Amazon, SBI) -->
+      <div class="deck-section deck-section-rewards" onclick="cycleLandscapeDeck()" title="Click to cycle rewards cards">
+        <span class="section-header-pill pill-rewards"><span>💳</span><span>Daily Rewards & Cashback Cards</span></span>
+        <div class="rewards-stage" id="rewards-stage">
           <div id="card-l1" class="card-l">
             <div class="card-glare"></div>
             <div class="embossed-l">SWIGGY HDFC</div>
@@ -847,7 +889,8 @@ def get_card_shuffle_html():
 
     </div>
 
-    <div class="privacy-pill">
+    <!-- Comic Disclaimer with Crazy Hand-Drawn Font -->
+    <div class="comic-disclaimer-box">
       <span>🔒</span>
       <span>100% Zero-Disk Privacy: Statements are processed in RAM & never stored on the server — also I don't have money to buy a server 😜</span>
     </div>
@@ -860,7 +903,6 @@ def get_card_shuffle_html():
       const p1 = document.getElementById('card-p1');
       const p2 = document.getElementById('card-p2');
       if (!p1 || !p2) return;
-      // Smoothly swap 3D positions without touching backgroundImage, ensuring Orange is never lost!
       p1.style.animation = isFlipped ? 'shufflePortGreen 6s cubic-bezier(0.34, 1.25, 0.64, 1) infinite' : 'shufflePortOrange 6s cubic-bezier(0.34, 1.25, 0.64, 1) infinite';
       p2.style.animation = isFlipped ? 'shufflePortOrange 6s cubic-bezier(0.34, 1.25, 0.64, 1) infinite' : 'shufflePortGreen 6s cubic-bezier(0.34, 1.25, 0.64, 1) infinite';
     }}
