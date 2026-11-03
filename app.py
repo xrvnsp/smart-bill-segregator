@@ -14,9 +14,63 @@ import time
 import json
 import base64
 import shutil
+import subprocess
+import importlib
+from datetime import datetime, timezone, timedelta
+import html as html_lib
 import streamlit as st
 import streamlit.components.v1 as components
 import unlock_statements
+
+# Force reload of unlock_statements on every run so Streamlit Cloud never caches an older version in sys.modules
+importlib.reload(unlock_statements)
+
+def get_git_last_updated_info():
+    """Returns the latest Git commit timestamp (in IST), short hash, and commit message."""
+    ist_tz = timezone(timedelta(hours=5, minutes=30))
+    repo_dir = os.path.dirname(os.path.abspath(__file__))
+    try:
+        out = subprocess.check_output(
+            ["git", "log", "-1", "--format=%ct|%h|%s"],
+            cwd=repo_dir,
+            stderr=subprocess.DEVNULL,
+            text=True,
+            timeout=2
+        ).strip()
+        if out and "|" in out:
+            parts = out.split("|", 2)
+            ts = int(parts[0].strip())
+            short_hash = parts[1].strip()
+            subject = parts[2].strip() if len(parts) > 2 else "Updated"
+            dt_ist = datetime.fromtimestamp(ts, tz=ist_tz)
+            return {
+                "time_str": dt_ist.strftime("%d %b %Y, %I:%M %p IST"),
+                "hash": short_hash,
+                "msg": subject
+            }
+    except Exception:
+        pass
+
+    # Fallback to latest file modification time in IST if git CLI is unavailable
+    try:
+        latest_mtime = max(
+            os.path.getmtime(os.path.join(repo_dir, f))
+            for f in ["app.py", "unlock_statements.py"]
+            if os.path.exists(os.path.join(repo_dir, f))
+        )
+        dt_ist = datetime.fromtimestamp(latest_mtime, tz=ist_tz)
+        return {
+            "time_str": dt_ist.strftime("%d %b %Y, %I:%M %p IST"),
+            "hash": "local",
+            "msg": "File system sync"
+        }
+    except Exception:
+        now_ist = datetime.now(tz=ist_tz)
+        return {
+            "time_str": now_ist.strftime("%d %b %Y, %I:%M %p IST"),
+            "hash": "live",
+            "msg": "Active session"
+        }
 
 # --- Automatic Cleanup of Any Legacy Server Disk Artifacts ---
 for _legacy_dir in ["Statements_October_2026", "temp_uploaded_statements"]:
@@ -172,6 +226,30 @@ if client_vault and isinstance(client_vault, dict) and not is_clearing:
 with st.sidebar:
     st.markdown("### 💳 Smart Bill Segregator")
     st.caption("Auto-segregate statements, friend EMIs, cashback, and regular expenses.")
+
+    git_info = get_git_last_updated_info()
+    safe_git_msg = html_lib.escape(git_info["msg"])
+    safe_git_hash = html_lib.escape(git_info["hash"])
+    st.markdown(f"""
+    <div style="
+        background: #f0f9ff;
+        border: 1.5px solid #38bdf8;
+        border-radius: 12px;
+        padding: 10px 12px;
+        margin-bottom: 12px;
+        box-shadow: 0 2px 6px rgba(2, 132, 199, 0.08);
+    ">
+        <div style="font-size: 11px; font-weight: 800; color: #0369a1; text-transform: uppercase; letter-spacing: 0.04em; display: flex; align-items: center; gap: 5px;">
+            <span>🕒</span><span>Website Last Updated (Git)</span>
+        </div>
+        <div style="font-size: 12.5px; font-weight: 800; color: #0f172a; margin-top: 4px;">
+            {git_info["time_str"]}
+        </div>
+        <div style="font-size: 11px; font-weight: 600; color: #334155; margin-top: 3px; line-height: 1.35; word-break: break-word;">
+            <span style="background: #e0f2fe; color: #0369a1; padding: 1px 5px; border-radius: 4px; font-family: monospace; font-weight: 700;">#{safe_git_hash}</span> {safe_git_msg}
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
 
     with st.expander("🔑 Device Stored Passwords", expanded=True):
         st.caption("🔒 Stored strictly in your browser's local storage on this device. Never saved on any server.")
@@ -409,6 +487,7 @@ with st.container():
                     st.rerun()
 
 # --- Process Uploaded Files Strictly in RAM (Zero Disk Writes!) ---
+st.session_state.statements_data = {}
 if uploaded_files:
     for up_file in uploaded_files:
         pdf_bytes_io = io.BytesIO(up_file.getvalue())
@@ -420,7 +499,18 @@ if uploaded_files:
             file_obj=pdf_bytes_io,
             save_to_disk=False
         )
-        if success:
+        if success and rdata:
+            if (
+                rdata.get("bank_short") not in ("Scapia Axis", "SBI SimplyCLICK", "ICICI Amazon", "HDFC")
+                or rdata.get("bank_name") == "Bank Statement"
+                or not rdata.get("date_groups")
+                or not rdata.get("all_txns")
+            ):
+                success = False
+                msg = f"Non-Bill / Non-Transactional PDF Detected ({up_file.name}): 0 bill transactions found. Please upload a valid Axis Bank (Scapia), HDFC, ICICI, or SBI credit card statement."
+                rdata = None
+
+        if success and rdata:
             st.session_state.statements_data[rdata["bank_short"]] = rdata
             st.success(f"✅ Unlocked in memory: {up_file.name} ({rdata.get('bank_name')}) — {len(rdata.get('date_groups', {}))} date groups found")
         else:

@@ -309,13 +309,13 @@ def parse_icici_statement(reader, file_path, saved_names):
     statement_month_str = stmt_date
   else:
     m_tot = re.search(r"Total\s+Amount\s+due[^\d\n\r]*\n?\s*[`₹Rs\.]*\s*([\d,]+\.\d{2})", p1_text, re.IGNORECASE)
-    total_due_str = f"₹{m_tot.group(1)}" if m_tot else "₹12,194.06"
+    total_due_str = f"₹{m_tot.group(1)}" if m_tot else "₹0.00"
 
     m_due = re.search(r"PAYMENT\s+DUE\s+DATE[^\w\n\r]*\n?\s*([A-Za-z]+\s+\d{1,2},?\s+\d{4})", p1_text, re.IGNORECASE)
-    due_date_str = m_due.group(1) if m_due else "October 30, 2026"
+    due_date_str = m_due.group(1) if m_due else "No Payment Required"
 
     m_stmt = re.search(r"STATEMENT\s+DATE[^\w\n\r]*\n?\s*([A-Za-z]+\s+\d{1,2},?\s+\d{4})", p1_text, re.IGNORECASE)
-    statement_month_str = m_stmt.group(1) if m_stmt else "October 2026"
+    statement_month_str = m_stmt.group(1) if m_stmt else ""
 
   clean_month = normalize_month_name(statement_month_str)
 
@@ -733,13 +733,13 @@ def parse_hdfc_statement(reader, file_path, saved_names):
     cardholder_name = "Cardholder"
 
   m_tot = re.search(r"TOTAL\s+AMOUNT\s+DUE\s+C?([\d,]+\.\d{2})", p1_text, re.IGNORECASE)
-  total_due = f"₹{m_tot.group(1)}" if m_tot else "₹4,361.00"
+  total_due = f"₹{m_tot.group(1)}" if m_tot else "₹0.00"
 
   m_due = re.search(r"DUE\s+DATE\s+([0-9]{1,2}\s+[a-zA-Z]+,?\s+[0-9]{4})", p1_text, re.IGNORECASE)
-  due_date = m_due.group(1).replace(",", "") if m_due else "08 Nov 2026"
+  due_date = m_due.group(1).replace(",", "") if m_due else "No Payment Required"
 
-  m_stmt = re.search(r"Statement\s+Date\s+([0-9]{1,2}\s+[a-zA-Z]+,?\s+[0-9]{4})", p1_text, re.IGNORECASE)
-  statement_date = m_stmt.group(1).replace(",", "") if m_stmt else "19 Oct 2026"
+  m_stmt = re.search(r"(?:Statement\s+Date|As\s+on\s*:)\s*([0-9]{1,2}\s+[a-zA-Z]+,?\s+[0-9]{4})", p1_text, re.IGNORECASE)
+  statement_date = m_stmt.group(1).replace(",", "") if m_stmt else ""
 
   clean_month = normalize_month_name(statement_date)
 
@@ -905,8 +905,11 @@ def process_statement_file(file_path, base_downloads_dir=None, custom_passwords=
 
     saved_emi_names = load_saved_emi_names(parent_folder)
 
-    p1_text = reader.pages[0].extract_text() or ""
+    p1_text = "\n".join((p.extract_text() or "") for p in reader.pages[:2])
     bank_full_name, bank_short = identify_bank(file_path, p1_text, unlocked_bank_key)
+
+    if bank_short not in ("Scapia Axis", "SBI SimplyCLICK", "ICICI Amazon", "HDFC"):
+      return False, f"Non-Bill PDF Detected ({os.path.basename(file_path)}): This file is not a valid credit card bill or bank statement. Only Axis Bank (Scapia), HDFC Bank (Swiggy), ICICI Bank (Amazon Pay), and SBI Card (SimplyCLICK) statements are supported.", None
 
     if bank_short == "Scapia Axis":
       fin = parse_scapia_statement(reader, file_path, saved_emi_names)
@@ -916,6 +919,10 @@ def process_statement_file(file_path, base_downloads_dir=None, custom_passwords=
       fin = parse_icici_statement(reader, file_path, saved_emi_names)
     else:
       fin = parse_hdfc_statement(reader, file_path, saved_emi_names)
+
+    # Strict guard against non-transactional / non-bill PDFs (0 transactions or 0 date groups)
+    if not fin.get("all_txns") or not fin.get("date_groups"):
+      return False, f"Non-Bill / Non-Transactional PDF Detected ({os.path.basename(file_path)}): 0 bill transactions found. Please upload a valid credit card statement with transactions.", None
 
     safe_month_folder = f"Statements_{fin['statement_month'].replace(' ', '_')}"
     month_folder_path = os.path.join(parent_folder, safe_month_folder)
