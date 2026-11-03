@@ -122,6 +122,20 @@ st.markdown("""
 if "session_passwords" not in st.session_state:
     st.session_state.session_passwords = {"icici": "", "hdfc": "", "sbi": "", "scapia": "", "sheets_webhook_url": ""}
 
+def forget_browser_passwords():
+    st.session_state.session_passwords = {"scapia": "", "icici": "", "hdfc": "", "sbi": "", "sheets_webhook_url": ""}
+    for k in ["input_scapia_pwd", "input_hdfc_pwd", "input_icici_pwd", "input_sbi_pwd", "input_webhook_url",
+              "q_inp_scapia", "q_inp_hdfc", "q_inp_icici", "q_inp_sbi"]:
+        st.session_state[k] = ""
+    st.session_state["pending_clear_vault"] = True
+    st.session_state["vault_cleared_until"] = time.time() + 4.0
+    st.session_state["sidebar_toast_until"] = time.time() + 5.0
+    st.session_state["sidebar_toast_notice"] = {
+        "type": "info",
+        "title": "Passwords Cleared",
+        "desc": "Wiped from this device browser vault."
+    }
+
 # --- Device-Local Browser Storage Bridge (Client-Side localStorage) ---
 bridge_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "local_storage_bridge")
 storage_bridge = components.declare_component("local_storage_bridge", path=bridge_dir)
@@ -137,8 +151,15 @@ client_vault = storage_bridge(
     key="browser_vault_bridge"
 )
 
-# Restore saved passwords from browser localStorage on this device
-if client_vault and isinstance(client_vault, dict):
+now_ts = time.time()
+is_clearing = pending_clear or (now_ts < st.session_state.get("vault_cleared_until", 0))
+
+# If client_vault is verified empty by browser component, release the clearing lock
+if not client_vault or (isinstance(client_vault, dict) and not any(str(v).strip() for v in client_vault.values())):
+    st.session_state.pop("vault_cleared_until", None)
+
+# Restore saved passwords from browser localStorage ONLY if not actively clearing
+if client_vault and isinstance(client_vault, dict) and not is_clearing:
     restored_keys = []
     for b_key, b_name in [("hdfc", "HDFC Bank"), ("icici", "ICICI Bank"), ("sbi", "SBI SimplyCLICK"), ("scapia", "Scapia Axis")]:
         if not st.session_state.session_passwords.get(b_key) and client_vault.get(b_key) and client_vault[b_key].strip():
@@ -212,14 +233,7 @@ with st.sidebar:
             st.rerun()
 
         if st.button("🗑️ Forget Saved Passwords", use_container_width=True, help="Clear saved passwords from this browser"):
-            st.session_state.session_passwords = {"scapia": "", "icici": "", "hdfc": "", "sbi": "", "sheets_webhook_url": ""}
-            st.session_state["pending_clear_vault"] = True
-            st.session_state["sidebar_toast_until"] = time.time() + 5.0
-            st.session_state["sidebar_toast_notice"] = {
-                "type": "info",
-                "title": "Passwords Cleared",
-                "desc": "Wiped from this device's browser vault."
-            }
+            forget_browser_passwords()
             st.rerun()
 
         # 5-Second Persistent Toast in Sidebar
@@ -368,25 +382,31 @@ with st.container():
                 help="DDMMYYYY + Last 4 digits",
                 key="q_inp_sbi"
             )
-            if st.button("💾 Save to This Device", use_container_width=True, type="primary", key="q_btn_save"):
-                st.session_state.session_passwords["scapia"] = q_scapia.strip()
-                st.session_state.session_passwords["icici"] = q_icici.strip()
-                st.session_state.session_passwords["hdfc"] = q_hdfc.strip()
-                st.session_state.session_passwords["sbi"] = q_sbi.strip()
-                st.session_state["pending_save_vault"] = {
-                    "scapia": q_scapia.strip(),
-                    "icici": q_icici.strip(),
-                    "hdfc": q_hdfc.strip(),
-                    "sbi": q_sbi.strip(),
-                    "sheets_webhook_url": st.session_state.session_passwords.get("sheets_webhook_url", "")
-                }
-                st.session_state["sidebar_toast_until"] = time.time() + 5.0
-                st.session_state["sidebar_toast_notice"] = {
-                    "type": "success",
-                    "title": "Passwords Saved Locally!",
-                    "desc": "Stored in browser vault for this device."
-                }
-                st.rerun()
+            q_btn_col1, q_btn_col2 = st.columns(2)
+            with q_btn_col1:
+                if st.button("💾 Save Passwords", use_container_width=True, type="primary", key="q_btn_save"):
+                    st.session_state.session_passwords["scapia"] = q_scapia.strip()
+                    st.session_state.session_passwords["icici"] = q_icici.strip()
+                    st.session_state.session_passwords["hdfc"] = q_hdfc.strip()
+                    st.session_state.session_passwords["sbi"] = q_sbi.strip()
+                    st.session_state["pending_save_vault"] = {
+                        "scapia": q_scapia.strip(),
+                        "icici": q_icici.strip(),
+                        "hdfc": q_hdfc.strip(),
+                        "sbi": q_sbi.strip(),
+                        "sheets_webhook_url": st.session_state.session_passwords.get("sheets_webhook_url", "")
+                    }
+                    st.session_state["sidebar_toast_until"] = time.time() + 5.0
+                    st.session_state["sidebar_toast_notice"] = {
+                        "type": "success",
+                        "title": "Passwords Saved Locally!",
+                        "desc": "Stored in browser vault for this device."
+                    }
+                    st.rerun()
+            with q_btn_col2:
+                if st.button("🗑️ Forget Passwords", use_container_width=True, key="q_btn_forget"):
+                    forget_browser_passwords()
+                    st.rerun()
 
 # --- Process Uploaded Files Strictly in RAM (Zero Disk Writes!) ---
 if uploaded_files:

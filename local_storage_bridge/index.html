@@ -31,7 +31,10 @@
       } else if (args.clear_passwords) {
         try {
           localStorage.removeItem("smartbill_browser_vault");
+          localStorage.setItem("smartbill_browser_vault", "{}");
         } catch(e) {}
+        setComponentValue({});
+        return;
       }
 
       // 2. Read stored credentials from this device's browser localStorage
