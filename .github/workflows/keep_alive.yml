@@ -1,0 +1,62 @@
+name: Keep Streamlit App Awake 24/7
+
+on:
+  schedule:
+    # Runs every 6 hours to prevent Streamlit Community Cloud 12-hour hibernation
+    - cron: '0 */6 * * *'
+  workflow_dispatch: # Allows manual 1-click trigger from the GitHub Actions tab
+
+jobs:
+  wake-up-streamlit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install Playwright & Chromium
+        run: |
+          pip install playwright
+          playwright install --with-deps chromium
+
+      - name: Visit & Wake Up smartbills.streamlit.app
+        run: |
+          python3 - << 'EOF'
+          import time
+          from playwright.sync_api import sync_playwright
+
+          APP_URL = "https://smartbills.streamlit.app"
+
+          with sync_playwright() as p:
+              browser = p.chromium.launch(headless=True)
+              context = browser.new_context(
+                  user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
+              )
+              page = context.new_page()
+              print(f"Opening {APP_URL} ...")
+              page.goto(APP_URL, wait_until="domcontentloaded", timeout=60000)
+              time.sleep(8)
+
+              # Check if Streamlit sleep / wake-up button is present and click it
+              wake_selectors = [
+                  "button:has-text('Yes, get this app back up')",
+                  "button:has-text('get this app back up')",
+                  "[data-testid='wakeup-button-owner']",
+                  "[data-testid='wakeup-button-viewer']"
+              ]
+              for sel in wake_selectors:
+                  btn = page.locator(sel)
+                  if btn.count() > 0 and btn.first.is_visible():
+                      print(f"App was sleeping! Clicking wake-up button ({sel})...")
+                      btn.first.click()
+                      time.sleep(20)
+                      break
+
+              # Wait for active Streamlit app frame / WebSocket connection to register activity
+              time.sleep(10)
+              print("Page Title:", page.title())
+              print("Successfully kept smartbills.streamlit.app awake!")
+              browser.close()
+          EOF
