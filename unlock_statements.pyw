@@ -824,7 +824,7 @@ def parse_hdfc_statement(reader, file_path, saved_names):
   }
 
 
-def process_statement_file(file_path, base_downloads_dir=None, custom_passwords=None, file_obj=None, save_to_disk=True):
+def process_statement_file(file_path, base_downloads_dir=None, custom_passwords=None, file_obj=None, save_to_disk=True, custom_emi_names=None):
   """Unlocks the file and optionally stores inside the standardized unified month folder (or keeps 100% in memory if save_to_disk=False)."""
   try:
     from pypdf import PdfReader, PdfWriter
@@ -904,6 +904,10 @@ def process_statement_file(file_path, base_downloads_dir=None, custom_passwords=
         return False, f"Password not accepted for {bank_name_hint} ({os.path.basename(file_path)}).\n\nThe configured password in '🔑 Configure Passwords' was rejected by this statement. Please verify and update your password.", None
 
     saved_emi_names = load_saved_emi_names(parent_folder)
+    if custom_emi_names and isinstance(custom_emi_names, dict):
+      for k, v in custom_emi_names.items():
+        if k and v and str(v).strip():
+          saved_emi_names[str(k).strip()] = str(v).strip()
 
     p1_text = "\n".join((p.extract_text() or "") for p in reader.pages[:2])
     bank_full_name, bank_short = identify_bank(file_path, p1_text, unlocked_bank_key)
@@ -1344,25 +1348,123 @@ def generate_modern_dashboard_html(results_list, output_dir=".", write_to_disk=T
     const statements = {data_json};
     let activeIndex = 0;
 
-    function getSavedName(loanId, defaultName) {{
-      return localStorage.getItem("emi_name_" + loanId) || defaultName || "";
+    function getVaultStores() {{
+      const stores = [];
+      try {{
+        if (window.parent && window.parent.localStorage) {{
+          stores.push(window.parent.localStorage);
+        }}
+      }} catch (e) {{}}
+      try {{
+        if (window.localStorage && !stores.includes(window.localStorage)) {{
+          stores.push(window.localStorage);
+        }}
+      }} catch (e) {{}}
+      return stores;
     }}
 
-    function getPaymentStatus(key) {{
-      if (!key) return {{ isPaid: false, paidDate: "" }};
-      const val = localStorage.getItem("paid_status_" + key);
+    function vaultGetItem(key) {{
+      const stores = getVaultStores();
+      for (const s of stores) {{
+        try {{
+          const val = s.getItem(key);
+          if (val !== null && val !== undefined && val !== "") return val;
+        }} catch (e) {{}}
+      }}
+      return "";
+    }}
+
+    function vaultSetItem(key, val) {{
+      const stores = getVaultStores();
+      for (const s of stores) {{
+        try {{ s.setItem(key, val); }} catch (e) {{}}
+      }}
+    }}
+
+    function vaultRemoveItem(key) {{
+      const stores = getVaultStores();
+      for (const s of stores) {{
+        try {{ s.removeItem(key); }} catch (e) {{}}
+      }}
+    }}
+
+    function readEmiVaultDict() {{
+      const raw = vaultGetItem("smartbill_emi_vault");
+      if (raw) {{
+        try {{
+          const parsed = JSON.parse(raw);
+          if (parsed && typeof parsed === "object") {{
+            return {{
+              names: parsed.names || {{}},
+              phones: parsed.phones || {{}}
+            }};
+          }}
+        }} catch (e) {{}}
+      }}
+      return {{ names: {{}}, phones: {{}} }};
+    }}
+
+    function syncEmiVaultRecord(loanId, newName, cleanedPhone) {{
+      const vault = readEmiVaultDict();
+      if (loanId && newName) {{
+        vault.names[loanId] = newName;
+        vaultSetItem("emi_name_" + loanId, newName);
+      }}
+      if (loanId && cleanedPhone) {{
+        vault.phones[loanId] = cleanedPhone;
+        vaultSetItem("emi_phone_" + loanId, cleanedPhone);
+      }}
+      if (newName && cleanedPhone) {{
+        vault.phones[newName] = cleanedPhone;
+        vaultSetItem("emi_phone_" + newName, cleanedPhone);
+      }}
+      vaultSetItem("smartbill_emi_vault", JSON.stringify(vault));
+    }}
+
+    function showVaultToast(title, subtitle) {{
+      let existing = document.getElementById("emi-vault-toast");
+      if (existing) existing.remove();
+      const toast = document.createElement("div");
+      toast.id = "emi-vault-toast";
+      toast.style.cssText = "position:fixed;bottom:24px;right:24px;z-index:9999;background:#064e3b;border:1.5px solid #10b981;color:#fff;padding:12px 18px;border-radius:14px;box-shadow:0 12px 28px rgba(0,0,0,0.28);display:flex;align-items:center;gap:12px;max-width:420px;transition:opacity 0.3s ease;";
+      toast.innerHTML = `<span style="font-size:22px;">🏷️</span><div><div style="font-size:13px;font-weight:800;color:#fff;">${{title}}</div><div style="font-size:11.5px;color:#a7f3d0;font-weight:600;margin-top:2px;">${{subtitle}}</div></div>`;
+      document.body.appendChild(toast);
+      setTimeout(() => {{
+        if (toast) {{
+          toast.style.opacity = "0";
+          setTimeout(() => toast.remove(), 350);
+        }}
+      }}, 4000);
+    }}
+
+    function getSavedName(loanId, defaultName) {{
+      if (!loanId) return defaultName || "";
+      const direct = vaultGetItem("emi_name_" + loanId);
+      if (direct) return direct;
+      const vault = readEmiVaultDict();
+      if (vault.names && vault.names[loanId]) return vault.names[loanId];
+      return defaultName || "";
+    }}
+
+    function getPaymentStatus(key, fallbackKey) {{
+      const k1 = key ? vaultGetItem("paid_status_" + key) : "";
+      const k2 = (!k1 && fallbackKey) ? vaultGetItem("paid_status_" + fallbackKey) : "";
+      const val = k1 || k2;
       if (!val) return {{ isPaid: false, paidDate: "" }};
       try {{ return JSON.parse(val); }} catch(e) {{ return {{ isPaid: val === "true", paidDate: "" }}; }}
     }}
 
-    function togglePaymentStatus(key, amountStr) {{
+    function togglePaymentStatus(key, amountStr, fallbackKey) {{
       if (!key) return;
-      const cur = getPaymentStatus(key);
+      const cur = getPaymentStatus(key, fallbackKey);
       if (cur.isPaid) {{
-        localStorage.removeItem("paid_status_" + key);
+        vaultRemoveItem("paid_status_" + key);
+        if (fallbackKey) vaultRemoveItem("paid_status_" + fallbackKey);
       }} else {{
         const today = new Date().toLocaleDateString('en-US', {{ month: 'short', day: 'numeric' }});
-        localStorage.setItem("paid_status_" + key, JSON.stringify({{ isPaid: true, paidDate: today, amount: amountStr }}));
+        const payload = JSON.stringify({{ isPaid: true, paidDate: today, amount: amountStr }});
+        vaultSetItem("paid_status_" + key, payload);
+        if (fallbackKey) vaultSetItem("paid_status_" + fallbackKey, payload);
       }}
       renderDashboard();
     }}
@@ -1379,26 +1481,27 @@ def generate_modern_dashboard_html(results_list, output_dir=".", write_to_disk=T
 
     function getSavedPhone(key) {{
       if (!key) return "";
-      const raw = localStorage.getItem("emi_phone_" + key) || "";
-      return cleanIndianPhone(raw);
+      const direct = vaultGetItem("emi_phone_" + key);
+      if (direct) return cleanIndianPhone(direct);
+      const vault = readEmiVaultDict();
+      if (vault.phones && vault.phones[key]) return cleanIndianPhone(vault.phones[key]);
+      return "";
     }}
 
-    function saveCustomName(loanId) {{
-      const input = document.getElementById("emi-input-" + loanId);
-      const phoneInput = document.getElementById("emi-phone-" + loanId);
+    function saveCustomName(loanId, customInputId, customPhoneId) {{
+      const input = document.getElementById(customInputId || ("emi-input-" + loanId));
+      const phoneInput = document.getElementById(customPhoneId || ("emi-phone-" + loanId));
       const newName = input ? input.value.trim() : "";
       const rawPhone = phoneInput ? phoneInput.value.trim() : "";
       const cleanedPhone = cleanIndianPhone(rawPhone);
 
       if (newName || cleanedPhone) {{
-        if (newName) {{
-          localStorage.setItem("emi_name_" + loanId, newName);
-          if (cleanedPhone) localStorage.setItem("emi_phone_" + newName, cleanedPhone);
-        }}
-        if (cleanedPhone) {{
-          localStorage.setItem("emi_phone_" + loanId, cleanedPhone);
-        }}
-        alert("Saved! Nickname: '" + newName + "' and WhatsApp Mobile (+91 " + cleanedPhone.slice(-10) + ") will be remembered.");
+        syncEmiVaultRecord(loanId, newName, cleanedPhone);
+        const phoneDesc = cleanedPhone ? ` • WhatsApp +91 ${{cleanedPhone.slice(-10)}}` : "";
+        showVaultToast(
+          `Saved EMI Nickname: '${{newName || loanId}}'`,
+          `Persisted in browser localStorage on this device${{phoneDesc}}`
+        );
         renderDashboard();
       }}
     }}
@@ -2037,8 +2140,7 @@ def generate_modern_dashboard_html(results_list, output_dir=".", write_to_disk=T
           alert("Please enter a valid 10-digit Indian mobile number.");
           return;
         }}
-        if (loanId) localStorage.setItem("emi_phone_" + loanId, phone);
-        if (emiName) localStorage.setItem("emi_phone_" + emiName, phone);
+        syncEmiVaultRecord(loanId || emiName, emiName, phone);
       }}
 
       // 3. Build clean itemized WhatsApp text receipt
@@ -2894,9 +2996,9 @@ def generate_modern_dashboard_html(results_list, output_dir=".", write_to_disk=T
                 <!-- Action Buttons: Mark as Paid & Share WhatsApp -->
                 <div class="flex items-center gap-2.5 flex-wrap self-stretch sm:self-auto justify-end">
                   ${{(() => {{
-                    const pStatus = getPaymentStatus(card.emiName);
+                    const pStatus = getPaymentStatus(card.loanKey, card.emiName);
                     return `
-                      <button onclick="togglePaymentStatus('${{card.emiName}}', '₹${{card.combinedTotal.toLocaleString('en-IN')}}')" class="no-print px-3.5 py-2 rounded-xl border ${{pStatus.isPaid ? 'border-emerald-300 bg-emerald-50 text-emerald-800 hover:bg-emerald-100' : 'border-amber-300 bg-amber-50 text-amber-900 hover:bg-amber-100'}} font-bold text-xs shadow-sm transition flex items-center gap-1.5 cursor-pointer">
+                      <button onclick="togglePaymentStatus('${{card.loanKey}}', '₹${{card.combinedTotal.toLocaleString('en-IN')}}', '${{card.emiName}}')" class="no-print px-3.5 py-2 rounded-xl border ${{pStatus.isPaid ? 'border-emerald-300 bg-emerald-50 text-emerald-800 hover:bg-emerald-100' : 'border-amber-300 bg-amber-50 text-amber-900 hover:bg-amber-100'}} font-bold text-xs shadow-sm transition flex items-center gap-1.5 cursor-pointer">
                         <span>${{pStatus.isPaid ? '🟢' : '🟡'}}</span>
                         <span>${{pStatus.isPaid ? 'Paid on ' + pStatus.paidDate : 'Mark as Paid'}}</span>
                       </button>
@@ -2906,16 +3008,31 @@ def generate_modern_dashboard_html(results_list, output_dir=".", write_to_disk=T
                     <span>📋</span>
                     <span>Copy Snapshot</span>
                   </button>
-                  <button onclick="shareReceiptOnWhatsApp('card-named-emi-${{cardIdx}}', '${{card.emiName}}', '${{card.loanId || ''}}', '₹${{card.combinedTotal.toLocaleString('en-IN', {{minimumFractionDigits: 2, maximumFractionDigits: 2}})}}', '${{datesHeaderStr}}')" class="no-print px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs shadow-md shadow-emerald-600/30 transition flex items-center gap-1.5 cursor-pointer active:scale-95">
+                  <button onclick="shareReceiptOnWhatsApp('card-named-emi-${{cardIdx}}', '${{card.emiName}}', '${{card.loanId || card.loanKey || ''}}', '₹${{card.combinedTotal.toLocaleString('en-IN', {{minimumFractionDigits: 2, maximumFractionDigits: 2}})}}', '${{datesHeaderStr}}')" class="no-print px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs shadow-md shadow-emerald-600/30 transition flex items-center gap-1.5 cursor-pointer active:scale-95">
                     <span>📲</span>
                     <span>Share WhatsApp</span>
                   </button>
                   ${{(() => {{
-                    const pStatus = getPaymentStatus(card.emiName);
+                    const pStatus = getPaymentStatus(card.loanKey, card.emiName);
                     return pStatus.isPaid 
                       ? `<span class="px-3 py-1.5 rounded-xl text-xs font-extrabold bg-emerald-100 text-emerald-800 border border-emerald-300">✅ Reimbursed</span>`
                       : `<span class="px-3 py-1.5 rounded-xl text-xs font-extrabold bg-amber-100 text-amber-900 border border-amber-300">⏳ Awaiting Payment</span>`;
                   }})()}}
+                </div>
+              </div>
+
+              <!-- INLINE BROWSER-PERSISTED EMI NICKNAME & WHATSAPP BAR (Hidden on Print / Snapshot) -->
+              <div class="no-print flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2.5 bg-white/85 border border-purple-200/90 rounded-xl px-3.5 py-2.5 shadow-2xs">
+                <div class="flex items-center gap-2 text-xs font-bold text-purple-900">
+                  <span>🔒</span>
+                  <span>Browser EMI Tag <span class="font-mono text-[11px] text-purple-600">(${{card.loanKey}})</span>:</span>
+                </div>
+                <div class="flex items-center gap-2 flex-wrap flex-1 sm:justify-end">
+                  <input type="text" id="receipt-emi-input-${{cardIdx}}" placeholder="Friend / Item Nickname (e.g. Naveen S25 Edge)..." value="${{getSavedName(card.loanKey, card.emiName)}}" class="px-3 py-1.5 text-xs font-semibold bg-purple-50/50 border border-purple-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 w-full sm:w-52 text-slate-800">
+                  <input type="tel" id="receipt-emi-phone-${{cardIdx}}" placeholder="WhatsApp 10-digit No..." value="${{(getSavedPhone(card.loanKey) || getSavedPhone(card.emiName)).replace(/^91/, '')}}" class="px-3 py-1.5 text-xs font-semibold bg-purple-50/50 border border-purple-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 w-full sm:w-40 text-slate-800">
+                  <button onclick="saveCustomName('${{card.loanKey}}', 'receipt-emi-input-${{cardIdx}}', 'receipt-emi-phone-${{cardIdx}}')" class="px-3.5 py-1.5 text-xs font-extrabold bg-purple-600 hover:bg-purple-500 text-white rounded-lg shadow-xs transition cursor-pointer active:scale-95">
+                    💾 Save Tag in Browser
+                  </button>
                 </div>
               </div>
 
@@ -3177,7 +3294,7 @@ def generate_modern_dashboard_html(results_list, output_dir=".", write_to_disk=T
       let pendingTotal = 0;
       cardsList.forEach(c => {{
         if (c.type === 'named_emi') {{
-          const pStatus = getPaymentStatus(c.emiName);
+          const pStatus = getPaymentStatus(c.loanKey, c.emiName);
           if (pStatus.isPaid) {{
             collectedTotal += c.combinedTotal;
           }} else {{

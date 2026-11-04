@@ -20,31 +20,154 @@
       sendToStreamlit("streamlit:setComponentValue", { value: val });
     }
 
+    function getStorageTargets() {
+      const targets = [];
+      try {
+        if (window.parent && window.parent.localStorage) {
+          targets.push(window.parent.localStorage);
+        }
+      } catch (e) {}
+      try {
+        if (window.localStorage && !targets.includes(window.localStorage)) {
+          targets.push(window.localStorage);
+        }
+      } catch (e) {}
+      return targets;
+    }
+
+    function readMergedEmiVault() {
+      const names = {};
+      const phones = {};
+      const targets = getStorageTargets();
+
+      // 1. Read structured smartbill_emi_vault first
+      targets.forEach(store => {
+        try {
+          const rawVault = store.getItem("smartbill_emi_vault");
+          if (rawVault) {
+            const parsed = JSON.parse(rawVault);
+            if (parsed && typeof parsed === "object") {
+              if (parsed.names && typeof parsed.names === "object") {
+                Object.assign(names, parsed.names);
+              }
+              if (parsed.phones && typeof parsed.phones === "object") {
+                Object.assign(phones, parsed.phones);
+              }
+            }
+          }
+        } catch (e) {}
+
+        // 2. Also harvest individual emi_name_* and emi_phone_* keys saved in dashboard
+        try {
+          for (let i = 0; i < store.length; i++) {
+            const k = store.key(i);
+            if (!k) continue;
+            if (k.startsWith("emi_name_")) {
+              const id = k.substring("emi_name_".length);
+              const val = store.getItem(k);
+              if (id && val && val.trim()) names[id] = val.trim();
+            } else if (k.startsWith("emi_phone_")) {
+              const id = k.substring("emi_phone_".length);
+              const val = store.getItem(k);
+              if (id && val && val.trim()) phones[id] = val.trim();
+            }
+          }
+        } catch (e) {}
+      });
+
+      // Keep smartbill_emi_vault synchronized across all accessible targets
+      if (Object.keys(names).length > 0 || Object.keys(phones).length > 0) {
+        const synced = JSON.stringify({ names, phones });
+        targets.forEach(store => {
+          try { store.setItem("smartbill_emi_vault", synced); } catch (e) {}
+        });
+      }
+
+      return { names, phones };
+    }
+
     function onRender(event) {
       const args = (event.data && event.data.args) ? event.data.args : {};
+      const targets = getStorageTargets();
 
-      // 1. If Python instructed to save passwords locally to this device's browser
+      // 1. Handle Password Save / Clear
       if (args.save_passwords && typeof args.save_passwords === "object") {
-        try {
-          localStorage.setItem("smartbill_browser_vault", JSON.stringify(args.save_passwords));
-        } catch(e) {}
+        const payload = JSON.stringify(args.save_passwords);
+        targets.forEach(store => {
+          try { store.setItem("smartbill_browser_vault", payload); } catch (e) {}
+        });
       } else if (args.clear_passwords) {
-        try {
-          localStorage.removeItem("smartbill_browser_vault");
-          localStorage.setItem("smartbill_browser_vault", "{}");
-        } catch(e) {}
-        setComponentValue({});
+        targets.forEach(store => {
+          try {
+            store.removeItem("smartbill_browser_vault");
+            store.setItem("smartbill_browser_vault", "{}");
+          } catch (e) {}
+        });
+      }
+
+      // 2. Handle EMI Nickname & Phone Vault Save / Clear
+      if (args.save_emi_vault && typeof args.save_emi_vault === "object") {
+        const currentEmi = readMergedEmiVault();
+        const updatedNames = Object.assign({}, currentEmi.names, args.save_emi_vault.names || {});
+        const updatedPhones = Object.assign({}, currentEmi.phones, args.save_emi_vault.phones || {});
+        // Remove keys explicitly set to empty string
+        Object.keys(updatedNames).forEach(k => { if (!updatedNames[k]) delete updatedNames[k]; });
+        Object.keys(updatedPhones).forEach(k => { if (!updatedPhones[k]) delete updatedPhones[k]; });
+
+        const emiPayload = JSON.stringify({ names: updatedNames, phones: updatedPhones });
+        targets.forEach(store => {
+          try {
+            store.setItem("smartbill_emi_vault", emiPayload);
+            Object.entries(updatedNames).forEach(([id, nm]) => {
+              store.setItem("emi_name_" + id, nm);
+            });
+            Object.entries(updatedPhones).forEach(([id, ph]) => {
+              store.setItem("emi_phone_" + id, ph);
+            });
+          } catch (e) {}
+        });
+      } else if (args.clear_emi_vault) {
+        targets.forEach(store => {
+          try {
+            store.removeItem("smartbill_emi_vault");
+            const keysToRemove = [];
+            for (let i = 0; i < store.length; i++) {
+              const k = store.key(i);
+              if (k && (k.startsWith("emi_name_") || k.startsWith("emi_phone_"))) {
+                keysToRemove.push(k);
+              }
+            }
+            keysToRemove.forEach(k => store.removeItem(k));
+          } catch (e) {}
+        });
+      }
+
+      if (args.clear_passwords) {
+        const emiAfterClear = readMergedEmiVault();
+        setComponentValue({ emi_names: emiAfterClear.names, emi_phones: emiAfterClear.phones });
+        setFrameHeight(0);
         return;
       }
 
-      // 2. Read stored credentials from this device's browser localStorage
-      let stored = null;
-      try {
-        const raw = localStorage.getItem("smartbill_browser_vault");
-        if (raw) stored = JSON.parse(raw);
-      } catch(e) {}
+      // 3. Read stored credentials & EMI nicknames from this device's browser localStorage
+      let stored = {};
+      targets.forEach(store => {
+        try {
+          const raw = store.getItem("smartbill_browser_vault");
+          if (raw) {
+            const parsed = JSON.parse(raw);
+            if (parsed && typeof parsed === "object") {
+              stored = Object.assign(stored, parsed);
+            }
+          }
+        } catch (e) {}
+      });
 
-      // 3. Return stored credentials back to Streamlit session
+      const emiVault = readMergedEmiVault();
+      stored.emi_names = emiVault.names;
+      stored.emi_phones = emiVault.phones;
+
+      // 4. Return stored credentials & EMI nicknames back to Streamlit session
       setComponentValue(stored || {});
       setFrameHeight(0);
     }

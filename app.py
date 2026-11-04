@@ -172,9 +172,13 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# --- Initialize Private Session Passwords (Supports HDFC, ICICI, SBI & Scapia Axis) ---
+# --- Initialize Private Session Passwords & Browser-Persisted EMI Nicknames ---
 if "session_passwords" not in st.session_state:
     st.session_state.session_passwords = {"icici": "", "hdfc": "", "sbi": "", "scapia": "", "sheets_webhook_url": ""}
+if "emi_nicknames" not in st.session_state:
+    st.session_state.emi_nicknames = {}
+if "emi_phones" not in st.session_state:
+    st.session_state.emi_phones = {}
 
 def forget_browser_passwords():
     st.session_state.session_passwords = {"scapia": "", "icici": "", "hdfc": "", "sbi": "", "sheets_webhook_url": ""}
@@ -197,30 +201,48 @@ storage_bridge = components.declare_component("local_storage_bridge", path=bridg
 # Handle pending save or clear commands for browser localStorage
 pending_save = st.session_state.pop("pending_save_vault", None)
 pending_clear = st.session_state.pop("pending_clear_vault", None)
+pending_save_emi = st.session_state.pop("pending_save_emi_vault", None)
+pending_clear_emi = st.session_state.pop("pending_clear_emi_vault", None)
 
 # Run the invisible client-side bridge in the user's browser (height=0)
 client_vault = storage_bridge(
     save_passwords=pending_save,
     clear_passwords=pending_clear,
+    save_emi_vault=pending_save_emi,
+    clear_emi_vault=pending_clear_emi,
     key="browser_vault_bridge"
 )
 
 now_ts = time.time()
 is_clearing = pending_clear or (now_ts < st.session_state.get("vault_cleared_until", 0))
+is_clearing_emi = pending_clear_emi or (now_ts < st.session_state.get("emi_vault_cleared_until", 0))
 
-# If client_vault is verified empty by browser component, release the clearing lock
-if not client_vault or (isinstance(client_vault, dict) and not any(str(v).strip() for v in client_vault.values())):
+# If client_vault passwords are verified empty by browser component, release the clearing lock
+if not client_vault or (isinstance(client_vault, dict) and not any(str(client_vault.get(k, "")).strip() for k in ["scapia", "hdfc", "icici", "sbi", "sheets_webhook_url"])):
     st.session_state.pop("vault_cleared_until", None)
 
-# Restore saved passwords from browser localStorage ONLY if not actively clearing
-if client_vault and isinstance(client_vault, dict) and not is_clearing:
-    restored_keys = []
-    for b_key, b_name in [("hdfc", "HDFC Bank"), ("icici", "ICICI Bank"), ("sbi", "SBI SimplyCLICK"), ("scapia", "Scapia Axis")]:
-        if not st.session_state.session_passwords.get(b_key) and client_vault.get(b_key) and client_vault[b_key].strip():
-            st.session_state.session_passwords[b_key] = client_vault[b_key].strip()
-            restored_keys.append(b_name)
-    if not st.session_state.session_passwords.get("sheets_webhook_url") and client_vault.get("sheets_webhook_url"):
-        st.session_state.session_passwords["sheets_webhook_url"] = client_vault["sheets_webhook_url"].strip()
+# Restore saved passwords & EMI nicknames from browser localStorage
+if client_vault and isinstance(client_vault, dict):
+    if not is_clearing:
+        restored_keys = []
+        for b_key, b_name in [("hdfc", "HDFC Bank"), ("icici", "ICICI Bank"), ("sbi", "SBI SimplyCLICK"), ("scapia", "Scapia Axis")]:
+            if not st.session_state.session_passwords.get(b_key) and client_vault.get(b_key) and str(client_vault[b_key]).strip():
+                st.session_state.session_passwords[b_key] = str(client_vault[b_key]).strip()
+                restored_keys.append(b_name)
+        if not st.session_state.session_passwords.get("sheets_webhook_url") and client_vault.get("sheets_webhook_url"):
+            st.session_state.session_passwords["sheets_webhook_url"] = str(client_vault["sheets_webhook_url"]).strip()
+
+    if not is_clearing_emi:
+        vault_emi_names = client_vault.get("emi_names")
+        if isinstance(vault_emi_names, dict):
+            for k, v in vault_emi_names.items():
+                if k and v and str(v).strip():
+                    st.session_state.emi_nicknames[str(k).strip()] = str(v).strip()
+        vault_emi_phones = client_vault.get("emi_phones")
+        if isinstance(vault_emi_phones, dict):
+            for k, v in vault_emi_phones.items():
+                if k and v and str(v).strip():
+                    st.session_state.emi_phones[str(k).strip()] = str(v).strip()
 
 # --- Sidebar Controls ---
 with st.sidebar:
@@ -355,6 +377,73 @@ with st.sidebar:
                 st.session_state.pop("sidebar_toast_until", None)
                 st.session_state.pop("sidebar_toast_notice", None)
 
+    with st.expander("🏷️ Browser-Saved EMI Nicknames", expanded=bool(st.session_state.emi_nicknames)):
+        st.caption("🔒 Remembered in your browser's `localStorage` on this device across sessions.")
+        if st.session_state.emi_nicknames:
+            for lid, lname in list(st.session_state.emi_nicknames.items()):
+                lphone = st.session_state.emi_phones.get(lid) or st.session_state.emi_phones.get(lname, "")
+                phone_badge = f" • 📱 +{lphone}" if lphone else ""
+                st.markdown(
+                    f"<div style='background:rgba(245,243,255,0.95);border:1px solid #c4b5fd;border-radius:10px;padding:7px 10px;margin-bottom:6px;font-size:11.5px;color:#2e1065;'>"
+                    f"<b>🏷️ {html_lib.escape(lname)}</b> <span style='font-family:monospace;color:#6d28d9;font-size:10.5px;'>({html_lib.escape(lid)}){html_lib.escape(phone_badge)}</span>"
+                    f"</div>",
+                    unsafe_allow_html=True
+                )
+        else:
+            st.caption("No EMI nicknames saved yet. Add one below or click **💾 Save Tag in Browser** directly on any purple EMI receipt card!")
+
+        emi_loan_key = st.text_input(
+            "Loan ID / EMI Key",
+            placeholder="e.g. 146608745 or 28/09/2026_44370.00",
+            key="side_emi_key"
+        )
+        emi_friend_name = st.text_input(
+            "Friend / Item Nickname",
+            placeholder="e.g. Naveen S25 Edge",
+            key="side_emi_name"
+        )
+        emi_friend_phone = st.text_input(
+            "Friend WhatsApp No. (Optional)",
+            placeholder="10-digit mobile (e.g. 9876543210)",
+            key="side_emi_phone"
+        )
+        if st.button("💾 Save EMI Nickname in Browser", use_container_width=True, key="btn_save_emi_side"):
+            if emi_loan_key.strip() and emi_friend_name.strip():
+                k_clean = emi_loan_key.strip()
+                n_clean = emi_friend_name.strip()
+                p_digits = "".join(ch for ch in emi_friend_phone.strip() if ch.isdigit())
+                if len(p_digits) == 10:
+                    p_digits = "91" + p_digits
+                st.session_state.emi_nicknames[k_clean] = n_clean
+                if p_digits:
+                    st.session_state.emi_phones[k_clean] = p_digits
+                    st.session_state.emi_phones[n_clean] = p_digits
+                st.session_state["pending_save_emi_vault"] = {
+                    "names": dict(st.session_state.emi_nicknames),
+                    "phones": dict(st.session_state.emi_phones)
+                }
+                st.session_state["sidebar_toast_until"] = time.time() + 5.0
+                st.session_state["sidebar_toast_notice"] = {
+                    "type": "success",
+                    "title": f"Saved EMI Tag: {n_clean}",
+                    "desc": "Stored in browser localStorage on this device."
+                }
+                st.rerun()
+
+        if st.session_state.emi_nicknames:
+            if st.button("🗑️ Clear Saved EMI Nicknames", use_container_width=True, key="btn_clear_emi_side"):
+                st.session_state.emi_nicknames = {}
+                st.session_state.emi_phones = {}
+                st.session_state["pending_clear_emi_vault"] = True
+                st.session_state["emi_vault_cleared_until"] = time.time() + 4.0
+                st.session_state["sidebar_toast_until"] = time.time() + 5.0
+                st.session_state["sidebar_toast_notice"] = {
+                    "type": "info",
+                    "title": "EMI Nicknames Cleared",
+                    "desc": "Wiped from this device browser vault."
+                }
+                st.rerun()
+
     st.link_button(
         "📋 Copy Google Sheet Template",
         unlock_statements.GOOGLE_SHEET_TEMPLATE_URL,
@@ -406,14 +495,16 @@ with st.container():
         if st.session_state.session_passwords.get("icici"): active_vault_list.append("ICICI")
         if st.session_state.session_passwords.get("sbi"): active_vault_list.append("SBI")
 
+        emi_saved_count = len(st.session_state.emi_nicknames)
+        emi_count_text = f" • 🏷️ {emi_saved_count} EMI Tag(s)" if emi_saved_count > 0 else ""
         if active_vault_list:
             st.markdown(f"""
             <div style="background: rgba(240, 253, 244, 0.95); border: 1px solid #86efac; border-radius: 14px; padding: 10px 14px; margin-bottom: 6px; box-shadow: 0 2px 8px rgba(22,101,52,0.06);">
                 <div style="font-size: 12px; font-weight: 800; color: #166534; display: flex; align-items: center; gap: 6px;">
-                    <span>🟢</span><span>Vault Active: {', '.join(active_vault_list)}</span>
+                    <span>🟢</span><span>Vault Active: {', '.join(active_vault_list)}{emi_count_text}</span>
                 </div>
                 <div style="font-size: 11px; color: #15803d; margin-top: 3px; font-weight: 600;">
-                    Statements unlock automatically on this device!
+                    Statements & EMI nicknames load automatically on this device!
                 </div>
             </div>
             """, unsafe_allow_html=True)
@@ -497,7 +588,8 @@ if uploaded_files:
             base_downloads_dir=".",
             custom_passwords=st.session_state.session_passwords,
             file_obj=pdf_bytes_io,
-            save_to_disk=False
+            save_to_disk=False,
+            custom_emi_names=st.session_state.emi_nicknames
         )
         if success and rdata:
             if (
