@@ -495,67 +495,62 @@ with st.sidebar:
                 st.rerun()
 
     shared_sf = get_shared_shafana_store()
-    sf_entries = shared_sf.get("entries", [])
+    sf_entries = [e for e in shared_sf.get("entries", []) if e.get("role") == "shafana_order"]
     sf_open_cb = float(shared_sf.get("openingCb", 0.0) or 0.0)
-    sf_bill_due = sum(float(e.get("amount", 0.0)) for e in sf_entries if e.get("role") == "shafana_order")
-    sf_cb_earned = sum(float(e.get("cashback_earned", 0.0)) for e in sf_entries if e.get("role") == "shafana_order")
-    sf_cb_used = sum(float(e.get("amount", 0.0)) for e in sf_entries if e.get("role") == "shafana_redeem")
+    sf_cb_used = float(shared_sf.get("manualCbUsed", 0.0) or 0.0)
+    sf_bill_due = sum(float(e.get("amount", 0.0)) for e in sf_entries)
+    sf_cb_earned = sum(float(e.get("cashback_earned", 0.0)) for e in sf_entries)
     sf_net_kitty = sf_open_cb + sf_cb_earned - sf_cb_used
 
-    with st.expander("🎁 Shafana Cashback (Web Synced)", expanded=True):
-        st.caption("🌐 Synced across the web (`shafana_cashback.json`). Only Shafana's cashback is stored online; bank passwords stay 100% private.")
+    with st.expander("🎁 Shafana Cashback (Simple View)", expanded=True):
+        st.caption("🌐 Synced across the web (`shafana_cashback.json`). Simple view for Shafana + manual Cashback Used entry.")
         st.markdown(f"""
         <div style="background: linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%); border: 1.5px solid #f59e0b; border-radius: 12px; padding: 10px 12px; margin-bottom: 10px;">
-            <div style="font-size: 11px; font-weight: 800; color: #92400e; text-transform: uppercase;">👩‍💼 Shafana (Raja Mohamed • Karaikal)</div>
-            <div style="font-size: 13px; font-weight: 900; color: #0f172a; margin-top: 3px;">Full Bill to Collect: ₹{sf_bill_due:,.2f}</div>
-            <div style="font-size: 11.5px; font-weight: 700; color: #047857; margin-top: 2px;">Earned: +₹{sf_cb_earned:,.2f} • Used: -₹{sf_cb_used:,.2f}</div>
-            <div style="font-size: 12px; font-weight: 900; color: #4338ca; margin-top: 3px;">👉 Net Cashback Kitty: {'+' if sf_net_kitty >= 0 else '-'}₹{abs(sf_net_kitty):,.2f}</div>
+            <div style="font-size: 11px; font-weight: 800; color: #92400e; text-transform: uppercase;">👩‍💼 Shafana (Raja Mohamed)</div>
+            <div style="font-size: 13.5px; font-weight: 900; color: #0f172a; margin-top: 3px;">🧾 Bill to Pay: ₹{sf_bill_due:,.0f}</div>
+            <div style="font-size: 11.5px; font-weight: 700; color: #047857; margin-top: 2px;">Earned: +₹{(sf_open_cb + sf_cb_earned):,.0f} • Used: -₹{sf_cb_used:,.0f}</div>
+            <div style="font-size: 13px; font-weight: 900; color: #065f46; margin-top: 3px;">🎁 Cashback Left: {'-' if sf_net_kitty < 0 else ''}₹{abs(sf_net_kitty):,.0f}</div>
         </div>
         """, unsafe_allow_html=True)
 
-        btn_label_side = "✖️ Close Shafana Cashback Tracker" if st.session_state.show_shafana_tracker else "🎁 Open Shafana Cashback Tracker"
+        btn_label_side = "✖️ Close Shafana Page" if st.session_state.show_shafana_tracker else "🎁 Open Shafana Page"
         if st.button(btn_label_side, use_container_width=True, type="primary", key="side_toggle_shafana"):
             st.session_state.show_shafana_tracker = not st.session_state.show_shafana_tracker
             st.rerun()
 
-        new_open_cb = st.number_input(
-            "Opening Cashback Balance (₹)",
-            value=float(sf_open_cb),
+        new_cb_used = st.number_input(
+            "➖ Cashback Used by Shafana (₹)",
+            min_value=0.0,
+            value=float(sf_cb_used),
             step=10.0,
-            key="side_sf_open_cb"
+            help="Type any cashback amount she used manually",
+            key="side_sf_cb_used"
         )
-        if st.button("💾 Save Opening Cashback", use_container_width=True, key="side_save_open_cb"):
-            shared_sf["openingCb"] = float(new_open_cb)
+        if st.button("💾 Save Cashback Used", use_container_width=True, key="side_save_cb_used"):
+            shared_sf["manualCbUsed"] = float(new_cb_used)
             update_shared_shafana_store(shared_sf)
             st.session_state.show_shafana_tracker = True
             st.rerun()
 
-        st.markdown("<div style='font-size:11px;font-weight:800;color:#475569;margin-top:6px;'>➕ Quick Add Order / CB Used:</div>", unsafe_allow_html=True)
-        q_sf_desc = st.text_input("Order / Item Description", placeholder="e.g. Paid on Amazon (Raja Mohamed)", key="side_sf_desc")
-        q_sf_amt = st.number_input("Amount (₹)", min_value=0.0, step=10.0, key="side_sf_amt")
-        q_sf_role = st.selectbox(
-            "Entry Type",
-            ["shafana_order", "shafana_redeem"],
-            format_func=lambda x: "👩‍💼 Shafana Card Order (+5% CB)" if x == "shafana_order" else "➖ Cashback Used (Amazon Pay Bal)",
-            key="side_sf_role"
-        )
-        if st.button("➕ Add to Shafana Web Ledger", use_container_width=True, key="side_add_sf_entry"):
+        st.markdown("<div style='font-size:11px;font-weight:800;color:#475569;margin-top:6px;'>➕ Add New Order for Shafana:</div>", unsafe_allow_html=True)
+        q_sf_amt = st.number_input("Order Bill Amount (₹)", min_value=0.0, step=50.0, key="side_sf_amt")
+        if st.button("➕ Add Order (+5% Cashback)", use_container_width=True, key="side_add_sf_entry"):
             if q_sf_amt > 0:
                 import math as _math
-                ist_now = datetime.now(tz=timezone(timedelta(hours=5, minutes=30))).strftime("%d %b %Y, %I:%M %p")
-                cb_calc = float(_math.floor(q_sf_amt * 0.05)) if q_sf_role == "shafana_order" else 0.0
+                ist_now = datetime.now(tz=timezone(timedelta(hours=5, minutes=30))).strftime("%d %b %Y")
+                cb_calc = float(_math.floor(q_sf_amt * 0.05))
                 shared_sf.setdefault("entries", []).insert(0, {
-                    "id": f"web_{int(time.time())}_{q_sf_amt:.2f}",
-                    "method": "Amazon Pay Credit Card" if q_sf_role == "shafana_order" else "Amazon Pay Balance",
-                    "description": q_sf_desc.strip() or ("Paid on Amazon — Delivering to Raja mohamed" if q_sf_role == "shafana_order" else "Paid on Amazon"),
+                    "id": f"ord_{int(time.time())}_{q_sf_amt:.2f}",
+                    "method": "Amazon Pay Credit Card",
+                    "description": "Amazon Order — Delivering to Raja Mohamed",
                     "amount": float(q_sf_amt),
                     "cashback_earned": cb_calc,
                     "date_time": ist_now,
-                    "role": q_sf_role,
-                    "recipient": "Raja mohamed",
-                    "address": "Raja mohamed, 8 puduthurai main road, Karaikal, PUDUCHERRY, 609602, India" if q_sf_role == "shafana_order" else "",
+                    "role": "shafana_order",
+                    "recipient": "Raja Mohamed",
+                    "address": "8 Puduthurai Main Road, Karaikal 609602",
                     "arriving_by": "",
-                    "source_file": "Web Synced Entry"
+                    "source_file": "Manual Entry"
                 })
                 update_shared_shafana_store(shared_sf)
                 st.session_state.show_shafana_tracker = True
@@ -645,11 +640,11 @@ with st.container():
                 <span>🎁 Shafana's Cashback Kitty</span>
                 <span style="background: #f59e0b; color: #ffffff; font-size: 9.5px; padding: 1px 6px; border-radius: 999px; text-transform: uppercase;">Web Synced</span>
             </div>
-            <div style="font-size: 11.5px; color: #0f172a; margin-top: 4px; font-weight: 800;">
-                Bill to Collect: ₹{sf_bill_due:,.2f} • Net CB: {'+' if sf_net_kitty >= 0 else '-'}₹{abs(sf_net_kitty):,.2f}
+            <div style="font-size: 12px; color: #0f172a; margin-top: 4px; font-weight: 900;">
+                🧾 Bill: ₹{sf_bill_due:,.0f} • 🎁 CB Left: {'-' if sf_net_kitty < 0 else ''}₹{abs(sf_net_kitty):,.0f}
             </div>
             <div style="font-size: 10.5px; color: #047857; margin-top: 1px; font-weight: 700;">
-                Earned: +₹{sf_cb_earned:,.2f} (5%) • Used: -₹{sf_cb_used:,.2f} (APay Bal)
+                Earned: +₹{(sf_open_cb + sf_cb_earned):,.0f} • Used: -₹{sf_cb_used:,.0f}
             </div>
         </div>
         """, unsafe_allow_html=True)
