@@ -2291,17 +2291,35 @@ def generate_modern_dashboard_html(results_list, output_dir=".", write_to_disk=T
       c2.style.background = bg1;
     }};
 
+    window.allStackOffset = 0;
+    const ALL_STACK_SLOTS = [
+      {{ transform: 'translate3d(0px, 6px, 40px) rotate(0deg) scale(1)', zIndex: 50, opacity: 1, shadow: '0 24px 48px -12px rgba(0,0,0,0.38)' }},
+      {{ transform: 'translate3d(34px, -4px, 15px) rotate(6deg) scale(0.92)', zIndex: 40, opacity: 0.92, shadow: '0 16px 32px -10px rgba(0,0,0,0.26)' }},
+      {{ transform: 'translate3d(-34px, -6px, 0px) rotate(-6deg) scale(0.90)', zIndex: 30, opacity: 0.88, shadow: '0 14px 28px -10px rgba(0,0,0,0.22)' }},
+      {{ transform: 'translate3d(52px, -12px, -15px) rotate(11deg) scale(0.84)', zIndex: 20, opacity: 0.80, shadow: '0 10px 20px -8px rgba(0,0,0,0.18)' }},
+      {{ transform: 'translate3d(-52px, -14px, -25px) rotate(-11deg) scale(0.82)', zIndex: 10, opacity: 0.76, shadow: '0 10px 20px -8px rgba(0,0,0,0.18)' }}
+    ];
+
+    window.applyAllStackPositions = function() {{
+      for (let i = 0; i < 5; i++) {{
+        const el = document.getElementById('all-stack-' + i);
+        const nameEl = document.getElementById('all-stack-name-' + i);
+        if (!el) continue;
+        const slotIdx = (i - (window.allStackOffset || 0) + 5) % 5;
+        const slot = ALL_STACK_SLOTS[slotIdx];
+        el.style.transform = slot.transform;
+        el.style.zIndex = String(slot.zIndex);
+        el.style.opacity = String(slot.opacity);
+        el.style.boxShadow = slot.shadow;
+        if (nameEl) {{
+          nameEl.style.opacity = slotIdx === 0 ? '1' : '0';
+        }}
+      }}
+    }};
+
     window.cycleStackedCards = function() {{
-      const c1 = document.getElementById('stack-card-1');
-      const c2 = document.getElementById('stack-card-2');
-      const c3 = document.getElementById('stack-card-3');
-      if (!c1 || !c2 || !c3) return;
-      const bg1 = c1.style.background;
-      const bg2 = c2.style.background;
-      const bg3 = c3.style.background;
-      c1.style.background = bg2;
-      c2.style.background = bg3;
-      c3.style.background = bg1;
+      window.allStackOffset = ((window.allStackOffset || 0) + 1) % 5;
+      window.applyAllStackPositions();
     }};
 
     function renderHero() {{
@@ -2392,20 +2410,48 @@ def generate_modern_dashboard_html(results_list, output_dir=".", write_to_disk=T
         cardBadgeText = 'Consolidated Multi-Card Portfolio';
         cardBadgeClass = 'bg-indigo-100 text-indigo-900 border-indigo-200';
         cardStageHtml = `
-          <div class="relative w-full max-w-[380px] h-[230px] flex items-center justify-center cursor-pointer group" onclick="cycleStackedCards()" title="Click to shuffle cards">
-            <!-- Back Card (SBI SimplyCLICK) -->
-            <div id="stack-card-3" class="apple-physical-card absolute w-[84%] shadow-md -top-2 right-1 -rotate-6 opacity-80 transition-all duration-500 ease-out group-hover:-translate-y-2 group-hover:rotate-0" style="background: url('${{CARD_IMAGES.sbi}}') center/cover no-repeat; z-index: 10;">
-              <div class="apple-card-glare"></div>
+          <div class="relative w-full max-w-[380px] h-[272px] flex items-center justify-center cursor-pointer select-none" onclick="cycleStackedCards()" title="Click to shuffle all 5 cards (Swiggy, Scapia Orange, Amazon, Scapia Green, SBI)">
+            <!-- 0: Swiggy HDFC (Landscape) -->
+            <div id="all-stack-0" class="apple-physical-card absolute transition-all duration-500 ease-out" style="width: 276px; height: 174px; aspect-ratio: auto; border-radius: 16px; background: url('${{CARD_IMAGES.swiggy}}') center/cover no-repeat;">
+              <div class="apple-card-glare" style="border-radius: 16px;"></div>
+              <div id="all-stack-name-0" class="absolute bottom-3.5 left-4 z-20 pointer-events-none select-none transition-opacity duration-300">
+                <div class="text-[11px] sm:text-[12px] font-black tracking-[0.14em] uppercase text-white/95 font-mono drop-shadow-[0_1.5px_2px_rgba(0,0,0,0.85)]">
+                  ${{stmt.cardholder_name || 'Portfolio Cards'}}
+                </div>
+              </div>
             </div>
-            <!-- Middle Card (ICICI Amazon) -->
-            <div id="stack-card-2" class="apple-physical-card absolute w-[88%] shadow-lg top-0 right-2 -rotate-2 opacity-90 transition-all duration-500 ease-out group-hover:translate-x-3 group-hover:rotate-1" style="background: url('${{CARD_IMAGES.amazon}}') center/cover no-repeat; z-index: 15;">
-              <div class="apple-card-glare"></div>
+            <!-- 1: Scapia Mastercard Orange (Portrait) -->
+            <div id="all-stack-1" class="apple-physical-card absolute transition-all duration-500 ease-out" style="width: 162px; height: 256px; aspect-ratio: auto; border-radius: 16px; background: url('${{CARD_IMAGES.scapia_orange}}') center/cover no-repeat;">
+              <div class="apple-card-glare" style="border-radius: 16px;"></div>
+              <div id="all-stack-name-1" class="absolute bottom-3.5 left-3.5 z-20 pointer-events-none select-none transition-opacity duration-300" style="opacity: 0;">
+                <div class="text-[10px] font-black tracking-[0.12em] uppercase text-white/95 font-mono drop-shadow-[0_1.5px_2px_rgba(0,0,0,0.85)]">
+                  ${{stmt.cardholder_name || 'Portfolio Cards'}}
+                </div>
+              </div>
             </div>
-            <!-- Front Card (HDFC Swiggy) -->
-            <div id="stack-card-1" class="apple-physical-card absolute w-[92%] shadow-2xl bottom-1 left-2 rotate-2 transition-all duration-500 ease-out group-hover:scale-102" style="background: url('${{CARD_IMAGES.swiggy}}') center/cover no-repeat; z-index: 20;">
-              <div class="apple-card-glare"></div>
-              <div class="absolute bottom-4 left-5 z-20 pointer-events-none select-none">
-                <div class="text-[12px] sm:text-[13px] font-black tracking-[0.14em] uppercase text-white/95 font-mono drop-shadow-[0_1.5px_2px_rgba(0,0,0,0.85)]">
+            <!-- 2: ICICI Amazon Pay (Landscape) -->
+            <div id="all-stack-2" class="apple-physical-card absolute transition-all duration-500 ease-out" style="width: 276px; height: 174px; aspect-ratio: auto; border-radius: 16px; background: url('${{CARD_IMAGES.amazon}}') center/cover no-repeat;">
+              <div class="apple-card-glare" style="border-radius: 16px;"></div>
+              <div id="all-stack-name-2" class="absolute bottom-3.5 left-4 z-20 pointer-events-none select-none transition-opacity duration-300" style="opacity: 0;">
+                <div class="text-[11px] sm:text-[12px] font-black tracking-[0.14em] uppercase text-amber-200/95 font-mono drop-shadow-[0_1.5px_2px_rgba(0,0,0,0.9)]">
+                  ${{stmt.cardholder_name || 'Portfolio Cards'}}
+                </div>
+              </div>
+            </div>
+            <!-- 3: Scapia RuPay Green (Portrait) -->
+            <div id="all-stack-3" class="apple-physical-card absolute transition-all duration-500 ease-out" style="width: 162px; height: 256px; aspect-ratio: auto; border-radius: 16px; background: url('${{CARD_IMAGES.scapia_green}}') center/cover no-repeat;">
+              <div class="apple-card-glare" style="border-radius: 16px;"></div>
+              <div id="all-stack-name-3" class="absolute bottom-3.5 left-3.5 z-20 pointer-events-none select-none transition-opacity duration-300" style="opacity: 0;">
+                <div class="text-[10px] font-black tracking-[0.12em] uppercase text-white/95 font-mono drop-shadow-[0_1.5px_2px_rgba(0,0,0,0.85)]">
+                  ${{stmt.cardholder_name || 'Portfolio Cards'}}
+                </div>
+              </div>
+            </div>
+            <!-- 4: SBI SimplyCLICK (Landscape) -->
+            <div id="all-stack-4" class="apple-physical-card absolute transition-all duration-500 ease-out" style="width: 276px; height: 174px; aspect-ratio: auto; border-radius: 16px; background: url('${{CARD_IMAGES.sbi}}') center/cover no-repeat;">
+              <div class="apple-card-glare" style="border-radius: 16px;"></div>
+              <div id="all-stack-name-4" class="absolute bottom-3.5 left-4 z-20 pointer-events-none select-none transition-opacity duration-300" style="opacity: 0;">
+                <div class="text-[11px] sm:text-[12px] font-black tracking-[0.14em] uppercase text-white/95 font-mono drop-shadow-[0_1.5px_2px_rgba(0,0,0,0.9)]">
                   ${{stmt.cardholder_name || 'Portfolio Cards'}}
                 </div>
               </div>
@@ -2423,9 +2469,11 @@ def generate_modern_dashboard_html(results_list, output_dir=".", write_to_disk=T
             
             <!-- Top Card Micro-Bar -->
             <div class="w-full flex justify-between items-center text-xs font-bold text-slate-500 relative z-10 mb-4">
-              <span class="px-3 py-1 rounded-full text-[11px] font-extrabold border ${{cardBadgeClass}} flex items-center gap-1.5 shadow-xs">
-                <span>💳</span>
-                <span>${{cardBadgeText}}</span>
+              <span class="px-3 py-1 rounded-full text-[11px] font-extrabold border ${{cardBadgeClass}} inline-flex items-center justify-center gap-1.5 leading-none shadow-xs">
+                <span class="inline-flex items-center justify-center w-3.5 h-3.5 flex-shrink-0">
+                  <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg>
+                </span>
+                <span class="leading-none pt-[0.5px]">${{cardBadgeText}}</span>
               </span>
               <span class="text-[11px] font-mono text-slate-400 bg-slate-100/80 px-2.5 py-0.5 rounded-lg border border-slate-200/60">3D Interactive</span>
             </div>
@@ -2521,6 +2569,7 @@ def generate_modern_dashboard_html(results_list, output_dir=".", write_to_disk=T
       `;
 
       setupCardPhysics();
+      if (window.applyAllStackPositions) window.applyAllStackPositions();
     }}
 
     function renderCashbackAudit() {{

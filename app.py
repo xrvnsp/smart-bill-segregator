@@ -686,30 +686,32 @@ def get_card_shuffle_html():
   <link href="https://fonts.googleapis.com/css2?family=Gloria+Hallelujah&family=Inter:wght@400;500;600;700;800;900&family=Plus+Jakarta+Sans:wght@500;600;700;800;900&display=swap" rel="stylesheet">
   <style>
     * {{ box-sizing: border-box; margin: 0; padding: 0; font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }}
-    body {{ background: transparent; display: flex; justify-content: center; align-items: flex-start; padding: 4px; overflow-x: hidden; }}
+    body {{ background: transparent; display: flex; justify-content: center; align-items: flex-start; padding: 6px 4px 14px 4px; overflow-x: hidden; }}
     
     .showcase-card {{
       width: 100%;
       max-width: 980px;
-      background: rgba(255, 255, 255, 0.94);
+      background: rgba(255, 255, 255, 0.96);
       backdrop-filter: blur(24px) saturate(180%);
       -webkit-backdrop-filter: blur(24px) saturate(180%);
-      border: 1px solid rgba(226, 232, 240, 0.9);
+      border: 1px solid rgba(226, 232, 240, 0.95);
       border-radius: 26px;
-      padding: 18px 20px 20px 20px;
+      padding: 20px 22px 24px 22px;
       text-align: center;
-      box-shadow: 0 12px 35px -8px rgba(0, 0, 0, 0.06);
+      box-shadow: 0 12px 35px -8px rgba(0, 0, 0, 0.08);
       display: flex;
       flex-direction: column;
       align-items: center;
       margin: 0 auto;
     }}
 
+    /* Pixel-aligned Pill Badges with Centered SVG Icons */
     .headline-pill {{
       display: inline-flex;
       align-items: center;
-      gap: 6px;
-      padding: 5px 14px;
+      justify-content: center;
+      gap: 7px;
+      padding: 6px 15px;
       border-radius: 9999px;
       background: #f1f5f9;
       border: 1px solid #cbd5e1;
@@ -718,7 +720,23 @@ def get_card_shuffle_html():
       font-weight: 800;
       text-transform: uppercase;
       letter-spacing: 0.06em;
-      margin-bottom: 6px;
+      line-height: 1;
+      margin-bottom: 8px;
+    }}
+
+    .pill-icon {{
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 15px;
+      height: 15px;
+      flex-shrink: 0;
+    }}
+
+    .pill-text {{
+      display: inline-block;
+      line-height: 1;
+      padding-top: 0.5px;
     }}
 
     .title {{
@@ -726,50 +744,53 @@ def get_card_shuffle_html():
       font-weight: 800;
       color: #0f172a;
       letter-spacing: -0.025em;
-      margin-bottom: 3px;
+      margin-bottom: 4px;
     }}
 
     .subtitle {{
       font-size: 12.5px;
       color: #64748b;
       max-width: 680px;
-      line-height: 1.4;
-      margin-bottom: 12px;
+      line-height: 1.45;
+      margin-bottom: 14px;
       font-weight: 500;
     }}
 
-    /* Dual Grid Layout: Side-by-Side on Desktop, Top/Bottom Stack on Mobile */
+    /* Dual Grid Layout: Stretched Equal-Height Side-by-Side on Desktop, Top/Bottom Stack on Mobile */
     .dual-grid {{
       display: grid;
-      grid-template-columns: 1fr 1.35fr;
+      grid-template-columns: 1fr 1.25fr;
       gap: 18px;
       width: 100%;
-      align-items: center;
-      margin-bottom: 12px;
+      align-items: stretch;
+      margin-bottom: 14px;
     }}
 
     .deck-section {{
-      background: rgba(248, 250, 252, 0.75);
-      border: 1px solid rgba(226, 232, 240, 0.9);
+      background: rgba(248, 250, 252, 0.85);
+      border: 1px solid rgba(226, 232, 240, 0.95);
       border-radius: 20px;
-      padding: 14px 10px 16px 10px;
+      padding: 16px 14px 18px 14px;
       display: flex;
       flex-direction: column;
       align-items: center;
+      justify-content: space-between;
       position: relative;
     }}
 
     .section-header-pill {{
       display: inline-flex;
       align-items: center;
-      gap: 5px;
-      padding: 4px 12px;
+      justify-content: center;
+      gap: 6px;
+      padding: 5px 13px;
       border-radius: 9999px;
       font-size: 11px;
       font-weight: 800;
       text-transform: uppercase;
       letter-spacing: 0.05em;
-      margin-bottom: 8px;
+      line-height: 1;
+      margin-bottom: 10px;
     }}
     .pill-travel {{ background: #fff7ed; border: 1px solid #fed7aa; color: #c2410c; }}
     .pill-rewards {{ background: #eff6ff; border: 1px solid #bfdbfe; color: #1e40af; }}
@@ -782,17 +803,18 @@ def get_card_shuffle_html():
       perspective-origin: center center;
       width: 100%;
       max-width: 250px;
-      height: 275px;
+      height: 265px;
       position: relative;
       display: flex;
       justify-content: center;
       align-items: center;
       cursor: pointer;
+      margin: 4px 0;
     }}
 
     .card-p {{
-      width: 168px;
-      height: 265px;
+      width: 164px;
+      height: 258px;
       border-radius: 16px;
       position: absolute;
       transform-style: preserve-3d;
@@ -822,12 +844,12 @@ def get_card_shuffle_html():
       pointer-events: none;
     }}
 
-    /* Card 1: Orange Mastercard (Always bound directly) */
+    /* Card 1: Orange Mastercard */
     #card-p1 {{
       background-image: url('{scapia_orange_b64}');
       animation: shufflePortOrange 6s cubic-bezier(0.34, 1.25, 0.64, 1) infinite;
     }}
-    /* Card 2: Green RuPay (Always bound directly) */
+    /* Card 2: Green RuPay */
     #card-p2 {{
       background-image: url('{scapia_green_b64}');
       animation: shufflePortGreen 6s cubic-bezier(0.34, 1.25, 0.64, 1) infinite;
@@ -837,17 +859,16 @@ def get_card_shuffle_html():
       animation-play-state: paused;
     }}
 
-    /* Continuous 3D Shuffling for Scapia Editions */
     @keyframes shufflePortOrange {{
-      0%, 42% {{ transform: translate3d(0, 0, 32px) scale(1) rotate(0deg); z-index: 25; opacity: 1; box-shadow: 0 22px 45px -10px rgba(0, 0, 0, 0.38); }}
-      50%, 92% {{ transform: translate3d(32px, -12px, -32px) scale(0.92) rotate(4deg); z-index: 10; opacity: 0.85; box-shadow: 0 12px 24px -8px rgba(0, 0, 0, 0.22); }}
-      100% {{ transform: translate3d(0, 0, 32px) scale(1) rotate(0deg); z-index: 25; opacity: 1; }}
+      0%, 42% {{ transform: translate3d(-6px, 0, 32px) scale(1) rotate(0deg); z-index: 25; opacity: 1; box-shadow: 0 22px 45px -10px rgba(0, 0, 0, 0.38); }}
+      50%, 92% {{ transform: translate3d(26px, -8px, -32px) scale(0.92) rotate(4deg); z-index: 10; opacity: 0.85; box-shadow: 0 12px 24px -8px rgba(0, 0, 0, 0.22); }}
+      100% {{ transform: translate3d(-6px, 0, 32px) scale(1) rotate(0deg); z-index: 25; opacity: 1; }}
     }}
 
     @keyframes shufflePortGreen {{
-      0%, 42% {{ transform: translate3d(32px, -12px, -32px) scale(0.92) rotate(4deg); z-index: 10; opacity: 0.85; box-shadow: 0 12px 24px -8px rgba(0, 0, 0, 0.22); }}
-      50%, 92% {{ transform: translate3d(0, 0, 32px) scale(1) rotate(0deg); z-index: 25; opacity: 1; box-shadow: 0 22px 45px -10px rgba(0, 0, 0, 0.38); }}
-      100% {{ transform: translate3d(32px, -12px, -32px) scale(0.92) rotate(4deg); z-index: 10; opacity: 0.85; }}
+      0%, 42% {{ transform: translate3d(26px, -8px, -32px) scale(0.92) rotate(4deg); z-index: 10; opacity: 0.85; box-shadow: 0 12px 24px -8px rgba(0, 0, 0, 0.22); }}
+      50%, 92% {{ transform: translate3d(-6px, 0, 32px) scale(1) rotate(0deg); z-index: 25; opacity: 1; box-shadow: 0 22px 45px -10px rgba(0, 0, 0, 0.38); }}
+      100% {{ transform: translate3d(26px, -8px, -32px) scale(0.92) rotate(4deg); z-index: 10; opacity: 0.85; }}
     }}
 
     /* =========================================================
@@ -858,12 +879,13 @@ def get_card_shuffle_html():
       perspective-origin: center center;
       width: 100%;
       max-width: 320px;
-      height: 220px;
+      height: 265px;
       position: relative;
       display: flex;
       justify-content: center;
       align-items: center;
       cursor: pointer;
+      margin: 4px 0;
     }}
 
     .card-l {{
@@ -900,22 +922,22 @@ def get_card_shuffle_html():
     #card-l3 {{ background-image: url('{sbi_b64}'); animation: shuffleLand3 9s cubic-bezier(0.34, 1.25, 0.64, 1) infinite; }}
 
     @keyframes shuffleLand1 {{
-      0%, 28% {{ transform: translate3d(0, 0, 35px) scale(1) rotate(0deg); z-index: 30; opacity: 1; box-shadow: 0 20px 42px -10px rgba(0, 0, 0, 0.32); }}
-      33%, 61% {{ transform: translate3d(36px, -12px, 0px) scale(0.92) rotate(4deg); z-index: 20; opacity: 0.88; }}
-      66%, 95% {{ transform: translate3d(-34px, -18px, -35px) scale(0.85) rotate(-5deg); z-index: 10; opacity: 0.72; }}
-      100% {{ transform: translate3d(0, 0, 35px) scale(1) rotate(0deg); z-index: 30; opacity: 1; }}
+      0%, 28% {{ transform: translate3d(0, 4px, 35px) scale(1) rotate(0deg); z-index: 30; opacity: 1; box-shadow: 0 20px 42px -10px rgba(0, 0, 0, 0.32); }}
+      33%, 61% {{ transform: translate3d(30px, -10px, 0px) scale(0.92) rotate(4deg); z-index: 20; opacity: 0.88; }}
+      66%, 95% {{ transform: translate3d(-28px, -14px, -35px) scale(0.85) rotate(-5deg); z-index: 10; opacity: 0.72; }}
+      100% {{ transform: translate3d(0, 4px, 35px) scale(1) rotate(0deg); z-index: 30; opacity: 1; }}
     }}
     @keyframes shuffleLand2 {{
-      0%, 28% {{ transform: translate3d(36px, -12px, 0px) scale(0.92) rotate(4deg); z-index: 20; opacity: 0.88; }}
-      33%, 61% {{ transform: translate3d(-34px, -18px, -35px) scale(0.85) rotate(-5deg); z-index: 10; opacity: 0.72; }}
-      66%, 95% {{ transform: translate3d(0, 0, 35px) scale(1) rotate(0deg); z-index: 30; opacity: 1; }}
-      100% {{ transform: translate3d(36px, -12px, 0px) scale(0.92) rotate(4deg); z-index: 20; opacity: 0.88; }}
+      0%, 28% {{ transform: translate3d(30px, -10px, 0px) scale(0.92) rotate(4deg); z-index: 20; opacity: 0.88; }}
+      33%, 61% {{ transform: translate3d(-28px, -14px, -35px) scale(0.85) rotate(-5deg); z-index: 10; opacity: 0.72; }}
+      66%, 95% {{ transform: translate3d(0, 4px, 35px) scale(1) rotate(0deg); z-index: 30; opacity: 1; }}
+      100% {{ transform: translate3d(30px, -10px, 0px) scale(0.92) rotate(4deg); z-index: 20; opacity: 0.88; }}
     }}
     @keyframes shuffleLand3 {{
-      0%, 28% {{ transform: translate3d(-34px, -18px, -35px) scale(0.85) rotate(-5deg); z-index: 10; opacity: 0.72; }}
-      33%, 61% {{ transform: translate3d(0, 0, 35px) scale(1) rotate(0deg); z-index: 30; opacity: 1; }}
-      66%, 95% {{ transform: translate3d(36px, -12px, 0px) scale(0.92) rotate(4deg); z-index: 20; opacity: 0.88; }}
-      100% {{ transform: translate3d(-34px, -18px, -35px) scale(0.85) rotate(-5deg); z-index: 10; opacity: 0.72; }}
+      0%, 28% {{ transform: translate3d(-28px, -14px, -35px) scale(0.85) rotate(-5deg); z-index: 10; opacity: 0.72; }}
+      33%, 61% {{ transform: translate3d(0, 4px, 35px) scale(1) rotate(0deg); z-index: 30; opacity: 1; }}
+      66%, 95% {{ transform: translate3d(30px, -10px, 0px) scale(0.92) rotate(4deg); z-index: 20; opacity: 0.88; }}
+      100% {{ transform: translate3d(-28px, -14px, -35px) scale(0.85) rotate(-5deg); z-index: 10; opacity: 0.72; }}
     }}
 
     /* Badges & Tags Row */
@@ -929,11 +951,12 @@ def get_card_shuffle_html():
     .mini-badge {{
       font-size: 10.5px;
       font-weight: 700;
-      padding: 3px 9px;
+      padding: 4px 10px;
       border-radius: 8px;
       background: #ffffff;
       border: 1px solid rgba(203, 213, 225, 0.85);
       color: #334155;
+      line-height: 1.2;
     }}
 
     /* Crazy Comic Font Disclaimer */
@@ -943,13 +966,14 @@ def get_card_shuffle_html():
       font-size: 13.5px;
       display: inline-flex;
       align-items: center;
+      justify-content: center;
       gap: 8px;
-      padding: 8px 18px;
+      padding: 9px 18px;
       border-radius: 9999px;
       background: #f0fdf4;
       border: 1.5px dashed #4ade80;
       color: #15803d;
-      margin-top: 6px;
+      margin-top: 4px;
       transform: rotate(-0.5deg);
       box-shadow: 0 2px 8px rgba(34, 197, 94, 0.12);
       transition: transform 0.2s ease;
@@ -958,54 +982,59 @@ def get_card_shuffle_html():
       transform: rotate(0.5deg) scale(1.02);
     }}
 
-    /* Mobile Responsive Stacking: TOP = Scapia, BOTTOM = SBI / ICICI / HDFC */
+    /* Mobile Responsive Stacking: TOP = Scapia, BOTTOM = SBI / ICICI / HDFC with Full Padding & Zero Clipping */
     @media (max-width: 859px) {{
+      .showcase-card {{
+        padding: 18px 14px 24px 14px;
+        border-radius: 22px;
+      }}
       .dual-grid {{
         display: flex;
         flex-direction: column;
         gap: 16px;
-        margin-bottom: 12px;
+        margin-bottom: 14px;
       }}
       .deck-section-travel {{
-        order: 1 !important; /* Top Section on Mobile */
+        order: 1 !important;
         width: 100%;
-        padding: 12px 8px 14px 8px;
+        padding: 16px 12px 18px 12px;
       }}
       .deck-section-rewards {{
-        order: 2 !important; /* Bottom Section on Mobile */
+        order: 2 !important;
         width: 100%;
-        padding: 12px 8px 14px 8px;
+        padding: 16px 12px 18px 12px;
       }}
       .travel-stage {{
-        height: 220px;
+        height: 230px;
+        margin: 6px 0 8px 0;
       }}
       .card-p {{
-        width: 140px;
-        height: 218px;
+        width: 142px;
+        height: 222px;
       }}
       .rewards-stage {{
-        height: 160px;
+        height: 176px;
+        margin: 8px 0 10px 0;
       }}
       .card-l {{
-        width: 220px;
-        height: 138px;
-      }}
-      .showcase-card {{
-        padding: 14px 12px;
+        width: 224px;
+        height: 140px;
       }}
       .comic-disclaimer-box {{
         font-size: 12px;
-        padding: 7px 12px;
-        border-radius: 14px;
+        padding: 8px 14px;
+        border-radius: 16px;
       }}
     }}
   </style>
 </head>
 <body>
-  <div class="showcase-card">
+  <div class="showcase-card" id="main-showcase-card">
     <div class="headline-pill">
-      <span>💳</span>
-      <span>Cards Supported So Far</span>
+      <span class="pill-icon">
+        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="#2563eb" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg>
+      </span>
+      <span class="pill-text">Cards Supported So Far</span>
     </div>
     <h2 class="title">No Statement Loaded in Current Session</h2>
     <p class="subtitle">
@@ -1017,7 +1046,12 @@ def get_card_shuffle_html():
       
       <!-- TOP ON MOBILE / LEFT ON DESKTOP: Scapia Travel Editions (Orange & Green) -->
       <div class="deck-section deck-section-travel" onclick="cyclePortraitDeck()" title="Click to flip Scapia editions">
-        <span class="section-header-pill pill-travel"><span>✈️</span><span>Axis Bank Scapia Editions</span></span>
+        <span class="section-header-pill pill-travel">
+          <span class="pill-icon">
+            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="#c2410c" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M17.8 19.2 16 11l3.5-3.5C21 6 21.5 4 21 3c-1-.5-3 0-4.5 1.5L13 8 4.8 6.2c-.5-.1-.9.1-1.1.5l-.3.5c-.2.5-.1 1 .3 1.3L9 12l-2 3H4l-1 1 3 2 2 3 1-1v-3l3-2 3.5 5.3c.3.4.8.5 1.3.3l.5-.2c.4-.3.6-.7.5-1.2z"/></svg>
+          </span>
+          <span class="pill-text">Axis Bank Scapia Editions</span>
+        </span>
         <div class="travel-stage" id="travel-stage">
           <div id="card-p1" class="card-p">
             <div class="card-glare"></div>
@@ -1034,7 +1068,12 @@ def get_card_shuffle_html():
 
       <!-- BOTTOM ON MOBILE / RIGHT ON DESKTOP: Daily Rewards Cards (Swiggy, Amazon, SBI) -->
       <div class="deck-section deck-section-rewards" onclick="cycleLandscapeDeck()" title="Click to cycle rewards cards">
-        <span class="section-header-pill pill-rewards"><span>💳</span><span>Daily Rewards & Cashback Cards</span></span>
+        <span class="section-header-pill pill-rewards">
+          <span class="pill-icon">
+            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="#1e40af" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg>
+          </span>
+          <span class="pill-text">Daily Rewards & Cashback Cards</span>
+        </span>
         <div class="rewards-stage" id="rewards-stage">
           <div id="card-l1" class="card-l">
             <div class="card-glare"></div>
@@ -1088,6 +1127,24 @@ def get_card_shuffle_html():
       l2.style.backgroundImage = b3;
       l3.style.backgroundImage = b1;
     }}
+
+    /* Auto-resize parent Streamlit iframe height so mobile never clips the 2nd section or bottom padding */
+    function syncShowcaseHeight() {{
+      const card = document.getElementById('main-showcase-card');
+      if (!card) return;
+      const h = Math.ceil(card.getBoundingClientRect().height) + 26;
+      try {{
+        if (window.frameElement) {{
+          window.frameElement.style.height = h + 'px';
+          window.frameElement.height = String(h);
+        }}
+      }} catch (e) {{}}
+    }}
+    window.addEventListener('load', syncShowcaseHeight);
+    window.addEventListener('resize', syncShowcaseHeight);
+    setTimeout(syncShowcaseHeight, 100);
+    setTimeout(syncShowcaseHeight, 400);
+    setTimeout(syncShowcaseHeight, 900);
   </script>
 </body>
 </html>"""
@@ -1101,8 +1158,8 @@ if st.session_state.statements_data:
     )
     components.html(dashboard_html, height=1450, scrolling=True)
 else:
-    # Clean Initial State: Dual Deck Showcase (Height 720 ensures BOTH sections are 100% visible on mobile with zero clipping)
-    components.html(get_card_shuffle_html(), height=720, scrolling=False)
+    # Initial height 920 + JS auto-resizer ensures zero clipping on Mobile and tight fit on Desktop
+    components.html(get_card_shuffle_html(), height=920, scrolling=False)
 
 # --- Friendly Footer ---
 st.markdown("""
