@@ -1054,6 +1054,36 @@ def get_card_shuffle_html():
         border-radius: 16px;
       }}
     }}
+
+    /* Samsung Galaxy S24 Ultra (412px CSS viewport) precision fit */
+    @media (max-width: 450px) {{
+      .showcase-card {{
+        padding: 16px 10px 22px 10px;
+      }}
+      .deck-section {{
+        overflow: hidden;
+      }}
+      .travel-stage {{
+        height: 224px;
+      }}
+      .card-p {{
+        width: 136px;
+        height: 212px;
+      }}
+      .rewards-stage {{
+        height: 170px;
+      }}
+      .card-l {{
+        width: 208px;
+        height: 131px;
+      }}
+      .title {{
+        font-size: 18px;
+      }}
+      .subtitle {{
+        font-size: 11.5px;
+      }}
+    }}
   </style>
 </head>
 <body>
