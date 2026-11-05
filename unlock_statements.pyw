@@ -1359,6 +1359,18 @@ def generate_modern_dashboard_html(results_list, output_dir=".", write_to_disk=T
 
     .emi-card-glow {{ box-shadow: 0 4px 20px -2px rgba(124, 58, 237, 0.15); }}
 
+    /* Samsung Galaxy S24 Ultra (412px viewport) responsive scaling */
+    @media (max-width: 480px) {{
+      .apple-card-stage {{
+        transform: scale(0.9);
+        transform-origin: center center;
+      }}
+      main {{
+        padding-left: 12px !important;
+        padding-right: 12px !important;
+      }}
+    }}
+
     /* Fix color mismatch in Print / Save to PDF */
     * {{
       -webkit-print-color-adjust: exact !important;
