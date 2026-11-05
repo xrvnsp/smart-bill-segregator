@@ -114,6 +114,12 @@ KNOWN_BANKS = [
         "short_name": "Scapia Axis",
         "hints": ["scapia", "axis", "axis bank", "federal", "scapiacard"],
     },
+    {
+        "name": "Salary Payslip (Skillveri)",
+        "key": "payslip",
+        "short_name": "Salary Payslip",
+        "hints": ["payslip", "skillveri", "salary", "tds", "employee summary", "net payable"],
+    },
 ]
 
 
@@ -253,6 +259,8 @@ def identify_bank(file_path, text, unlocked_bank_key=None):
   text_upper = text.upper() if text else ""
   fname_lower = os.path.basename(str(file_path)).lower()
 
+  if "PAYSLIP" in text_upper or "SKILLVERI" in text_upper or "EMPLOYEE SUMMARY" in text_upper or "TOTAL NET PAYABLE" in text_upper or "TDS SUMMARY" in text_upper:
+    return "Salary Payslip (Skillveri)", "Salary Payslip"
   if "SCAPIA" in text_upper or ("AXIS" in text_upper and "CARD" in text_upper):
     return "Axis Bank (Scapia)", "Scapia Axis"
   if "SIMPLYCLICK" in text_upper or "SIMPLY CLICK" in text_upper or "SBICARD" in text_upper or ("SBI" in text_upper and "CARD" in text_upper):
@@ -262,6 +270,8 @@ def identify_bank(file_path, text, unlocked_bank_key=None):
   if "HDFC" in text_upper or "SWIGGY HDFC" in text_upper:
     return "HDFC Bank (Swiggy)", "HDFC"
 
+  if unlocked_bank_key == "payslip":
+    return "Salary Payslip (Skillveri)", "Salary Payslip"
   if unlocked_bank_key == "scapia":
     return "Axis Bank (Scapia)", "Scapia Axis"
 
@@ -272,6 +282,8 @@ def identify_bank(file_path, text, unlocked_bank_key=None):
   if unlocked_bank_key == "hdfc":
     return "HDFC Bank (Swiggy)", "HDFC"
 
+  if "payslip" in fname_lower or "skillveri" in fname_lower or "salary" in fname_lower or "tds" in fname_lower:
+    return "Salary Payslip (Skillveri)", "Salary Payslip"
   if "simplyclick" in fname_lower or "simply click" in fname_lower or "sbicard" in fname_lower or "sbi" in fname_lower:
     return "SBI Card (SimplyCLICK)", "SBI SimplyCLICK"
   if "4315" in fname_lower or "amazon" in fname_lower or "icici" in fname_lower:
@@ -717,6 +729,152 @@ def parse_sbi_statement(reader, file_path, saved_names):
       "reward_points": reward_points,
   }
 
+def parse_payslip_statement(reader, file_path, saved_names):
+  """Dedicated parser for Salary Payslips (Skillveri / Zoho Payroll) and TDS Summary PDFs.
+  Password format: Employee No + PAN [last 4 digits] (e.g. 1234000A / 115000A).
+  """
+  full_text = "\n".join((p.extract_text() or "") for p in reader.pages)
+  lines = [l.strip() for l in full_text.splitlines() if l.strip() and l.strip() != ":"]
+
+  def extract_field(pat, default=""):
+    m = re.search(pat, full_text, re.IGNORECASE)
+    return m.group(1).strip().lstrip(":").strip() if m else default
+
+  company_name = "Skillveri Training Solutions Pvt Ltd"
+  for l in lines[:5]:
+    if "PVT" in l.upper() or "LTD" in l.upper() or "SOLUTIONS" in l.upper() or "SKILLVERI" in l.upper():
+      company_name = l
+      break
+
+  emp_name = extract_field(r"Employee\s+Name\s*:?\s*([^\n]+)", "Saravana Prakash R")
+  designation = extract_field(r"Designation\s*:?\s*([^\n]+)", "Product Development")
+  emp_id = extract_field(r"Employee\s+ID\s*:?\s*([^\n]+)", "")
+  doj = extract_field(r"Date\s+of\s+Joining\s*:?\s*([^\n]+)", "")
+  pay_period = extract_field(r"Pay\s+Period\s*:?\s*([^\n]+)", "")
+  if not pay_period:
+    m_pp = re.search(r"Payslip\s+For\s+the\s+Month\s*\n\s*([^\n]+)", full_text, re.IGNORECASE)
+    if m_pp:
+      pay_period = m_pp.group(1).strip()
+  clean_month = normalize_month_name(pay_period) if pay_period else "September 2026"
+
+  pay_date = extract_field(r"Pay\s+Date\s*:?\s*(\d{2}[/-]\d{2}[/-]\d{4})", "") or "02/10/2026"
+  paid_days = extract_field(r"Paid\s+Days\s*:?\s*(\d+)", "0")
+  lop_days = extract_field(r"LOP\s+Days\s*:?\s*(\d+)", "0")
+  bank_ac = extract_field(r"Bank\s+Account\s+No\s*:?\s*([^\n]+)", "")
+
+  gross_str = extract_field(r"Gross\s+Earnings\s*[₹Rs\.]*([\d,]+\.\d{2})", "0.00")
+  ded_str = extract_field(r"Total\s+Deductions\s*[₹Rs\.]*([\d,]+\.\d{2})", "0.00")
+  net_str = (
+      extract_field(r"Gross\s+Earnings\s*-\s*Total\s+Deductions\s*[₹Rs\.]*([\d,]+\.\d{2})", "")
+      or extract_field(r"[₹Rs\.]*([\d,]+\.\d{2})\s*\n\s*Total\s+Net\s+Pay", "")
+      or gross_str
+  )
+  words_str = extract_field(r"Amount\s+In\s+Words\s*:?\s*([^\n]+)", "")
+
+  try:
+    net_val = float(net_str.replace(",", ""))
+  except ValueError:
+    net_val = 0.0
+
+  txns = []
+  date_groups = defaultdict(lambda: {"total": 0.0, "items": [], "has_emi": False})
+  earnings_list = []
+  deductions_list = []
+
+  section = "earnings"
+  item_pat = re.compile(r"^([A-Za-z][A-Za-z0-9\s\-\(\)/]+?)\s+[₹Rs\.]*([\d,]+\.\d{2})(?:\s+[₹Rs\.]*([\d,]+\.\d{2}))?$")
+  ded_keywords = ["TAX", "TDS", "PF", "EPF", "ESI", "PROF", "DEDUCTION", "LOP", "LOAN", "ADVANCE"]
+
+  for l in lines:
+    u = l.upper()
+    if "EARNINGS" in u and "AMOUNT" in u:
+      section = "earnings"
+      continue
+    if "DEDUCTIONS" in u and "AMOUNT" in u:
+      section = "deductions"
+      continue
+    if any(skip in u for skip in ["GROSS EARNINGS", "TOTAL DEDUCTIONS", "TOTAL NET", "AMOUNT IN WORDS", "SYSTEM-GENERATED"]):
+      continue
+
+    m = item_pat.match(l)
+    if m:
+      comp_name, amt_s, ytd_s = m.groups()
+      comp_name = comp_name.strip()
+      amt_f = float(amt_s.replace(",", ""))
+      is_ded = (section == "deductions") or any(k in comp_name.upper() for k in ded_keywords)
+      ytd_label = f" (YTD: ₹{ytd_s})" if ytd_s else ""
+
+      if is_ded:
+        deductions_list.append({"name": comp_name, "amount": amt_f, "amount_str": f"₹{amt_s}", "ytd": f"₹{ytd_s}" if ytd_s else ""})
+        t_obj = {
+            "date": pay_date,
+            "description": f"Salary Deduction: {comp_name}{ytd_label}",
+            "amount": amt_f,
+            "is_credit": False,
+            "is_emi": False,
+            "amount_str": f"-₹{amt_f:,.2f}",
+        }
+      else:
+        earnings_list.append({"name": comp_name, "amount": amt_f, "amount_str": f"₹{amt_s}", "ytd": f"₹{ytd_s}" if ytd_s else ""})
+        t_obj = {
+            "date": pay_date,
+            "description": f"Salary Earning: {comp_name}{ytd_label}",
+            "amount": amt_f,
+            "is_credit": True,
+            "is_emi": False,
+            "amount_str": f"+₹{amt_f:,.2f}",
+        }
+      txns.append(t_obj)
+      date_groups[pay_date]["items"].append(t_obj)
+
+  # Ensure at least one summary item if a TDS/Payslip had a different table format
+  if not txns and net_val > 0:
+    t_obj = {
+        "date": pay_date,
+        "description": f"Net Salary Credited ({company_name})",
+        "amount": net_val,
+        "is_credit": True,
+        "is_emi": False,
+        "amount_str": f"+₹{net_val:,.2f}",
+    }
+    txns.append(t_obj)
+    date_groups[pay_date]["items"].append(t_obj)
+
+  date_groups[pay_date]["total"] = net_val
+
+  payslip_meta = {
+      "is_payslip": True,
+      "company_name": company_name,
+      "employee_name": emp_name,
+      "designation": designation,
+      "employee_id": emp_id,
+      "date_of_joining": doj,
+      "pay_period": clean_month,
+      "pay_date": pay_date,
+      "paid_days": paid_days,
+      "lop_days": lop_days,
+      "bank_account_no": bank_ac,
+      "gross_earnings": f"₹{gross_str}",
+      "total_deductions": f"₹{ded_str}",
+      "net_pay": f"₹{net_str}",
+      "amount_in_words": words_str,
+      "earnings_list": earnings_list,
+      "deductions_list": deductions_list,
+  }
+
+  return {
+      "total_due": f"₹{net_str}",
+      "due_date": f"Paid: {pay_date}",
+      "statement_month": clean_month,
+      "cardholder_name": emp_name.upper(),
+      "date_groups": dict(date_groups),
+      "all_txns": txns,
+      "ongoing_emis": [],
+      "reward_points": f"Emp ID: {emp_id}" if emp_id else "",
+      "payslip_meta": payslip_meta,
+  }
+
+
 def parse_hdfc_statement(reader, file_path, saved_names):
   """Dedicated rule for HDFC Bank (Swiggy) credit card statements."""
   p1_text = reader.pages[0].extract_text() or ""
@@ -848,7 +1006,9 @@ def process_statement_file(file_path, base_downloads_dir=None, custom_passwords=
     except Exception:
       pass
 
-    if "scapia" in fname_lower or "axis" in fname_lower or "federal" in fname_lower or "axis" in meta_clues or "scapia" in meta_clues:
+    if "payslip" in fname_lower or "skillveri" in fname_lower or "salary" in fname_lower or "tds" in fname_lower or "payslip" in meta_clues or "skillveri" in meta_clues:
+      ordered_banks = [b for b in KNOWN_BANKS if b["key"] == "payslip"]
+    elif "scapia" in fname_lower or "axis" in fname_lower or "federal" in fname_lower or "axis" in meta_clues or "scapia" in meta_clues:
       ordered_banks = [b for b in KNOWN_BANKS if b["key"] == "scapia"]
     elif "9826" in fname_lower or "simplyclick" in fname_lower or "simply click" in fname_lower or "sbicard" in fname_lower or "sbi" in fname_lower or "sbicpsl" in meta_clues or "sbi card" in meta_clues:
       ordered_banks = [b for b in KNOWN_BANKS if b["key"] == "sbi"]
@@ -862,6 +1022,7 @@ def process_statement_file(file_path, base_downloads_dir=None, custom_passwords=
     parent_folder = base_downloads_dir or os.path.dirname(str(file_path)) or "."
     if custom_passwords is not None:
       stored_pwds = {
+          "payslip": str(custom_passwords.get("payslip", "")).strip(),
           "scapia": str(custom_passwords.get("scapia", "")).strip(),
           "hdfc": str(custom_passwords.get("hdfc", "")).strip(),
           "icici": str(custom_passwords.get("icici", "")).strip(),
@@ -879,6 +1040,10 @@ def process_statement_file(file_path, base_downloads_dir=None, custom_passwords=
         user_pwd = stored_pwds.get(bkey, "").strip()
         if user_pwd:
           pwds_to_try.append(user_pwd)
+          if bkey == "payslip":
+            for cand in [user_pwd.upper(), user_pwd.lower()]:
+              if cand not in pwds_to_try:
+                pwds_to_try.append(cand)
         for v in bank.get("passwords", []):
           if v and v not in pwds_to_try:
             pwds_to_try.append(v)
@@ -912,10 +1077,12 @@ def process_statement_file(file_path, base_downloads_dir=None, custom_passwords=
     p1_text = "\n".join((p.extract_text() or "") for p in reader.pages[:2])
     bank_full_name, bank_short = identify_bank(file_path, p1_text, unlocked_bank_key)
 
-    if bank_short not in ("Scapia Axis", "SBI SimplyCLICK", "ICICI Amazon", "HDFC"):
-      return False, f"Non-Bill PDF Detected ({os.path.basename(file_path)}): This file is not a valid credit card bill or bank statement. Only Axis Bank (Scapia), HDFC Bank (Swiggy), ICICI Bank (Amazon Pay), and SBI Card (SimplyCLICK) statements are supported.", None
+    if bank_short not in ("Scapia Axis", "SBI SimplyCLICK", "ICICI Amazon", "HDFC", "Salary Payslip"):
+      return False, f"Non-Bill PDF Detected ({os.path.basename(file_path)}): This file is not a valid credit card bill or salary payslip. Only Axis Bank (Scapia), HDFC Bank (Swiggy), ICICI Bank (Amazon Pay), SBI Card (SimplyCLICK), and Salary Payslips are supported.", None
 
-    if bank_short == "Scapia Axis":
+    if bank_short == "Salary Payslip":
+      fin = parse_payslip_statement(reader, file_path, saved_emi_names)
+    elif bank_short == "Scapia Axis":
       fin = parse_scapia_statement(reader, file_path, saved_emi_names)
     elif bank_short == "SBI SimplyCLICK":
       fin = parse_sbi_statement(reader, file_path, saved_emi_names)
@@ -966,6 +1133,7 @@ def process_statement_file(file_path, base_downloads_dir=None, custom_passwords=
         "date_groups": fin["date_groups"],
         "all_txns": fin["all_txns"],
         "ongoing_emis": fin.get("ongoing_emis", []),
+        "payslip_meta": fin.get("payslip_meta", {}),
         "was_encrypted": was_encrypted,
         "decryption_note": "Unlocked with saved password" if was_encrypted else "Already unencrypted (no password needed)",
     }
@@ -2192,8 +2360,9 @@ def generate_modern_dashboard_html(results_list, output_dir=".", write_to_disk=T
         statements.forEach(s => {{
           (s.all_txns || []).forEach(t => combined.all_txns.push({{ ...t, bank_badge: s.bank_short }}));
           (s.ongoing_emis || []).forEach(e => combined.ongoing_emis.push({{ ...e, bank_badge: s.bank_short }}));
+          const isSlip = (s.bank_short || '').toLowerCase().includes('payslip') || (s.payslip_meta && s.payslip_meta.is_payslip);
           const cleanDue = parseFloat(String(s.total_due || '0').replace(/[^0-9.]/g, ''));
-          if (!isNaN(cleanDue)) sumDue += cleanDue;
+          if (!isNaN(cleanDue) && !isSlip) sumDue += cleanDue;
 
           Object.entries(s.date_groups || {{}}).forEach(([dt, grp]) => {{
             if (!combined.date_groups[dt]) {{
@@ -2245,9 +2414,10 @@ def generate_modern_dashboard_html(results_list, output_dir=".", write_to_disk=T
         const isAmazon = bName.includes('amazon') || bName.includes('icici');
         const isSbi = bName.includes('sbi') || bName.includes('simplyclick');
         const isScapia = bName.includes('scapia') || bName.includes('axis') || bName.includes('federal');
+        const isPayslip = bName.includes('payslip') || bName.includes('skillveri') || bName.includes('salary');
 
-        let dotColor = isSwiggy ? 'bg-[#fc8019]' : (isAmazon ? 'bg-[#ff9900]' : (isSbi ? 'bg-[#882438]' : (isScapia ? 'bg-[#f2530f]' : 'bg-blue-600')));
-        let icon = isSwiggy ? '🛵' : (isAmazon ? '🛒' : (isSbi ? '💳' : (isScapia ? '✈️' : '🏛️')));
+        let dotColor = isPayslip ? 'bg-emerald-500' : (isSwiggy ? 'bg-[#fc8019]' : (isAmazon ? 'bg-[#ff9900]' : (isSbi ? 'bg-[#882438]' : (isScapia ? 'bg-[#f2530f]' : 'bg-blue-600'))));
+        let icon = isPayslip ? '💼' : (isSwiggy ? '🛵' : (isAmazon ? '🛒' : (isSbi ? '💳' : (isScapia ? '✈️' : '🏛️'))));
 
         btn.className = `apple-tab-btn px-5 py-2.5 rounded-xl text-xs font-bold transition flex items-center gap-2 ${{
           isActive 
@@ -2338,8 +2508,50 @@ def generate_modern_dashboard_html(results_list, output_dir=".", write_to_disk=T
 
       const isSbi = bName.includes('sbi') || bName.includes('simplyclick');
       const isScapia = bName.includes('scapia') || bName.includes('axis') || bName.includes('federal');
+      const isPayslip = bName.includes('payslip') || bName.includes('skillveri') || bName.includes('salary') || (stmt.payslip_meta && stmt.payslip_meta.is_payslip);
+      const pm = stmt.payslip_meta || {{}};
 
-      if (isSwiggy) {{
+      if (isPayslip) {{
+        ambientColor = 'rgba(16, 185, 129, 0.25)';
+        cardBadgeText = pm.company_name || 'Salary Payslip';
+        cardBadgeClass = 'bg-emerald-100 text-emerald-950 border-emerald-300';
+        cardStageHtml = `
+          <div id="apple-active-card" class="apple-physical-card shadow-2xl relative p-5 flex flex-col justify-between text-white" style="background: linear-gradient(135deg, #064e3b 0%, #0f172a 55%, #1e293b 100%); border: 1px solid rgba(52, 211, 153, 0.35);">
+            <div class="apple-card-glare"></div>
+            <div class="flex justify-between items-start relative z-10">
+              <div>
+                <div class="text-[10px] font-extrabold uppercase tracking-[0.15em] text-emerald-300">Official Payroll Pass</div>
+                <div class="text-sm font-black tracking-tight text-white mt-0.5 truncate max-w-[210px]">${{pm.company_name || 'Skillveri Training Solutions'}}</div>
+              </div>
+              <span class="px-2.5 py-0.5 rounded-full text-[10px] font-black bg-emerald-500/20 text-emerald-300 border border-emerald-400/30 uppercase tracking-wider">
+                ID #${{pm.employee_id || '115'}}
+              </span>
+            </div>
+
+            <div class="my-1 py-2.5 px-3.5 rounded-xl bg-white/10 backdrop-blur-md border border-white/15 flex justify-between items-center relative z-10">
+              <div>
+                <div class="text-[9px] font-bold uppercase tracking-wider text-emerald-200">Total Net Payable</div>
+                <div class="text-2xl font-black text-white tracking-tight">${{stmt.total_due}}</div>
+              </div>
+              <div class="text-right">
+                <div class="text-[10px] font-extrabold text-emerald-300">Paid Days: ${{pm.paid_days || '8'}}</div>
+                <div class="text-[10px] font-semibold text-slate-300">LOP Days: ${{pm.lop_days || '0'}}</div>
+              </div>
+            </div>
+
+            <div class="flex justify-between items-end relative z-10">
+              <div>
+                <div class="text-[11px] font-black tracking-[0.12em] uppercase text-white font-mono">${{pm.employee_name || stmt.cardholder_name}}</div>
+                <div class="text-[10px] font-semibold text-emerald-300 truncate max-w-[190px]">${{pm.designation || 'Product Development'}}</div>
+              </div>
+              <div class="text-right font-mono text-[10px] text-slate-300">
+                <div>A/C: ${{pm.bank_account_no || 'N/A'}}</div>
+                <div>Joined: ${{pm.date_of_joining || 'N/A'}}</div>
+              </div>
+            </div>
+          </div>
+        `;
+      }} else if (isSwiggy) {{
         ambientColor = 'rgba(252, 128, 25, 0.28)';
         cardBadgeText = 'Swiggy HDFC Bank Card';
         cardBadgeClass = 'bg-orange-100 text-orange-950 border-orange-200';
@@ -2493,17 +2705,18 @@ def generate_modern_dashboard_html(results_list, output_dir=".", write_to_disk=T
           <!-- RIGHT: Statement Intelligence & Apple Glass Metrics (7 Columns) -->
           <div class="lg:col-span-7 flex flex-col justify-between gap-4">
             
-            <!-- Primary Tile: Statement Total Due -->
+            <!-- Primary Tile: Statement Total Due OR Salary Net Pay -->
             <div class="p-7 rounded-3xl apple-glass flex flex-col justify-between flex-1 relative overflow-hidden">
               <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
                 <div>
-                  <span class="text-[11px] font-extrabold tracking-[0.06em] text-slate-400 uppercase">Statement Total Due</span>
-                  <div class="text-4xl sm:text-5xl font-extrabold text-slate-900 mt-1 tracking-[-0.03em] leading-none">${{stmt.total_due}}</div>
+                  <span class="text-[11px] font-extrabold tracking-[0.06em] text-slate-400 uppercase">${{isPayslip ? 'Total Net Payable (Take-Home Salary)' : 'Statement Total Due'}}</span>
+                  <div class="text-4xl sm:text-5xl font-extrabold ${{isPayslip ? 'text-emerald-700' : 'text-slate-900'}} mt-1 tracking-[-0.03em] leading-none">${{stmt.total_due}}</div>
+                  ${{isPayslip && pm.amount_in_words ? `<div class="text-xs font-semibold text-slate-500 mt-2">🗣️ ${{pm.amount_in_words}}</div>` : ''}}
                 </div>
                 <div class="flex items-center gap-2 self-start sm:self-auto">
                   <span class="px-3.5 py-1.5 rounded-full text-xs font-extrabold bg-emerald-50 text-emerald-800 border border-emerald-300/80 shadow-xs flex items-center gap-1.5">
                     <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-                    <span>Due: ${{stmt.due_date}}</span>
+                    <span>${{isPayslip ? ('Pay Date: ' + (pm.pay_date || stmt.due_date)) : ('Due: ' + stmt.due_date)}}</span>
                   </span>
                 </div>
               </div>
@@ -2511,23 +2724,41 @@ def generate_modern_dashboard_html(results_list, output_dir=".", write_to_disk=T
               <!-- Metadata Grid -->
               <div class="grid grid-cols-2 sm:grid-cols-3 gap-3 mt-6 pt-5 border-t border-slate-200/60 text-xs">
                 <div>
-                  <div class="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider">Account / Card</div>
-                  <div class="font-extrabold text-slate-800 text-sm mt-0.5 truncate">${{stmt.bank_short}}</div>
+                  <div class="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider">${{isPayslip ? 'Designation / Emp ID' : 'Account / Card'}}</div>
+                  <div class="font-extrabold text-slate-800 text-sm mt-0.5 truncate" title="${{isPayslip ? (pm.designation + ' (#' + pm.employee_id + ')') : stmt.bank_short}}">${{isPayslip ? ((pm.designation || 'Employee') + ' (#' + (pm.employee_id || '') + ')') : stmt.bank_short}}</div>
                 </div>
                 <div>
-                  <div class="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider">Billing Cycle</div>
-                  <div class="font-extrabold text-slate-800 text-sm mt-0.5">${{stmt.statement_month}}</div>
+                  <div class="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider">${{isPayslip ? 'Pay Period & Attendance' : 'Billing Cycle'}}</div>
+                  <div class="font-extrabold text-slate-800 text-sm mt-0.5">${{isPayslip ? (stmt.statement_month + ' (' + (pm.paid_days || '8') + ' Paid Days)') : stmt.statement_month}}</div>
                 </div>
                 <div class="col-span-2 sm:col-span-1">
-                  <div class="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider">Storage Path</div>
-                  <div class="font-bold text-blue-600 text-xs mt-0.5 truncate" title="${{stmt.saved_name}}">📁 ${{stmt.saved_name}}</div>
+                  <div class="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider">${{isPayslip ? 'Bank A/C & Joining Date' : 'Storage Path'}}</div>
+                  <div class="font-bold text-blue-600 text-xs mt-0.5 truncate" title="${{isPayslip ? ('A/C: ' + pm.bank_account_no + ' • Joined: ' + pm.date_of_joining) : stmt.saved_name}}">${{isPayslip ? ('🏦 A/C ' + (pm.bank_account_no || 'N/A') + ' • DOJ ' + (pm.date_of_joining || '')) : ('📁 ' + stmt.saved_name)}}</div>
                 </div>
               </div>
             </div>
 
-            <!-- Secondary Row: Split EMI Reimbursements & Fast Actions -->
+            <!-- Secondary Row: Split EMI Reimbursements (or Salary Earnings/Deductions) & Fast Actions -->
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <!-- Tile 1: Friend EMI Reimbursements -->
+              <!-- Tile 1: Friend EMI Reimbursements OR Salary Gross vs Deductions -->
+              ${{isPayslip ? `
+              <div class="p-5 rounded-3xl apple-glass flex flex-col justify-between">
+                <div class="flex justify-between items-center">
+                  <span class="text-[11px] font-extrabold tracking-[0.06em] text-slate-400 uppercase">Earnings vs Deductions</span>
+                  <span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800">LOP: ${{pm.lop_days || '0'}} Days</span>
+                </div>
+                <div class="flex items-baseline justify-between mt-3">
+                  <div>
+                    <div class="text-[10px] font-bold text-emerald-600 uppercase tracking-wide">Gross Earnings</div>
+                    <div class="text-xl font-extrabold text-emerald-700 mt-0.5 tracking-tight">${{pm.gross_earnings || stmt.total_due}}</div>
+                  </div>
+                  <div class="text-right">
+                    <div class="text-[10px] font-bold text-rose-600 uppercase tracking-wide">Total Deductions</div>
+                    <div class="text-xl font-extrabold text-rose-600 mt-0.5 tracking-tight">${{pm.total_deductions || '₹0.00'}}</div>
+                  </div>
+                </div>
+              </div>
+              ` : `
               <div class="p-5 rounded-3xl apple-glass flex flex-col justify-between">
                 <div class="flex justify-between items-center">
                   <span class="text-[11px] font-extrabold tracking-[0.06em] text-slate-400 uppercase">Friend EMI Split</span>
@@ -2544,6 +2775,7 @@ def generate_modern_dashboard_html(results_list, output_dir=".", write_to_disk=T
                   </div>
                 </div>
               </div>
+              `}}
 
               <!-- Tile 2: Activity Summary & Direct Actions -->
               <div class="p-5 rounded-3xl apple-glass flex flex-col justify-between">

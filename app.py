@@ -174,16 +174,16 @@ st.markdown("""
 
 # --- Initialize Private Session Passwords & Browser-Persisted EMI Nicknames ---
 if "session_passwords" not in st.session_state:
-    st.session_state.session_passwords = {"icici": "", "hdfc": "", "sbi": "", "scapia": "", "sheets_webhook_url": ""}
+    st.session_state.session_passwords = {"icici": "", "hdfc": "", "sbi": "", "scapia": "", "payslip": "", "sheets_webhook_url": ""}
 if "emi_nicknames" not in st.session_state:
     st.session_state.emi_nicknames = {}
 if "emi_phones" not in st.session_state:
     st.session_state.emi_phones = {}
 
 def forget_browser_passwords():
-    st.session_state.session_passwords = {"scapia": "", "icici": "", "hdfc": "", "sbi": "", "sheets_webhook_url": ""}
-    for k in ["input_scapia_pwd", "input_hdfc_pwd", "input_icici_pwd", "input_sbi_pwd", "input_webhook_url",
-              "q_inp_scapia", "q_inp_hdfc", "q_inp_icici", "q_inp_sbi"]:
+    st.session_state.session_passwords = {"scapia": "", "icici": "", "hdfc": "", "sbi": "", "payslip": "", "sheets_webhook_url": ""}
+    for k in ["input_scapia_pwd", "input_hdfc_pwd", "input_icici_pwd", "input_sbi_pwd", "input_payslip_pwd", "input_webhook_url",
+              "q_inp_scapia", "q_inp_hdfc", "q_inp_icici", "q_inp_sbi", "q_inp_payslip"]:
         st.session_state[k] = ""
     st.session_state["pending_clear_vault"] = True
     st.session_state["vault_cleared_until"] = time.time() + 4.0
@@ -218,14 +218,14 @@ is_clearing = pending_clear or (now_ts < st.session_state.get("vault_cleared_unt
 is_clearing_emi = pending_clear_emi or (now_ts < st.session_state.get("emi_vault_cleared_until", 0))
 
 # If client_vault passwords are verified empty by browser component, release the clearing lock
-if not client_vault or (isinstance(client_vault, dict) and not any(str(client_vault.get(k, "")).strip() for k in ["scapia", "hdfc", "icici", "sbi", "sheets_webhook_url"])):
+if not client_vault or (isinstance(client_vault, dict) and not any(str(client_vault.get(k, "")).strip() for k in ["scapia", "hdfc", "icici", "sbi", "payslip", "sheets_webhook_url"])):
     st.session_state.pop("vault_cleared_until", None)
 
 # Restore saved passwords & EMI nicknames from browser localStorage
 if client_vault and isinstance(client_vault, dict):
     if not is_clearing:
         restored_keys = []
-        for b_key, b_name in [("hdfc", "HDFC Bank"), ("icici", "ICICI Bank"), ("sbi", "SBI SimplyCLICK"), ("scapia", "Scapia Axis")]:
+        for b_key, b_name in [("hdfc", "HDFC Bank"), ("icici", "ICICI Bank"), ("sbi", "SBI SimplyCLICK"), ("scapia", "Scapia Axis"), ("payslip", "Salary Payslip")]:
             if not st.session_state.session_passwords.get(b_key) and client_vault.get(b_key) and str(client_vault[b_key]).strip():
                 st.session_state.session_passwords[b_key] = str(client_vault[b_key]).strip()
                 restored_keys.append(b_name)
@@ -304,6 +304,13 @@ with st.sidebar:
             help="Date of birth in DDMMYYYY + Last 4 digits of card (e.g. 150819954321)",
             key="input_sbi_pwd"
         )
+        payslip_val = st.text_input(
+            "Salary Payslip Password",
+            value=st.session_state.session_passwords.get("payslip", ""),
+            type="password",
+            help="Employee No + PAN last 4 digits (e.g. 115000A or 1234000A)",
+            key="input_payslip_pwd"
+        )
         webhook_val = st.text_input(
             "Google Sheets Web App URL",
             value=st.session_state.session_passwords.get("sheets_webhook_url", ""),
@@ -316,12 +323,14 @@ with st.sidebar:
             st.session_state.session_passwords["icici"] = icici_val.strip()
             st.session_state.session_passwords["hdfc"] = hdfc_val.strip()
             st.session_state.session_passwords["sbi"] = sbi_val.strip()
+            st.session_state.session_passwords["payslip"] = payslip_val.strip()
             st.session_state.session_passwords["sheets_webhook_url"] = webhook_val.strip()
             st.session_state["pending_save_vault"] = {
                 "scapia": scapia_val.strip(),
                 "icici": icici_val.strip(),
                 "hdfc": hdfc_val.strip(),
                 "sbi": sbi_val.strip(),
+                "payslip": payslip_val.strip(),
                 "sheets_webhook_url": webhook_val.strip()
             }
             st.session_state["sidebar_toast_until"] = time.time() + 5.0
@@ -494,6 +503,7 @@ with st.container():
         if st.session_state.session_passwords.get("hdfc"): active_vault_list.append("HDFC")
         if st.session_state.session_passwords.get("icici"): active_vault_list.append("ICICI")
         if st.session_state.session_passwords.get("sbi"): active_vault_list.append("SBI")
+        if st.session_state.session_passwords.get("payslip"): active_vault_list.append("Payslip")
 
         emi_saved_count = len(st.session_state.emi_nicknames)
         emi_count_text = f" • 🏷️ {emi_saved_count} EMI Tag(s)" if emi_saved_count > 0 else ""
@@ -551,6 +561,13 @@ with st.container():
                 help="DDMMYYYY + Last 4 digits",
                 key="q_inp_sbi"
             )
+            q_payslip = st.text_input(
+                "Salary Payslip Password",
+                value=st.session_state.session_passwords.get("payslip", ""),
+                type="password",
+                help="Employee No + PAN last 4 digits (e.g. 115000A)",
+                key="q_inp_payslip"
+            )
             q_btn_col1, q_btn_col2 = st.columns(2)
             with q_btn_col1:
                 if st.button("💾 Save Passwords", use_container_width=True, type="primary", key="q_btn_save"):
@@ -558,11 +575,13 @@ with st.container():
                     st.session_state.session_passwords["icici"] = q_icici.strip()
                     st.session_state.session_passwords["hdfc"] = q_hdfc.strip()
                     st.session_state.session_passwords["sbi"] = q_sbi.strip()
+                    st.session_state.session_passwords["payslip"] = q_payslip.strip()
                     st.session_state["pending_save_vault"] = {
                         "scapia": q_scapia.strip(),
                         "icici": q_icici.strip(),
                         "hdfc": q_hdfc.strip(),
                         "sbi": q_sbi.strip(),
+                        "payslip": q_payslip.strip(),
                         "sheets_webhook_url": st.session_state.session_passwords.get("sheets_webhook_url", "")
                     }
                     st.session_state["sidebar_toast_until"] = time.time() + 5.0
@@ -593,13 +612,13 @@ if uploaded_files:
         )
         if success and rdata:
             if (
-                rdata.get("bank_short") not in ("Scapia Axis", "SBI SimplyCLICK", "ICICI Amazon", "HDFC")
+                rdata.get("bank_short") not in ("Scapia Axis", "SBI SimplyCLICK", "ICICI Amazon", "HDFC", "Salary Payslip")
                 or rdata.get("bank_name") == "Bank Statement"
                 or not rdata.get("date_groups")
                 or not rdata.get("all_txns")
             ):
                 success = False
-                msg = f"Non-Bill / Non-Transactional PDF Detected ({up_file.name}): 0 bill transactions found. Please upload a valid Axis Bank (Scapia), HDFC, ICICI, or SBI credit card statement."
+                msg = f"Non-Bill / Non-Transactional PDF Detected ({up_file.name}): 0 bill transactions found. Please upload a valid Axis Bank (Scapia), HDFC, ICICI, SBI credit card statement, or Salary Payslip."
                 rdata = None
 
         if success and rdata:
@@ -613,17 +632,21 @@ if uploaded_files:
                     if "scapia" in fname_low or "axis" in fname_low or "federal" in fname_low: def_idx = 0
                     elif "5268" in fname_low or "hdfc" in fname_low or "swiggy" in fname_low: def_idx = 1
                     elif "4315" in fname_low or "icici" in fname_low or "amazon" in fname_low: def_idx = 2
+                    elif "payslip" in fname_low or "skillveri" in fname_low or "salary" in fname_low or "tds" in fname_low: def_idx = 4
                     else: def_idx = 3
 
                     st.markdown(f"**Unlock `{up_file.name}`:**")
                     selected_bank = st.radio(
-                        "Statement Bank Format:",
-                        ["Axis Bank (Scapia)", "HDFC Bank (Swiggy)", "ICICI Bank (Amazon Pay)", "SBI Card (SimplyCLICK)"],
+                        "Statement / Payslip Format:",
+                        ["Axis Bank (Scapia)", "HDFC Bank (Swiggy)", "ICICI Bank (Amazon Pay)", "SBI Card (SimplyCLICK)", "Salary Payslip (Skillveri)"],
                         index=def_idx,
                         horizontal=True,
                         key=f"bank_choice_{up_file.name}"
                     )
-                    if "Scapia" in selected_bank or "Axis" in selected_bank:
+                    if "Payslip" in selected_bank or "Skillveri" in selected_bank:
+                        hint_desc = "Employee No + PAN [last 4 digits] (e.g. 115000A or 1234000A)"
+                        bank_key = "payslip"
+                    elif "Scapia" in selected_bank or "Axis" in selected_bank:
                         hint_desc = "First 4 letters of name in UPPERCASE + DDMM (e.g. ROHI2512)"
                         bank_key = "scapia"
                     elif "SBI" in selected_bank:
