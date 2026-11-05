@@ -3871,13 +3871,17 @@ def generate_modern_dashboard_html(results_list, output_dir=".", write_to_disk=T
 
     window.shareShafanaWhatsApp = function() {{
       const sf = getShafanaComputedTotals();
-      let msg = `*🎁 Shafana Amazon Bill & Cashback*\n\n`;
-      msg += `🧾 *Bill to Pay (After Bill Date):* ₹${{sf.billDue.toLocaleString('en-IN')}}\n`;
-      msg += `✨ *Total Cashback Earned:* +₹${{(sf.openingCb + sf.cbEarned).toLocaleString('en-IN')}}\n`;
+      let msg = `🌸 *Hello Dear Shafana!*\n`;
+      msg += `Here is your simple Amazon Order & Cashback update:\n\n`;
+      msg += `🧾 *1. Order Bill to Pay (After Bill Date):* ₹${{sf.billDue.toLocaleString('en-IN')}}\n`;
+      msg += `   _(You only need to pay this comfortably after the monthly ICICI bill comes)_\n\n`;
+      msg += `🎁 *2. Your Cashback Savings Wallet:*\n`;
+      msg += `   • Total Cashback Earned (5%): +₹${{(sf.openingCb + sf.cbEarned).toLocaleString('en-IN')}}\n`;
       if (sf.cbUsed > 0) {{
-        msg += `➖ *Cashback Used:* -₹${{sf.cbUsed.toLocaleString('en-IN')}}\n`;
+        msg += `   • Cashback Used: -₹${{sf.cbUsed.toLocaleString('en-IN')}}\n`;
       }}
-      msg += `👉 *Cashback Balance Left to Use:* ₹${{sf.netKitty.toLocaleString('en-IN')}}`;
+      msg += `   👉 *Cashback Ready for Your Next Order: ₹${{sf.netKitty.toLocaleString('en-IN')}}*\n\n`;
+      msg += `✨ _All cashback earned on your orders is saved specially for you—just tell me whenever you want to use it on your next order!_`;
       window.open(`https://wa.me/?text=${{encodeURIComponent(msg)}}`, '_blank');
     }};
 
@@ -3887,18 +3891,18 @@ def generate_modern_dashboard_html(results_list, output_dir=".", write_to_disk=T
       const totalEarnedAll = sf.openingCb + sf.cbEarned;
 
       const orderCardsHtml = sf.vault.entries.map(ent => `
-        <div class="p-4 sm:px-6 flex items-center justify-between gap-4 border-b border-slate-100 last:border-none hover:bg-slate-50/70 transition">
+        <div class="p-4 sm:px-6 flex items-center justify-between gap-4 border-b border-slate-100 last:border-none hover:bg-amber-50/30 transition">
           <div class="min-w-0">
             <div class="flex items-center gap-2 flex-wrap">
-              <span class="text-sm font-extrabold text-slate-900">${{ent.description || 'Amazon Order'}}</span>
-              ${{ent.verifiedOnBill ? `<span class="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-emerald-100 text-emerald-800">✅ On Bill</span>` : ''}}
+              <span class="text-sm font-extrabold text-slate-900">🛍️ ${{ent.description || 'Amazon Order'}}</span>
+              ${{ent.verifiedOnBill ? `<span class="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-emerald-100 text-emerald-800">✅ Verified on Bill</span>` : ''}}
             </div>
-            <div class="text-xs text-slate-500 mt-0.5">${{ent.date_time}} • Raja Mohamed, Karaikal</div>
+            <div class="text-xs text-slate-500 mt-0.5">📅 ${{ent.date_time}} • 📍 Raja Mohamed, Karaikal</div>
           </div>
           <div class="flex items-center gap-3 flex-shrink-0">
             <div class="text-right">
-              <div class="text-base font-black text-slate-900">₹${{ent.amount.toLocaleString('en-IN')}}</div>
-              <div class="text-xs font-extrabold text-emerald-600">+₹${{ent.cashback_earned.toLocaleString('en-IN')}} Cashback</div>
+              <div class="text-base font-black text-slate-900">Bill: ₹${{ent.amount.toLocaleString('en-IN')}}</div>
+              <div class="text-xs font-extrabold text-emerald-600">🎁 +₹${{ent.cashback_earned.toLocaleString('en-IN')}} Cashback Saved</div>
             </div>
             <button onclick="deleteShafanaOrder('${{ent.id}}')" class="p-1.5 rounded-lg text-slate-300 hover:text-rose-600 hover:bg-rose-50 transition cursor-pointer no-print" title="Remove order">
               🗑️
@@ -3910,19 +3914,48 @@ def generate_modern_dashboard_html(results_list, output_dir=".", write_to_disk=T
       container.innerHTML = `
         <div class="max-w-3xl mx-auto space-y-5">
 
-          <!-- SIMPLE HEADER + WHATSAPP SHARE -->
-          <div class="bg-white rounded-3xl border border-slate-200/90 shadow-sm p-5 sm:p-6 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-            <div class="flex items-center gap-3.5">
-              <div class="w-12 h-12 rounded-2xl bg-amber-500 text-white flex items-center justify-center text-2xl shadow-sm">🎁</div>
-              <div>
-                <h2 class="text-xl font-black text-slate-900">Shafana's Amazon Summary</h2>
-                <p class="text-xs font-semibold text-slate-500">Raja Mohamed • 8 Puduthurai Main Road, Karaikal</p>
+          <!-- SPECIAL WARM GREETING BANNER FOR SHAFANA -->
+          <div class="bg-gradient-to-br from-amber-50 via-rose-50/70 to-emerald-50/80 rounded-3xl border-2 border-amber-200/90 shadow-sm p-6 sm:p-7 relative overflow-hidden">
+            <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+              <div class="space-y-1.5">
+                <div class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-500/15 border border-amber-400/40 text-amber-900 text-[11px] font-extrabold uppercase tracking-wider">
+                  <span>🌸</span>
+                  <span>Made Specially for Shafana</span>
+                </div>
+                <h2 class="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
+                  Hello Dear Shafana! ✨
+                </h2>
+                <p class="text-xs sm:text-sm font-semibold text-slate-700 leading-relaxed max-w-xl">
+                  Welcome to your personal <b>Amazon Shopping & Cashback Corner</b>! Everything is kept simple here so you can check your order bill and your <b>5% cashback savings</b> at a glance.
+                </p>
+              </div>
+              <button onclick="shareShafanaWhatsApp()" class="w-full sm:w-auto px-5 py-3.5 rounded-2xl bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold text-xs shadow-md shadow-emerald-600/20 transition flex items-center justify-center gap-2 cursor-pointer flex-shrink-0">
+                <span>📲</span>
+                <span>Send Greeting & Summary on WhatsApp</span>
+              </button>
+            </div>
+
+            <!-- FRIENDLY 3-STEP EXPLANATION FOR SHAFANA -->
+            <div class="mt-5 pt-4 border-t border-amber-200/70 grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <div class="bg-white/85 rounded-2xl p-3.5 border border-amber-200/80">
+                <div class="text-xs font-black text-amber-900">🛍️ 1. Shop Happily</div>
+                <p class="text-[11px] text-slate-600 mt-1 leading-snug">
+                  Every Amazon order placed for you (<b>Raja Mohamed, Karaikal</b>) automatically earns <b>5% Cashback</b>.
+                </p>
+              </div>
+              <div class="bg-white/85 rounded-2xl p-3.5 border border-amber-200/80">
+                <div class="text-xs font-black text-amber-900">🗓️ 2. Pay After Bill Date</div>
+                <p class="text-[11px] text-slate-600 mt-1 leading-snug">
+                  No rush at all! You only pay the <b>Order Bill Amount</b> after the monthly credit card bill arrives.
+                </p>
+              </div>
+              <div class="bg-white/85 rounded-2xl p-3.5 border border-emerald-200/90">
+                <div class="text-xs font-black text-emerald-900">🎁 3. Cashback is 100% Yours</div>
+                <p class="text-[11px] text-slate-600 mt-1 leading-snug">
+                  Your <b>5% Cashback</b> stays saved in your wallet below—just tell me anytime you want to use it!
+                </p>
               </div>
             </div>
-            <button onclick="shareShafanaWhatsApp()" class="w-full sm:w-auto px-5 py-3 rounded-2xl bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold text-xs shadow-md shadow-emerald-600/20 transition flex items-center justify-center gap-2 cursor-pointer">
-              <span>📲</span>
-              <span>Send to Shafana on WhatsApp</span>
-            </button>
           </div>
 
           <!-- 2 BIG, SIMPLE CARDS FOR SHAFANA -->
@@ -3930,14 +3963,14 @@ def generate_modern_dashboard_html(results_list, output_dir=".", write_to_disk=T
 
             <!-- CARD 1: BILL TO PAY -->
             <div class="bg-amber-50/90 rounded-3xl border-2 border-amber-300 p-6 shadow-sm">
-              <div class="text-xs font-extrabold uppercase tracking-wider text-amber-900">🧾 1. Total Bill to Pay</div>
+              <div class="text-xs font-extrabold uppercase tracking-wider text-amber-900">🧾 1. Your Order Bill to Pay</div>
               <div class="text-4xl font-black text-slate-900 mt-2">₹${{sf.billDue.toLocaleString('en-IN')}}</div>
-              <div class="text-xs font-bold text-amber-800 mt-2">Payable after ICICI bill arrives</div>
+              <div class="text-xs font-bold text-amber-800 mt-2">You can pay this comfortably after the bill date</div>
             </div>
 
             <!-- CARD 2: CASHBACK AVAILABLE -->
             <div class="bg-emerald-50/90 rounded-3xl border-2 border-emerald-300 p-6 shadow-sm">
-              <div class="text-xs font-extrabold uppercase tracking-wider text-emerald-900">🎁 2. Cashback Balance Left</div>
+              <div class="text-xs font-extrabold uppercase tracking-wider text-emerald-900">🎁 2. Your Saved Cashback Balance</div>
               <div class="text-4xl font-black ${{sf.netKitty >= 0 ? 'text-emerald-700' : 'text-rose-600'}} mt-2">
                 ${{sf.netKitty >= 0 ? '' : '-'}}₹${{Math.abs(sf.netKitty).toLocaleString('en-IN')}}
               </div>
@@ -3946,6 +3979,7 @@ def generate_modern_dashboard_html(results_list, output_dir=".", write_to_disk=T
                 <span>•</span>
                 <span class="text-rose-600">Used: -₹${{sf.cbUsed.toLocaleString('en-IN')}}</span>
               </div>
+              <div class="text-[11px] font-semibold text-emerald-800 mt-1.5">Ready for you to use on your next Amazon order!</div>
             </div>
 
           </div>
@@ -3953,8 +3987,8 @@ def generate_modern_dashboard_html(results_list, output_dir=".", write_to_disk=T
           <!-- SIMPLE ORDERS LIST -->
           <div class="bg-white rounded-3xl border border-slate-200/90 shadow-sm overflow-hidden">
             <div class="px-6 py-4 bg-slate-900 text-white flex justify-between items-center">
-              <span class="text-sm font-extrabold">📦 Shafana's Orders (${{sf.vault.entries.length}})</span>
-              <span class="text-xs font-bold text-amber-300">5% Cashback Card</span>
+              <span class="text-sm font-extrabold">📦 Shafana's Amazon Orders (${{sf.vault.entries.length}})</span>
+              <span class="text-xs font-bold text-amber-300">✨ 5% Cashback Included</span>
             </div>
             <div>
               ${{orderCardsHtml || '<div class="p-6 text-center text-xs text-slate-400">No orders added yet.</div>'}}
@@ -3963,13 +3997,13 @@ def generate_modern_dashboard_html(results_list, output_dir=".", write_to_disk=T
 
           <!-- MANUAL UPDATE BOX (FOR YOU TO TYPE USED CASHBACK OR ADD AN ORDER) -->
           <div class="bg-slate-100/90 rounded-3xl border border-slate-200/90 p-5 space-y-4 no-print">
-            <div class="text-xs font-extrabold uppercase tracking-wider text-slate-600">⚙️ Quick Manual Update (For You)</div>
+            <div class="text-xs font-extrabold uppercase tracking-wider text-slate-600">⚙️ Admin Controls (For You to Update)</div>
 
             <!-- Row 1: Manual Cashback Used -->
             <div class="bg-white p-4 rounded-2xl border border-slate-200 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
               <div>
                 <div class="text-xs font-extrabold text-slate-800">➖ Cashback Used by Shafana (₹)</div>
-                <div class="text-[11px] text-slate-500">Type the total cashback amount she has used so far</div>
+                <div class="text-[11px] text-slate-500">Type the cashback amount she used and tap Save</div>
               </div>
               <div class="flex items-center gap-2">
                 <input type="number" id="sf-manual-cb-used-inp" value="${{sf.cbUsed}}" step="1" class="w-32 px-3 py-2 text-sm font-black bg-slate-50 border border-slate-300 rounded-xl text-slate-900">
