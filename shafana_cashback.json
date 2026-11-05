@@ -4,47 +4,22 @@
   "delivery_address": "Raja mohamed, 8 puduthurai main road, Karaikal, PUDUCHERRY, 609602, India",
   "card_used": "Amazon Pay ICICI Bank Credit Card (Visa ••0004)",
   "openingCb": 0.0,
+  "manualCbUsed": 0.0,
   "billPaid": false,
-  "updated_at": "2026-11-05T21:00:00+05:30",
+  "updated_at": "2026-11-06T00:45:00+05:30",
   "entries": [
     {
       "id": "apay_05_Nov_2026_08:21_PM_670.00_Amazon_Pay_Credit_Card",
       "method": "Amazon Pay Credit Card",
-      "description": "Paid on Amazon — Delivering to Raja mohamed",
+      "description": "Amazon Order — Delivering to Raja Mohamed",
       "amount": 670.0,
       "cashback_earned": 33.0,
-      "date_time": "05 Nov 2026, 08:21 PM",
+      "date_time": "05 Nov 2026",
       "role": "shafana_order",
-      "recipient": "Raja mohamed",
-      "address": "Raja mohamed, 8 puduthurai main road, Karaikal, PUDUCHERRY, 609602, India",
+      "recipient": "Raja Mohamed",
+      "address": "8 Puduthurai Main Road, Karaikal 609602",
       "arriving_by": "9 Nov 2026",
-      "source_file": "1000300345.png + 1000300347.png"
-    },
-    {
-      "id": "apay_05_Nov_2026_06:56_PM_273.00_Amazon_Pay_Balance",
-      "method": "Amazon Pay Balance",
-      "description": "Paid on Amazon",
-      "amount": 273.0,
-      "cashback_earned": 0.0,
-      "date_time": "05 Nov 2026, 06:56 PM",
-      "role": "shafana_redeem",
-      "recipient": "Raja mohamed (Shafana)",
-      "address": "8 puduthurai main road, Karaikal, PUDUCHERRY, 609602",
-      "arriving_by": "",
-      "source_file": "1000300347.png"
-    },
-    {
-      "id": "apay_04_Nov_2026_07:45_PM_768.95_Amazon_Pay_Credit_Card",
-      "method": "Amazon Pay Credit Card",
-      "description": "Paid on Amazon Bus",
-      "amount": 768.95,
-      "cashback_earned": 38.0,
-      "date_time": "04 Nov 2026, 07:45 PM",
-      "role": "personal",
-      "recipient": "",
-      "address": "",
-      "arriving_by": "",
-      "source_file": "1000300347.png"
+      "source_file": "1000300345.png"
     }
   ]
 }
