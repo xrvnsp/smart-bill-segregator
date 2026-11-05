@@ -3871,7 +3871,7 @@ def generate_modern_dashboard_html(results_list, output_dir=".", write_to_disk=T
 
     window.shareShafanaWhatsApp = function() {{
       const sf = getShafanaComputedTotals();
-      let msg = `🌸 *Hello Dear Shafana!*\n`;
+      let msg = `🌸 *Hello Thozhi Shafana!*\n`;
       msg += `Here is your simple Amazon Order & Cashback update:\n\n`;
       msg += `🧾 *1. Order Bill to Pay (After Bill Date):* ₹${{sf.billDue.toLocaleString('en-IN')}}\n`;
       msg += `   _(You only need to pay this comfortably after the monthly ICICI bill comes)_\n\n`;
@@ -3923,7 +3923,7 @@ def generate_modern_dashboard_html(results_list, output_dir=".", write_to_disk=T
                   <span>Made Specially for Shafana</span>
                 </div>
                 <h2 class="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
-                  Hello Dear Shafana! ✨
+                  Hello Thozhi Shafana! ✨
                 </h2>
                 <p class="text-xs sm:text-sm font-semibold text-slate-700 leading-relaxed max-w-xl">
                   Welcome to your personal <b>Amazon Shopping & Cashback Corner</b>! Everything is kept simple here so you can check your order bill and your <b>5% cashback savings</b> at a glance.
