@@ -729,6 +729,153 @@ def parse_sbi_statement(reader, file_path, saved_names):
       "reward_points": reward_points,
   }
 
+
+SHAFANA_WEB_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "shafana_cashback.json")
+
+DEFAULT_SHAFANA_LEDGER = {
+  "friend_name": "Shafana",
+  "husband_name": "Raja Mohamed",
+  "delivery_address": "Raja mohamed, 8 puduthurai main road, Karaikal, PUDUCHERRY, 609602, India",
+  "card_used": "Amazon Pay ICICI Bank Credit Card (Visa ••0004)",
+  "openingCb": 0.0,
+  "billPaid": False,
+  "updated_at": "2026-11-05T21:00:00+05:30",
+  "entries": [
+    {
+      "id": "apay_05_Nov_2026_08:21_PM_670.00_Amazon_Pay_Credit_Card",
+      "method": "Amazon Pay Credit Card",
+      "description": "Paid on Amazon — Delivering to Raja mohamed",
+      "amount": 670.0,
+      "cashback_earned": 33.0,
+      "date_time": "05 Nov 2026, 08:21 PM",
+      "role": "shafana_order",
+      "recipient": "Raja mohamed",
+      "address": "Raja mohamed, 8 puduthurai main road, Karaikal, PUDUCHERRY, 609602, India",
+      "arriving_by": "9 Nov 2026",
+      "source_file": "1000300345.png + 1000300347.png"
+    },
+    {
+      "id": "apay_05_Nov_2026_06:56_PM_273.00_Amazon_Pay_Balance",
+      "method": "Amazon Pay Balance",
+      "description": "Paid on Amazon",
+      "amount": 273.0,
+      "cashback_earned": 0.0,
+      "date_time": "05 Nov 2026, 06:56 PM",
+      "role": "shafana_redeem",
+      "recipient": "Raja mohamed (Shafana)",
+      "address": "8 puduthurai main road, Karaikal, PUDUCHERRY, 609602",
+      "arriving_by": "",
+      "source_file": "1000300347.png"
+    },
+    {
+      "id": "apay_04_Nov_2026_07:45_PM_768.95_Amazon_Pay_Credit_Card",
+      "method": "Amazon Pay Credit Card",
+      "description": "Paid on Amazon Bus",
+      "amount": 768.95,
+      "cashback_earned": 38.0,
+      "date_time": "04 Nov 2026, 07:45 PM",
+      "role": "personal",
+      "recipient": "",
+      "address": "",
+      "arriving_by": "",
+      "source_file": "1000300347.png"
+    }
+  ]
+}
+
+def load_shafana_web_ledger():
+  """Loads ONLY Shafana's non-sensitive cashback & order ledger from shafana_cashback.json."""
+  import copy as _copy
+  if os.path.exists(SHAFANA_WEB_FILE):
+    try:
+      with open(SHAFANA_WEB_FILE, "r", encoding="utf-8") as f:
+        data = json.load(f)
+      if isinstance(data, dict) and isinstance(data.get("entries"), list):
+        return data
+    except Exception:
+      pass
+  return _copy.deepcopy(DEFAULT_SHAFANA_LEDGER)
+
+def save_shafana_web_ledger(ledger):
+  """Saves Shafana's non-sensitive cashback ledger to shafana_cashback.json."""
+  from datetime import datetime, timezone, timedelta
+  ist_tz = timezone(timedelta(hours=5, minutes=30))
+  ledger["updated_at"] = datetime.now(tz=ist_tz).isoformat(timespec="seconds")
+  try:
+    with open(SHAFANA_WEB_FILE, "w", encoding="utf-8") as f:
+      json.dump(ledger, f, indent=2, ensure_ascii=False)
+  except Exception:
+    pass
+  return ledger
+
+def build_shafana_statement_from_ledger(ledger=None, screenshots=None):
+  """Builds a complete unified dashboard statement dictionary from Shafana's web ledger."""
+  if ledger is None:
+    ledger = load_shafana_web_ledger()
+  screenshots_gallery = screenshots or []
+  txn_entries = ledger.get("entries", [])
+  opening_cb = float(ledger.get("openingCb", 0.0) or 0.0)
+  bill_due_total = sum(float(t.get("amount", 0.0)) for t in txn_entries if t.get("role") == "shafana_order")
+  cb_earned_total = sum(float(t.get("cashback_earned", 0.0)) for t in txn_entries if t.get("role") == "shafana_order")
+  cb_used_total = sum(float(t.get("amount", 0.0)) for t in txn_entries if t.get("role") == "shafana_redeem")
+  net_kitty = opening_cb + cb_earned_total - cb_used_total
+
+  date_groups = defaultdict(lambda: {"total": 0.0, "items": [], "has_emi": False})
+  all_txns = []
+  for t in txn_entries:
+    dt_raw = str(t.get("date_time", "05 Nov 2026"))
+    dt_short = (dt_raw.split(",")[0] if "," in dt_raw else dt_raw) or "05 Nov 2026"
+    amt_val = float(t.get("amount", 0.0))
+    t_obj = {
+        "date": dt_short,
+        "description": f"{t.get('description', 'Amazon Order')} ({t.get('method', 'Amazon Pay')})",
+        "amount": amt_val,
+        "is_credit": t.get("role") == "shafana_redeem",
+        "is_emi": False,
+        "amount_str": f"₹{amt_val:,.2f}",
+    }
+    all_txns.append(t_obj)
+    date_groups[dt_short]["items"].append(t_obj)
+    if t.get("role") == "shafana_order":
+      date_groups[dt_short]["total"] += amt_val
+
+  shafana_meta = {
+      "is_shafana": True,
+      "friend_name": ledger.get("friend_name", "Shafana"),
+      "husband_name": ledger.get("husband_name", "Raja Mohamed"),
+      "delivery_address": ledger.get("delivery_address", "Raja mohamed, 8 puduthurai main road, Karaikal, PUDUCHERRY, 609602, India"),
+      "card_used": ledger.get("card_used", "Amazon Pay ICICI Bank Credit Card (Visa ••0004)"),
+      "opening_cb": opening_cb,
+      "bill_due_total": bill_due_total,
+      "cb_earned_total": cb_earned_total,
+      "cb_used_total": cb_used_total,
+      "net_kitty": net_kitty,
+      "updated_at": ledger.get("updated_at", ""),
+      "entries": txn_entries,
+      "screenshots": screenshots_gallery,
+  }
+
+  return {
+      "file_name": ", ".join(s["file_name"] for s in screenshots_gallery) if screenshots_gallery else "shafana_cashback.json (Web Synced)",
+      "saved_path": "Web Synced Ledger (Shafana Cashback)",
+      "saved_name": f"{len(screenshots_gallery)} Screenshot(s) Analyzed" if screenshots_gallery else "Web Synced Cashback Ledger",
+      "month_folder": ".",
+      "month_folder_name": "Shafana_Cashback",
+      "bank_name": "Shafana Amazon Cashback Tracker",
+      "bank_short": "Shafana Cashback",
+      "statement_month": "November 2026",
+      "total_due": f"₹{bill_due_total:,.2f}",
+      "due_date": "Payable After ICICI Bill Date",
+      "cardholder_name": "SHAFANA • RAJA MOHAMED",
+      "reward_points": f"+₹{cb_earned_total:,.2f} CB",
+      "date_groups": dict(date_groups),
+      "all_txns": all_txns,
+      "ongoing_emis": [],
+      "shafana_meta": shafana_meta,
+      "was_encrypted": False,
+      "decryption_note": "Web-Synced Shafana Cashback Ledger",
+  }
+
 def process_shafana_screenshots(image_items):
   """Processes uploaded Amazon Checkout & Amazon Pay Transaction screenshots for Shafana (Raja Mohamed).
   image_items: list of dicts/tuples {"name": filename, "bytes": raw_bytes}
@@ -911,60 +1058,29 @@ def process_shafana_screenshots(image_items):
           "source_file": chk["file_name"]
       })
 
-  bill_due_total = sum(t["amount"] for t in txn_entries if t["role"] == "shafana_order")
-  cb_earned_total = sum(t["cashback_earned"] for t in txn_entries if t["role"] == "shafana_order")
-  cb_used_total = sum(t["amount"] for t in txn_entries if t["role"] == "shafana_redeem")
-
-  date_groups = defaultdict(lambda: {"total": 0.0, "items": [], "has_emi": False})
-  all_txns = []
-  for t in txn_entries:
-    dt_short = (t["date_time"].split(",")[0] if "," in t["date_time"] else t["date_time"]) or "05 Nov 2026"
-    t_obj = {
-        "date": dt_short,
-        "description": f"{t['description']} ({t['method']})",
-        "amount": t["amount"],
-        "is_credit": t["role"] == "shafana_redeem",
-        "is_emi": False,
-        "amount_str": f"₹{t['amount']:,.2f}",
-    }
-    all_txns.append(t_obj)
-    date_groups[dt_short]["items"].append(t_obj)
-    if t["role"] == "shafana_order":
-      date_groups[dt_short]["total"] += t["amount"]
-
-  shafana_meta = {
-      "is_shafana": True,
-      "friend_name": "Shafana",
-      "husband_name": "Raja Mohamed",
-      "delivery_address": "Raja mohamed, 8 puduthurai main road, Karaikal, PUDUCHERRY, 609602, India",
-      "card_used": "Amazon Pay ICICI Bank Credit Card (Visa ••0004)",
-      "bill_due_total": bill_due_total,
-      "cb_earned_total": cb_earned_total,
-      "cb_used_total": cb_used_total,
-      "entries": txn_entries,
-      "screenshots": screenshots_gallery,
-  }
-
-  result_data = {
-      "file_name": ", ".join(s["file_name"] for s in screenshots_gallery),
-      "saved_path": "Memory Session (Shafana Cashback)",
-      "saved_name": f"{len(screenshots_gallery)} Screenshot(s) Analyzed",
-      "month_folder": ".",
-      "month_folder_name": "Shafana_Cashback",
-      "bank_name": "Shafana Amazon Cashback Tracker",
-      "bank_short": "Shafana Cashback",
-      "statement_month": "November 2026",
-      "total_due": f"₹{bill_due_total:,.2f}",
-      "due_date": "Payable After ICICI Bill Date",
-      "cardholder_name": "SHAFANA • RAJA MOHAMED",
-      "reward_points": f"+₹{cb_earned_total:,.2f} CB",
-      "date_groups": dict(date_groups),
-      "all_txns": all_txns,
-      "ongoing_emis": [],
-      "shafana_meta": shafana_meta,
-      "was_encrypted": False,
-      "decryption_note": "Extracted from Amazon Screenshot(s) in RAM",
-  }
+  # Merge newly extracted entries into the persistent web ledger (shafana_cashback.json)
+  ledger = load_shafana_web_ledger()
+  existing_entries = ledger.get("entries", [])
+  for new_ent in txn_entries:
+    matched_existing = None
+    for ex in existing_entries:
+      if ex.get("id") == new_ent.get("id"):
+        matched_existing = ex
+        break
+    if matched_existing:
+      if new_ent.get("recipient") and not matched_existing.get("recipient"):
+        matched_existing["recipient"] = new_ent["recipient"]
+      if new_ent.get("address") and not matched_existing.get("address"):
+        matched_existing["address"] = new_ent["address"]
+      if new_ent.get("arriving_by") and not matched_existing.get("arriving_by"):
+        matched_existing["arriving_by"] = new_ent["arriving_by"]
+      if new_ent.get("cashback_earned", 0) > 0:
+        matched_existing["cashback_earned"] = new_ent["cashback_earned"]
+    else:
+      existing_entries.insert(0, new_ent)
+  ledger["entries"] = existing_entries
+  save_shafana_web_ledger(ledger)
+  result_data = build_shafana_statement_from_ledger(ledger, screenshots=screenshots_gallery)
   return True, "Success", result_data
 
 
@@ -3626,7 +3742,8 @@ def generate_modern_dashboard_html(results_list, output_dir=".", write_to_disk=T
 
         function loadShafanaVault() {{
       const raw = vaultGetItem("smartbill_shafana_vault");
-      let vault = {{ openingCb: 0.0, entries: [], billPaid: false }};
+      let vault = {{ openingCb: 0.0, entries: [], billPaid: false, updated_at: "" }};
+      let hadLocal = false;
       if (raw) {{
         try {{
           const parsed = JSON.parse(raw);
@@ -3634,23 +3751,32 @@ def generate_modern_dashboard_html(results_list, output_dir=".", write_to_disk=T
             vault.openingCb = parseFloat(parsed.openingCb) || 0.0;
             vault.entries = Array.isArray(parsed.entries) ? parsed.entries : [];
             vault.billPaid = !!parsed.billPaid;
+            vault.updated_at = parsed.updated_at || "";
+            hadLocal = true;
           }}
         }} catch (e) {{}}
       }}
-      // Merge any entries from currently uploaded Shafana screenshot statement
+      // Seed & merge entries from the server Web-Synced Shafana ledger (shafana_cashback.json)
       statements.forEach(s => {{
-        if (s.shafana_meta && Array.isArray(s.shafana_meta.entries)) {{
-          s.shafana_meta.entries.forEach(newEnt => {{
-            const exists = vault.entries.find(e => e.id === newEnt.id);
-            if (!exists) {{
-              vault.entries.push({{ ...newEnt }});
-            }} else {{
-              // Update recipient/address/cashback if newly merged with checkout screenshot
-              if (newEnt.recipient && !exists.recipient) exists.recipient = newEnt.recipient;
-              if (newEnt.address && !exists.address) exists.address = newEnt.address;
-              if (newEnt.arriving_by && !exists.arriving_by) exists.arriving_by = newEnt.arriving_by;
-            }}
-          }});
+        if (s.shafana_meta) {{
+          if (!hadLocal && typeof s.shafana_meta.opening_cb === "number") {{
+            vault.openingCb = s.shafana_meta.opening_cb;
+          }} else if (s.shafana_meta.updated_at && (!vault.updated_at || s.shafana_meta.updated_at > vault.updated_at)) {{
+            if (typeof s.shafana_meta.opening_cb === "number") vault.openingCb = s.shafana_meta.opening_cb;
+            vault.updated_at = s.shafana_meta.updated_at;
+          }}
+          if (Array.isArray(s.shafana_meta.entries)) {{
+            s.shafana_meta.entries.forEach(newEnt => {{
+              const exists = vault.entries.find(e => e.id === newEnt.id);
+              if (!exists) {{
+                vault.entries.push({{ ...newEnt }});
+              }} else {{
+                if (newEnt.recipient && !exists.recipient) exists.recipient = newEnt.recipient;
+                if (newEnt.address && !exists.address) exists.address = newEnt.address;
+                if (newEnt.arriving_by && !exists.arriving_by) exists.arriving_by = newEnt.arriving_by;
+              }}
+            }});
+          }}
         }}
       }});
       vaultSetItem("smartbill_shafana_vault", JSON.stringify(vault));
@@ -3658,8 +3784,77 @@ def generate_modern_dashboard_html(results_list, output_dir=".", write_to_disk=T
     }}
 
     function saveShafanaVault(vault) {{
+      vault.updated_at = new Date().toISOString();
       vaultSetItem("smartbill_shafana_vault", JSON.stringify(vault));
+      // Auto-sync ONLY Shafana cashback JSON to GitHub if token is stored on device
+      const ghToken = vaultGetItem("s24_github_pat");
+      if (ghToken && ghToken.trim().length > 10) {{
+        window.syncShafanaVaultToWeb(true);
+      }}
     }}
+
+    window.syncShafanaVaultToWeb = async function(silent = false) {{
+      let ghToken = vaultGetItem("s24_github_pat") || "";
+      const tokenInp = document.getElementById("sf-gh-token-inp");
+      if (tokenInp && tokenInp.value.trim()) {{
+        ghToken = tokenInp.value.trim();
+        vaultSetItem("s24_github_pat", ghToken);
+      }}
+      if (!ghToken) {{
+        if (!silent) {{
+          const bar = document.getElementById("sf-gh-sync-bar");
+          if (bar) bar.classList.remove("hidden");
+          showVaultToast("Enter GitHub Token Once", "Paste your GitHub token in the Web Sync bar below to sync Shafana Cashback across all devices.");
+        }}
+        return;
+      }}
+      const vault = loadShafanaVault();
+      const payloadObj = {{
+        friend_name: "Shafana",
+        husband_name: "Raja Mohamed",
+        delivery_address: "Raja mohamed, 8 puduthurai main road, Karaikal, PUDUCHERRY, 609602, India",
+        card_used: "Amazon Pay ICICI Bank Credit Card (Visa ••0004)",
+        openingCb: parseFloat(vault.openingCb) || 0.0,
+        billPaid: !!vault.billPaid,
+        updated_at: new Date().toISOString(),
+        entries: vault.entries || []
+      }};
+      try {{
+        const apiUrl = "https://api.github.com/repos/xrvnsp/smart-bill-segregator/contents/shafana_cashback.json";
+        const getRes = await fetch(apiUrl, {{
+          headers: {{ "Authorization": `Bearer ${{ghToken}}`, "Accept": "application/vnd.github+json" }}
+        }});
+        let sha = undefined;
+        if (getRes.ok) {{
+          const meta = await getRes.json();
+          sha = meta.sha;
+        }}
+        const jsonStr = JSON.stringify(payloadObj, null, 2);
+        const b64Content = btoa(unescape(encodeURIComponent(jsonStr)));
+        const putBody = {{
+          message: `Sync Shafana cashback ledger (Net Kitty Rs.${{(payloadObj.openingCb + payloadObj.entries.filter(e=>e.role==="shafana_order").reduce((s,e)=>s+(e.cashback_earned||0),0) - payloadObj.entries.filter(e=>e.role==="shafana_redeem").reduce((s,e)=>s+(e.amount||0),0)).toFixed(0)}})`,
+          content: b64Content,
+          branch: "main"
+        }};
+        if (sha) putBody.sha = sha;
+        const putRes = await fetch(apiUrl, {{
+          method: "PUT",
+          headers: {{
+            "Authorization": `Bearer ${{ghToken}}`,
+            "Accept": "application/vnd.github+json",
+            "Content-Type": "application/json"
+          }},
+          body: JSON.stringify(putBody)
+        }});
+        if (putRes.ok) {{
+          if (!silent) showVaultToast("☁️ Synced Across Web!", "shafana_cashback.json updated on GitHub & Streamlit Cloud.");
+        }} else if (!silent) {{
+          showVaultToast("Web Sync Notice", "Saved in browser vault. Check GitHub token permissions to push to repo.");
+        }}
+      }} catch (err) {{
+        if (!silent) showVaultToast("Saved Locally", "Saved in browser vault.");
+      }}
+    }};
 
     function getShafanaComputedTotals(stmt) {{
       const vault = loadShafanaVault();
@@ -3911,6 +4106,10 @@ def generate_modern_dashboard_html(results_list, output_dir=".", write_to_disk=T
                 </div>
               </div>
               <div class="flex items-center gap-2 flex-wrap no-print">
+                <button onclick="syncShafanaVaultToWeb(false)" class="px-3.5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-extrabold text-xs shadow-md shadow-indigo-600/20 transition flex items-center gap-1.5 cursor-pointer active:scale-95" title="Sync ONLY Shafana Cashback JSON across the web (GitHub & all devices)">
+                  <span>☁️</span>
+                  <span>Sync Cashback Across Web</span>
+                </button>
                 <button onclick="shareShafanaWhatsApp()" class="px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold text-xs shadow-md shadow-emerald-600/25 transition flex items-center gap-1.5 cursor-pointer active:scale-95">
                   <span>📲</span>
                   <span>Share Summary on WhatsApp</span>
@@ -3965,8 +4164,18 @@ def generate_modern_dashboard_html(results_list, output_dir=".", write_to_disk=T
                   💾 Save Opening Balance
                 </button>
               </div>
-              <div class="text-[11px] text-slate-500 font-medium">
-                💡 Stored in your browser's localStorage so it stays remembered when your ICICI bill arrives!
+              <div class="text-[11px] text-emerald-700 font-bold flex items-center gap-1.5">
+                <span>🌐</span>
+                <span>Web-Synced via <code class="bg-emerald-100 px-1.5 py-0.5 rounded text-emerald-900">shafana_cashback.json</code> (Bank passwords stay 100% private)</span>
+              </div>
+            </div>
+            <div id="sf-gh-sync-bar" class="hidden px-6 py-3 bg-indigo-50/90 border-t border-indigo-200 flex flex-wrap items-center justify-between gap-2 no-print">
+              <span class="text-xs font-extrabold text-indigo-950">🔑 One-Time GitHub Token (to auto-save <code class="font-mono">shafana_cashback.json</code> across all devices):</span>
+              <div class="flex items-center gap-2 flex-1 max-w-md">
+                <input type="password" id="sf-gh-token-inp" placeholder="ghp_... or github_pat_..." value="${{vaultGetItem('s24_github_pat') || ''}}" class="flex-1 px-3 py-1.5 text-xs bg-white border border-indigo-300 rounded-xl">
+                <button onclick="syncShafanaVaultToWeb(false)" class="px-3.5 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-extrabold cursor-pointer">
+                  ☁️ Save & Push to Web
+                </button>
               </div>
             </div>
           </div>
