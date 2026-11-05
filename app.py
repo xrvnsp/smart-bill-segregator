@@ -490,10 +490,10 @@ with st.container():
 
     with up_col:
         uploaded_files = st.file_uploader(
-            "📁 Select Statement PDF(s) to Decrypt & Analyze (In-Memory Session):",
-            type=["pdf"],
+            "📁 Select Statement PDF(s) or Amazon Cashback Screenshot(s) (In-Memory Session):",
+            type=["pdf", "png", "jpg", "jpeg", "webp"],
             accept_multiple_files=True,
-            help="Upload your Axis Bank (Scapia), HDFC, ICICI, or SBI SimplyCLICK e-statement PDFs. Decrypted strictly in RAM and never stored on any server."
+            help="Upload your Axis Bank (Scapia), HDFC, ICICI, SBI PDFs, Salary Payslips, or Shafana's Amazon Order/Cashback Screenshots. Processed strictly in RAM."
         )
 
     with info_col:
@@ -599,7 +599,23 @@ with st.container():
 # --- Process Uploaded Files Strictly in RAM (Zero Disk Writes!) ---
 st.session_state.statements_data = {}
 if uploaded_files:
-    for up_file in uploaded_files:
+    pdf_files = [f for f in uploaded_files if f.name.lower().endswith(".pdf")]
+    img_files = [f for f in uploaded_files if not f.name.lower().endswith(".pdf")]
+
+    if img_files:
+        img_payload = [{"name": f.name, "bytes": f.getvalue()} for f in img_files]
+        sf_ok, sf_msg, sf_data = unlock_statements.process_shafana_screenshots(img_payload)
+        if sf_ok and sf_data:
+            st.session_state.statements_data["Shafana_Cashback"] = sf_data
+            sm = sf_data.get("shafana_meta", {})
+            st.success(
+                f"🎁 Shafana Amazon Cashback Screenshot(s) Loaded ({len(img_files)} file(s)) — "
+                f"Full Bill to Collect After Bill Date: ₹{sm.get('bill_due_total', 0):,.2f} • "
+                f"Cashback Earned: +₹{sm.get('cb_earned_total', 0):,.2f} • "
+                f"Cashback Used (Amazon Pay Balance): -₹{sm.get('cb_used_total', 0):,.2f}"
+            )
+
+    for up_file in pdf_files:
         pdf_bytes_io = io.BytesIO(up_file.getvalue())
         
         success, msg, rdata = unlock_statements.process_statement_file(
