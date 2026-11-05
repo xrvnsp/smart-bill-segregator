@@ -729,6 +729,245 @@ def parse_sbi_statement(reader, file_path, saved_names):
       "reward_points": reward_points,
   }
 
+def process_shafana_screenshots(image_items):
+  """Processes uploaded Amazon Checkout & Amazon Pay Transaction screenshots for Shafana (Raja Mohamed).
+  image_items: list of dicts/tuples {"name": filename, "bytes": raw_bytes}
+  Returns (True, "Success", result_data) formatted for the unified dashboard.
+  """
+  import io as _io
+  import math as _math
+
+  ocr_available = False
+  try:
+    import pytesseract
+    from PIL import Image
+    for win_path in [r"C:\Program Files\Tesseract-OCR\tesseract.exe", r"C:\Users\AppData\Local\Tesseract-OCR\tesseract.exe"]:
+      if os.path.exists(win_path):
+        pytesseract.pytesseract.tesseract_cmd = win_path
+        break
+    ocr_available = True
+  except Exception:
+    pass
+
+  checkout_entries = []
+  txn_entries = []
+  screenshots_gallery = []
+
+  for idx, item in enumerate(image_items):
+    fname = item["name"] if isinstance(item, dict) else item[0]
+    raw_bytes = item["bytes"] if isinstance(item, dict) else item[1]
+    ext = os.path.splitext(fname)[1].lower().replace(".", "") or "png"
+    mime = "image/jpeg" if ext in ("jpg", "jpeg") else ("image/webp" if ext == "webp" else "image/png")
+    b64_img = f"data:{mime};base64," + base64.b64encode(raw_bytes).decode("utf-8")
+
+    txt = ""
+    if ocr_available:
+      try:
+        img_obj = Image.open(_io.BytesIO(raw_bytes))
+        txt = pytesseract.image_to_string(img_obj) or ""
+      except Exception:
+        txt = ""
+
+    lines = [l.strip() for l in txt.splitlines() if l.strip()]
+    full_txt = "\n".join(lines)
+
+    # Check Type A: Amazon Checkout Screenshot ("Cashback on your order" / "Delivering to Raja mohamed")
+    m_cb = re.search(r"[₹%7Rs\.]?\s*(\d+\.\d{2})\s*Cashback\s+on\s+your\s+order", full_txt, re.IGNORECASE)
+    m_deliv = re.search(r"Delivering\s+to\s+([^\n]+)", full_txt, re.IGNORECASE)
+    m_addr = re.search(r"(Raja\s+mohamed[^\n]*\n[^\n]*609602[^\n]*)", full_txt, re.IGNORECASE)
+    m_arr = re.search(r"Arriving\s+by\s+([^\n]+)", full_txt, re.IGNORECASE)
+
+    if m_cb or m_deliv:
+      cb_amt = float(m_cb.group(1)) if m_cb else 0.0
+      recipient = m_deliv.group(1).strip() if m_deliv else "Raja mohamed"
+      addr = " ".join(m_addr.group(1).split()) if m_addr else "Raja mohamed, 8 puduthurai main road, Karaikal, PUDUCHERRY, 609602"
+      arr_date = m_arr.group(1).strip() if m_arr else ""
+      checkout_entries.append({
+          "file_name": fname,
+          "recipient": recipient,
+          "address": addr,
+          "arriving_by": arr_date,
+          "cashback_earned": cb_amt,
+          "est_order_amount": round(cb_amt / 0.05, 2) if cb_amt > 0 else 0.0,
+      })
+      screenshots_gallery.append({
+          "file_name": fname,
+          "screen_type": "Amazon Order Checkout (Raja Mohamed)",
+          "summary": f"Delivering to {recipient} • +₹{cb_amt:,.2f} Cashback",
+          "b64": b64_img
+      })
+      continue
+
+    # Check Type B: Amazon Pay Transactions Feed Screenshot
+    found_in_img = 0
+    i = 0
+    while i < len(lines):
+      line = lines[i]
+      method = ""
+      if "amazon pay credit card" in line.lower():
+        method = "Amazon Pay Credit Card"
+      elif "amazon pay balance" in line.lower():
+        method = "Amazon Pay Balance"
+      elif line.upper() in ("UPI", "UP!"):
+        method = "UPI"
+      elif "pay on delivery" in line.lower():
+        method = "Pay on Delivery"
+
+      if method and i + 1 < len(lines):
+        desc_line = lines[i + 1]
+        date_line = lines[i + 2] if i + 2 < len(lines) else ""
+        m_amt = re.search(r"([+\-])?\s*[₹Rs\.]?\s*([\d,]+(?:\.\d{2})?)\s*[>»]?\s*$", desc_line)
+        if m_amt:
+          sign, raw_num = m_amt.groups()
+          clean_desc = desc_line[:m_amt.start()].strip()
+          clean_desc = re.sub(r"^[^A-Za-z]+", "", clean_desc).strip()
+          if clean_desc.lower().startswith("a paid"):
+            clean_desc = clean_desc[2:].strip()
+          if raw_num.startswith("2") and "," in raw_num and len(raw_num.split(",")[0]) == 2:
+            raw_num = raw_num[1:]
+          elif sign == "+" and raw_num.startswith("2") and len(raw_num) == 4 and "cashback" in clean_desc.lower():
+            raw_num = raw_num[1:]
+          amt_val = float(raw_num.replace(",", ""))
+          m_dt = re.search(r"(\d{2}\s+[A-Za-z]{3}\s+\d{4}(?:,\s*\d{2}:\d{2}\s*[AP]M)?)", date_line)
+          dt_str = m_dt.group(1) if m_dt else date_line
+          is_cb_credit = (sign == "+") or ("cashback" in clean_desc.lower())
+
+          # Default classification for Shafana:
+          # - "Amazon Pay Credit Card" + "Paid on Amazon" (retail order, not Bus/Flight) -> shafana_order
+          # - "Amazon Pay Balance" + "Paid on Amazon" (spending balance) -> shafana_redeem
+          # - Everything else (Bus, UPI, Ketto, Pay on Delivery) -> personal (can be toggled in 1 click)
+          desc_low = clean_desc.lower()
+          if method == "Amazon Pay Credit Card" and desc_low.strip() == "paid on amazon":
+            role = "shafana_order"
+            cb_5pct = float(_math.floor(amt_val * 0.05))
+          elif method == "Amazon Pay Balance" and "paid on amazon" in desc_low and not is_cb_credit:
+            role = "shafana_redeem"
+            cb_5pct = 0.0
+          else:
+            role = "personal"
+            cb_5pct = float(_math.floor(amt_val * 0.05)) if method == "Amazon Pay Credit Card" else 0.0
+
+          txn_id = f"apay_{dt_str}_{amt_val:.2f}_{method}".replace(" ", "_").replace(",", "")
+          txn_entries.append({
+              "id": txn_id,
+              "method": method,
+              "description": clean_desc,
+              "amount": amt_val,
+              "cashback_earned": cb_5pct,
+              "date_time": dt_str,
+              "role": role,
+              "recipient": "Raja mohamed (Shafana)" if role in ("shafana_order", "shafana_redeem") else "",
+              "address": "8 puduthurai main road, Karaikal, PUDUCHERRY, 609602" if role == "shafana_order" else "",
+              "arriving_by": "",
+              "source_file": fname
+          })
+          found_in_img += 1
+          i += 3
+          continue
+      i += 1
+
+    screenshots_gallery.append({
+        "file_name": fname,
+        "screen_type": "Amazon Pay Transactions" if found_in_img > 0 else "Uploaded Screenshot",
+        "summary": f"{found_in_img} Amazon Pay transaction(s) detected" if found_in_img > 0 else "Screenshot attached",
+        "b64": b64_img
+    })
+
+  # Merge Checkout entries with matching Amazon Pay Credit Card transaction entries (where floor(amt * 0.05) == cb_earned)
+  for chk in checkout_entries:
+    cb_val = chk["cashback_earned"]
+    matched_txn = None
+    for t in txn_entries:
+      if t["method"] == "Amazon Pay Credit Card" and (
+          abs(t["cashback_earned"] - cb_val) < 0.01 or abs(_math.floor(t["amount"] * 0.05) - cb_val) < 0.01
+      ):
+        matched_txn = t
+        break
+    if matched_txn:
+      matched_txn["role"] = "shafana_order"
+      matched_txn["cashback_earned"] = cb_val
+      matched_txn["recipient"] = chk["recipient"]
+      matched_txn["address"] = chk["address"]
+      matched_txn["arriving_by"] = chk["arriving_by"]
+      matched_txn["description"] = f"Paid on Amazon — Delivering to {chk['recipient']}"
+    else:
+      # Create a standalone order from the checkout screenshot
+      est_amt = chk["est_order_amount"]
+      # If cb_val is 33.00 and no transaction screenshot was uploaded yet, default order amount to 670.00 (editable in UI)
+      if cb_val == 33.0 and est_amt == 660.0:
+        est_amt = 670.0
+      chk_id = f"chk_{chk['recipient']}_{cb_val:.2f}_{chk['arriving_by']}".replace(" ", "_")
+      txn_entries.insert(0, {
+          "id": chk_id,
+          "method": "Amazon Pay Credit Card (••0004)",
+          "description": f"Amazon Order — Delivering to {chk['recipient']}",
+          "amount": est_amt,
+          "cashback_earned": cb_val,
+          "date_time": chk["arriving_by"] or "Nov 2026",
+          "role": "shafana_order",
+          "recipient": chk["recipient"],
+          "address": chk["address"],
+          "arriving_by": chk["arriving_by"],
+          "source_file": chk["file_name"]
+      })
+
+  bill_due_total = sum(t["amount"] for t in txn_entries if t["role"] == "shafana_order")
+  cb_earned_total = sum(t["cashback_earned"] for t in txn_entries if t["role"] == "shafana_order")
+  cb_used_total = sum(t["amount"] for t in txn_entries if t["role"] == "shafana_redeem")
+
+  date_groups = defaultdict(lambda: {"total": 0.0, "items": [], "has_emi": False})
+  all_txns = []
+  for t in txn_entries:
+    dt_short = (t["date_time"].split(",")[0] if "," in t["date_time"] else t["date_time"]) or "05 Nov 2026"
+    t_obj = {
+        "date": dt_short,
+        "description": f"{t['description']} ({t['method']})",
+        "amount": t["amount"],
+        "is_credit": t["role"] == "shafana_redeem",
+        "is_emi": False,
+        "amount_str": f"₹{t['amount']:,.2f}",
+    }
+    all_txns.append(t_obj)
+    date_groups[dt_short]["items"].append(t_obj)
+    if t["role"] == "shafana_order":
+      date_groups[dt_short]["total"] += t["amount"]
+
+  shafana_meta = {
+      "is_shafana": True,
+      "friend_name": "Shafana",
+      "husband_name": "Raja Mohamed",
+      "delivery_address": "Raja mohamed, 8 puduthurai main road, Karaikal, PUDUCHERRY, 609602, India",
+      "card_used": "Amazon Pay ICICI Bank Credit Card (Visa ••0004)",
+      "bill_due_total": bill_due_total,
+      "cb_earned_total": cb_earned_total,
+      "cb_used_total": cb_used_total,
+      "entries": txn_entries,
+      "screenshots": screenshots_gallery,
+  }
+
+  result_data = {
+      "file_name": ", ".join(s["file_name"] for s in screenshots_gallery),
+      "saved_path": "Memory Session (Shafana Cashback)",
+      "saved_name": f"{len(screenshots_gallery)} Screenshot(s) Analyzed",
+      "month_folder": ".",
+      "month_folder_name": "Shafana_Cashback",
+      "bank_name": "Shafana Amazon Cashback Tracker",
+      "bank_short": "Shafana Cashback",
+      "statement_month": "November 2026",
+      "total_due": f"₹{bill_due_total:,.2f}",
+      "due_date": "Payable After ICICI Bill Date",
+      "cardholder_name": "SHAFANA • RAJA MOHAMED",
+      "reward_points": f"+₹{cb_earned_total:,.2f} CB",
+      "date_groups": dict(date_groups),
+      "all_txns": all_txns,
+      "ongoing_emis": [],
+      "shafana_meta": shafana_meta,
+      "was_encrypted": False,
+      "decryption_note": "Extracted from Amazon Screenshot(s) in RAM",
+  }
+  return True, "Success", result_data
+
+
 def parse_payslip_statement(reader, file_path, saved_names):
   """Dedicated parser for Salary Payslips (Skillveri / Zoho Payroll) and TDS Summary PDFs.
   Password format: Employee No + PAN [last 4 digits] (e.g. 1234000A / 115000A).
@@ -2457,7 +2696,7 @@ def generate_modern_dashboard_html(results_list, output_dir=".", write_to_disk=T
         statements.forEach(s => {{
           (s.all_txns || []).forEach(t => combined.all_txns.push({{ ...t, bank_badge: s.bank_short }}));
           (s.ongoing_emis || []).forEach(e => combined.ongoing_emis.push({{ ...e, bank_badge: s.bank_short }}));
-          const isSlip = (s.bank_short || '').toLowerCase().includes('payslip') || (s.payslip_meta && s.payslip_meta.is_payslip);
+          const isSlip = (s.bank_short || '').toLowerCase().includes('payslip') || (s.payslip_meta && s.payslip_meta.is_payslip) || (s.shafana_meta && s.shafana_meta.is_shafana);
           const cleanDue = parseFloat(String(s.total_due || '0').replace(/[^0-9.]/g, ''));
           if (!isNaN(cleanDue) && !isSlip) sumDue += cleanDue;
 
@@ -2512,9 +2751,10 @@ def generate_modern_dashboard_html(results_list, output_dir=".", write_to_disk=T
         const isSbi = bName.includes('sbi') || bName.includes('simplyclick');
         const isScapia = bName.includes('scapia') || bName.includes('axis') || bName.includes('federal');
         const isPayslip = bName.includes('payslip') || bName.includes('skillveri') || bName.includes('salary');
+        const isShafana = bName.includes('shafana') || (stmt.shafana_meta && stmt.shafana_meta.is_shafana);
 
-        let dotColor = isPayslip ? 'bg-emerald-500' : (isSwiggy ? 'bg-[#fc8019]' : (isAmazon ? 'bg-[#ff9900]' : (isSbi ? 'bg-[#882438]' : (isScapia ? 'bg-[#f2530f]' : 'bg-blue-600'))));
-        let icon = isPayslip ? '💼' : (isSwiggy ? '🛵' : (isAmazon ? '🛒' : (isSbi ? '💳' : (isScapia ? '✈️' : '🏛️'))));
+        let dotColor = isShafana ? 'bg-amber-500' : (isPayslip ? 'bg-emerald-500' : (isSwiggy ? 'bg-[#fc8019]' : (isAmazon ? 'bg-[#ff9900]' : (isSbi ? 'bg-[#882438]' : (isScapia ? 'bg-[#f2530f]' : 'bg-blue-600')))));
+        let icon = isShafana ? '🎁' : (isPayslip ? '💼' : (isSwiggy ? '🛵' : (isAmazon ? '🛒' : (isSbi ? '💳' : (isScapia ? '✈️' : '🏛️')))));
 
         btn.className = `apple-tab-btn px-5 py-2.5 rounded-xl text-xs font-bold transition flex items-center gap-2 ${{
           isActive 
@@ -2606,9 +2846,52 @@ def generate_modern_dashboard_html(results_list, output_dir=".", write_to_disk=T
       const isSbi = bName.includes('sbi') || bName.includes('simplyclick');
       const isScapia = bName.includes('scapia') || bName.includes('axis') || bName.includes('federal');
       const isPayslip = bName.includes('payslip') || bName.includes('skillveri') || bName.includes('salary') || (stmt.payslip_meta && stmt.payslip_meta.is_payslip);
+      const isShafana = bName.includes('shafana') || (stmt.shafana_meta && stmt.shafana_meta.is_shafana);
       const pm = stmt.payslip_meta || {{}};
+      const sm = stmt.shafana_meta || {{}};
 
-      if (isPayslip) {{
+      if (isShafana) {{
+        const sfSummary = getShafanaComputedTotals(stmt);
+        ambientColor = 'rgba(245, 158, 11, 0.28)';
+        cardBadgeText = "Shafana's Amazon Pay Cashback Pass";
+        cardBadgeClass = 'bg-amber-100 text-amber-950 border-amber-300';
+        cardStageHtml = `
+          <div id="apple-active-card" class="apple-physical-card shadow-2xl relative p-5 flex flex-col justify-between text-white" style="background: linear-gradient(135deg, #1e293b 0%, #0f172a 55%, #451a03 100%); border: 1px solid rgba(251, 191, 36, 0.4);">
+            <div class="apple-card-glare"></div>
+            <div class="flex justify-between items-start relative z-10">
+              <div>
+                <div class="text-[10px] font-extrabold uppercase tracking-[0.15em] text-amber-400">Amazon Pay ICICI ••0004</div>
+                <div class="text-sm font-black tracking-tight text-white mt-0.5">🎁 Shafana Cashback & Bill Pass</div>
+              </div>
+              <span class="px-2.5 py-0.5 rounded-full text-[10px] font-black bg-amber-500/20 text-amber-300 border border-amber-400/30 uppercase tracking-wider">
+                5% Prime CB
+              </span>
+            </div>
+
+            <div class="my-1 py-2.5 px-3.5 rounded-xl bg-white/10 backdrop-blur-md border border-white/15 flex justify-between items-center relative z-10">
+              <div>
+                <div class="text-[9px] font-bold uppercase tracking-wider text-amber-200">Full Bill Due (After Bill Date)</div>
+                <div class="text-2xl font-black text-white tracking-tight">₹${{sfSummary.billDue.toLocaleString('en-IN', {{minimumFractionDigits: 2}})}}</div>
+              </div>
+              <div class="text-right">
+                <div class="text-[10px] font-extrabold text-emerald-400">Earned CB: +₹${{sfSummary.cbEarned.toLocaleString('en-IN', {{minimumFractionDigits: 2}})}}</div>
+                <div class="text-[10px] font-extrabold text-rose-300">Used CB: -₹${{sfSummary.cbUsed.toLocaleString('en-IN', {{minimumFractionDigits: 2}})}}</div>
+              </div>
+            </div>
+
+            <div class="flex justify-between items-end relative z-10">
+              <div>
+                <div class="text-[11px] font-black tracking-[0.1em] uppercase text-amber-200 font-mono">Delivering to: Raja Mohamed</div>
+                <div class="text-[10px] font-semibold text-slate-300 truncate max-w-[205px]">8 Puduthurai Main Rd, Karaikal 609602</div>
+              </div>
+              <div class="text-right font-mono text-[10px] text-emerald-300 font-bold">
+                <div>Net CB Kitty:</div>
+                <div class="text-xs font-black">${{sfSummary.netKitty >= 0 ? '+' : '-'}}₹${{Math.abs(sfSummary.netKitty).toLocaleString('en-IN', {{minimumFractionDigits: 2}})}}</div>
+              </div>
+            </div>
+          </div>
+        `;
+      }} else if (isPayslip) {{
         ambientColor = 'rgba(16, 185, 129, 0.25)';
         cardBadgeText = pm.company_name || 'Salary Payslip';
         cardBadgeClass = 'bg-emerald-100 text-emerald-950 border-emerald-300';
@@ -3029,6 +3312,32 @@ def generate_modern_dashboard_html(results_list, output_dir=".", write_to_disk=T
           </div>
 
           ${{ruleExplanation}}
+
+          ${{isIcici ? (() => {{
+            const sf = getShafanaComputedTotals();
+            const sfOrders = sf.vault.entries.filter(e => e.role === 'shafana_order');
+            if (sfOrders.length === 0 && sf.cbUsed === 0 && sf.openingCb === 0) return '';
+            return `
+              <div class="mt-4 pt-4 border-t-2 border-amber-200 bg-amber-50/60 -mx-6 -mb-6 p-5 rounded-b-3xl">
+                <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+                  <div>
+                    <div class="text-xs font-black uppercase tracking-wider text-amber-900 flex items-center gap-1.5">
+                      <span>🎁</span>
+                      <span>Shafana (Raja Mohamed • Karaikal) — Separate Cashback & Bill Tracker</span>
+                    </div>
+                    <div class="text-[11px] text-slate-600 mt-0.5">
+                      Full Bill to Collect After Bill Date: <b class="text-slate-900">₹${{sf.billDue.toLocaleString('en-IN', {{minimumFractionDigits: 2}})}}</b> •
+                      Earned CB: <b class="text-emerald-700">+₹${{sf.cbEarned.toLocaleString('en-IN', {{minimumFractionDigits: 2}})}}</b> •
+                      Used CB: <b class="text-rose-600">-₹${{sf.cbUsed.toLocaleString('en-IN', {{minimumFractionDigits: 2}})}}</b>
+                    </div>
+                  </div>
+                  <div class="px-3.5 py-1.5 rounded-xl bg-amber-500 text-white font-black text-xs shadow-xs">
+                    Net CB Available: ${{sf.netKitty >= 0 ? '+' : '-'}}₹${{Math.abs(sf.netKitty).toLocaleString('en-IN', {{minimumFractionDigits: 2}})}}
+                  </div>
+                </div>
+              </div>
+            `;
+          }})() : ''}}
         </div>
       `;
     }}
@@ -3314,6 +3623,386 @@ def generate_modern_dashboard_html(results_list, output_dir=".", write_to_disk=T
         }}
       }});
     }};
+
+        function loadShafanaVault() {{
+      const raw = vaultGetItem("smartbill_shafana_vault");
+      let vault = {{ openingCb: 0.0, entries: [], billPaid: false }};
+      if (raw) {{
+        try {{
+          const parsed = JSON.parse(raw);
+          if (parsed && typeof parsed === "object") {{
+            vault.openingCb = parseFloat(parsed.openingCb) || 0.0;
+            vault.entries = Array.isArray(parsed.entries) ? parsed.entries : [];
+            vault.billPaid = !!parsed.billPaid;
+          }}
+        }} catch (e) {{}}
+      }}
+      // Merge any entries from currently uploaded Shafana screenshot statement
+      statements.forEach(s => {{
+        if (s.shafana_meta && Array.isArray(s.shafana_meta.entries)) {{
+          s.shafana_meta.entries.forEach(newEnt => {{
+            const exists = vault.entries.find(e => e.id === newEnt.id);
+            if (!exists) {{
+              vault.entries.push({{ ...newEnt }});
+            }} else {{
+              // Update recipient/address/cashback if newly merged with checkout screenshot
+              if (newEnt.recipient && !exists.recipient) exists.recipient = newEnt.recipient;
+              if (newEnt.address && !exists.address) exists.address = newEnt.address;
+              if (newEnt.arriving_by && !exists.arriving_by) exists.arriving_by = newEnt.arriving_by;
+            }}
+          }});
+        }}
+      }});
+      vaultSetItem("smartbill_shafana_vault", JSON.stringify(vault));
+      return vault;
+    }}
+
+    function saveShafanaVault(vault) {{
+      vaultSetItem("smartbill_shafana_vault", JSON.stringify(vault));
+    }}
+
+    function getShafanaComputedTotals(stmt) {{
+      const vault = loadShafanaVault();
+      let billDue = 0.0;
+      let cbEarned = 0.0;
+      let cbUsed = 0.0;
+
+      // Cross-check with any loaded ICICI Amazon PDF statements for bill verification
+      const iciciStmts = statements.filter(s => (s.bank_short || '').includes('ICICI'));
+      const iciciAmounts = [];
+      iciciStmts.forEach(is => {{
+        (is.all_txns || []).forEach(t => {{
+          if (!t.is_credit) iciciAmounts.push({{ amt: t.amount, date: t.date, due: is.due_date }});
+        }});
+      }});
+
+      vault.entries.forEach(ent => {{
+        const matchedBill = iciciAmounts.find(ia => Math.abs(ia.amt - ent.amount) < 0.5);
+        ent.verifiedOnBill = !!matchedBill;
+        ent.billDueDate = matchedBill ? matchedBill.date : "";
+
+        if (ent.role === 'shafana_order') {{
+          billDue += (parseFloat(ent.amount) || 0);
+          cbEarned += (parseFloat(ent.cashback_earned) || 0);
+        }} else if (ent.role === 'shafana_redeem') {{
+          cbUsed += (parseFloat(ent.amount) || 0);
+        }}
+      }});
+
+      const openingCb = parseFloat(vault.openingCb) || 0.0;
+      const totalCbPool = openingCb + cbEarned;
+      const netKitty = totalCbPool - cbUsed;
+
+      return {{
+        vault,
+        billDue,
+        cbEarned,
+        cbUsed,
+        openingCb,
+        totalCbPool,
+        netKitty,
+        hasIciciPdf: iciciStmts.length > 0
+      }};
+    }}
+
+    window.setShafanaEntryRole = function(entryId, newRole) {{
+      const vault = loadShafanaVault();
+      const target = vault.entries.find(e => e.id === entryId);
+      if (target) {{
+        target.role = newRole;
+        if (newRole === 'shafana_order' && (!target.cashback_earned || target.cashback_earned <= 0)) {{
+          target.cashback_earned = Math.floor((parseFloat(target.amount) || 0) * 0.05);
+        }}
+        saveShafanaVault(vault);
+        renderDashboard();
+      }}
+    }};
+
+    window.updateShafanaOrderAmount = function(entryId, newAmtStr, newCbStr) {{
+      const vault = loadShafanaVault();
+      const target = vault.entries.find(e => e.id === entryId);
+      if (target) {{
+        const a = parseFloat(newAmtStr);
+        const c = parseFloat(newCbStr);
+        if (!isNaN(a) && a >= 0) target.amount = a;
+        if (!isNaN(c) && c >= 0) target.cashback_earned = c;
+        else if (!isNaN(a)) target.cashback_earned = Math.floor(a * 0.05);
+        saveShafanaVault(vault);
+        showVaultToast("Updated Shafana Order", `Order ₹${{target.amount}} • Cashback +₹${{target.cashback_earned}}`);
+        renderDashboard();
+      }}
+    }};
+
+    window.saveShafanaOpeningCb = function() {{
+      const inp = document.getElementById('shafana-opening-cb-inp');
+      if (!inp) return;
+      const val = parseFloat(inp.value) || 0.0;
+      const vault = loadShafanaVault();
+      vault.openingCb = val;
+      saveShafanaVault(vault);
+      showVaultToast("Saved Opening Cashback", `Shafana's previous cashback balance set to ₹${{val.toFixed(2)}}`);
+      renderDashboard();
+    }};
+
+    window.addManualShafanaEntry = function() {{
+      const descInp = document.getElementById('sf-new-desc');
+      const amtInp = document.getElementById('sf-new-amt');
+      const roleInp = document.getElementById('sf-new-role');
+      const amt = parseFloat(amtInp ? amtInp.value : '0');
+      if (isNaN(amt) || amt <= 0) return;
+      const desc = (descInp && descInp.value.trim()) ? descInp.value.trim() : "Amazon Order (Raja Mohamed)";
+      const role = roleInp ? roleInp.value : "shafana_order";
+      const cb = role === 'shafana_order' ? Math.floor(amt * 0.05) : 0.0;
+      const today = new Date().toLocaleDateString('en-GB', {{ day: '2-digit', month: 'short', year: 'numeric' }});
+
+      const vault = loadShafanaVault();
+      vault.entries.unshift({{
+        id: 'manual_' + Date.now(),
+        method: role === 'shafana_order' ? 'Amazon Pay Credit Card' : 'Amazon Pay Balance',
+        description: desc,
+        amount: amt,
+        cashback_earned: cb,
+        date_time: today,
+        role: role,
+        recipient: 'Raja mohamed',
+        address: 'Karaikal, PUDUCHERRY, 609602',
+        arriving_by: '',
+        source_file: 'Manual Entry'
+      }});
+      saveShafanaVault(vault);
+      showVaultToast("Added to Shafana Vault", `${{desc}}: ₹${{amt.toFixed(2)}}`);
+      renderDashboard();
+    }};
+
+    window.clearShafanaVault = function() {{
+      vaultRemoveItem("smartbill_shafana_vault");
+      showVaultToast("Cleared Shafana Vault", "Reset to currently uploaded screenshots.");
+      renderDashboard();
+    }};
+
+    window.shareShafanaWhatsApp = function() {{
+      const sf = getShafanaComputedTotals();
+      let msg = `*🎁 SHAFANA AMAZON PAY CASHBACK & BILL SUMMARY*\n`;
+      msg += `*Delivery Address:* Raja Mohamed, 8 Puduthurai Main Rd, Karaikal 609602\n\n`;
+      msg += `*1️⃣ FULL BILL TO PAY (After ICICI Bill Date):* Rs. ${{sf.billDue.toLocaleString('en-IN', {{minimumFractionDigits: 2}})}}\n`;
+      sf.vault.entries.filter(e => e.role === 'shafana_order').forEach(e => {{
+        msg += `   • ${{e.date_time}}: Rs. ${{e.amount.toLocaleString('en-IN', {{minimumFractionDigits: 2}})}} (Earned +Rs. ${{e.cashback_earned}} CB)\n`;
+      }});
+      msg += `\n*2️⃣ SHAFANA'S ACCUMULATED CASHBACK WALLET:*\n`;
+      if (sf.openingCb > 0) {{
+        msg += `   • Previous Cashback Balance: +Rs. ${{sf.openingCb.toLocaleString('en-IN', {{minimumFractionDigits: 2}})}}\n`;
+      }}
+      msg += `   • Cashback Earned on Orders (5%): +Rs. ${{sf.cbEarned.toLocaleString('en-IN', {{minimumFractionDigits: 2}})}}\n`;
+      sf.vault.entries.filter(e => e.role === 'shafana_redeem').forEach(e => {{
+        msg += `   • Cashback Used (${{e.date_time}} via Amazon Pay Balance): -Rs. ${{e.amount.toLocaleString('en-IN', {{minimumFractionDigits: 2}})}}\n`;
+      }});
+      msg += `   *👉 Net Cashback Available for Next Order: Rs. ${{sf.netKitty.toLocaleString('en-IN', {{minimumFractionDigits: 2}})}}*`;
+
+      const waUrl = `https://wa.me/?text=${{encodeURIComponent(msg)}}`;
+      window.open(waUrl, '_blank');
+    }};
+
+    function renderShafanaWorkspace(stmt) {{
+      const container = document.getElementById('date-breakdown-container');
+      const sf = getShafanaComputedTotals(stmt);
+      const sm = stmt.shafana_meta || {{}};
+      const gallery = sm.screenshots || [];
+
+      const rowsHtml = sf.vault.entries.map((ent, idx) => {{
+        const isOrder = ent.role === 'shafana_order';
+        const isRedeem = ent.role === 'shafana_redeem';
+        const rowBg = isOrder ? 'bg-amber-50/40 border-l-4 border-l-amber-500' : (isRedeem ? 'bg-rose-50/40 border-l-4 border-l-rose-500' : 'bg-slate-50/60 opacity-75 border-l-4 border-l-slate-300');
+
+        return `
+          <div class="p-4 sm:px-6 border-b border-slate-100 last:border-none flex flex-col lg:flex-row justify-between items-start lg:items-center gap-3.5 ${{rowBg}} transition">
+            <div class="flex-1">
+              <div class="flex items-center gap-2 flex-wrap">
+                <span class="px-2.5 py-0.5 rounded-full text-[10px] font-extrabold uppercase tracking-wider ${{isOrder ? 'bg-amber-100 text-amber-900 border border-amber-300' : (isRedeem ? 'bg-rose-100 text-rose-800 border border-rose-300' : 'bg-slate-200 text-slate-700')}}">
+                  ${{isOrder ? '👩‍💼 Shafana Card Order (Pay After Bill Date)' : (isRedeem ? '➖ Cashback Used (Amazon Pay Balance)' : '🙋‍♂️ My Personal Swipe (Ignored)')}}
+                </span>
+                <span class="text-xs font-mono font-bold text-slate-500">${{ent.date_time}}</span>
+                <span class="text-[11px] font-semibold text-slate-400">• ${{ent.method}}</span>
+                ${{isOrder ? (ent.verifiedOnBill
+                  ? `<span class="px-2 py-0.5 rounded text-[10px] font-extrabold bg-emerald-100 text-emerald-800 border border-emerald-300">✅ Verified on ICICI Bill</span>`
+                  : `<span class="px-2 py-0.5 rounded text-[10px] font-bold bg-blue-50 text-blue-700 border border-blue-200">⏳ Logged from Screenshot (Awaiting ICICI Bill)</span>`
+                ) : ''}}
+              </div>
+
+              <div class="text-sm font-extrabold text-slate-900 mt-1.5">${{ent.description}}</div>
+              ${{ent.address ? `<div class="text-xs text-slate-600 mt-0.5">📍 <b>Delivering to ${{ent.recipient || 'Raja Mohamed'}}:</b> ${{ent.address}} ${{ent.arriving_by ? '• Arriving ' + ent.arriving_by : ''}}</div>` : ''}}
+
+              <!-- Inline Amount & Cashback Editor for Shafana Orders -->
+              ${{isOrder ? `
+              <div class="mt-2.5 flex items-center gap-2 flex-wrap no-print">
+                <span class="text-[11px] font-bold text-slate-500">Order ₹:</span>
+                <input type="number" id="sf-amt-${{idx}}" value="${{ent.amount}}" step="0.01" class="w-24 px-2.5 py-1 text-xs font-bold bg-white border border-amber-300 rounded-lg text-slate-900">
+                <span class="text-[11px] font-bold text-emerald-700">Cashback +₹:</span>
+                <input type="number" id="sf-cb-${{idx}}" value="${{ent.cashback_earned}}" step="0.01" class="w-20 px-2.5 py-1 text-xs font-bold bg-white border border-emerald-300 rounded-lg text-emerald-800">
+                <button onclick="updateShafanaOrderAmount('${{ent.id}}', document.getElementById('sf-amt-${{idx}}').value, document.getElementById('sf-cb-${{idx}}').value)" class="px-2.5 py-1 rounded-lg bg-slate-900 hover:bg-slate-800 text-white text-[11px] font-bold cursor-pointer">
+                  💾 Update
+                </button>
+              </div>
+              ` : ''}}
+            </div>
+
+            <!-- Right Side: Amounts & 1-Tap Role Switcher -->
+            <div class="flex flex-col sm:flex-row lg:flex-col items-start sm:items-end justify-between gap-2 w-full lg:w-auto">
+              <div class="text-left sm:text-right">
+                ${{isOrder ? `
+                  <div class="text-base font-black text-slate-900">Bill Due: ₹${{ent.amount.toLocaleString('en-IN', {{minimumFractionDigits: 2}})}}</div>
+                  <div class="text-xs font-extrabold text-emerald-600">🎁 +₹${{ent.cashback_earned.toLocaleString('en-IN', {{minimumFractionDigits: 2}})}} Cashback Earned</div>
+                ` : (isRedeem ? `
+                  <div class="text-base font-black text-rose-600">-₹${{ent.amount.toLocaleString('en-IN', {{minimumFractionDigits: 2}})}} CB Used</div>
+                  <div class="text-[11px] font-bold text-rose-500">Deducted from Shafana's CB</div>
+                ` : `
+                  <div class="text-sm font-bold text-slate-400 line-through">₹${{ent.amount.toLocaleString('en-IN', {{minimumFractionDigits: 2}})}}</div>
+                  <div class="text-[10px] text-slate-400">Excluded from Shafana</div>
+                `)}}
+              </div>
+
+              <div class="flex items-center gap-1 bg-white p-1 rounded-xl border border-slate-200 no-print">
+                <button onclick="setShafanaEntryRole('${{ent.id}}', 'shafana_order')" class="px-2 py-1 rounded-lg text-[10px] font-extrabold transition cursor-pointer ${{isOrder ? 'bg-amber-500 text-white shadow-2xs' : 'text-slate-600 hover:bg-slate-100'}}" title="Shafana Card Order (She pays full bill + earns 5% CB)">
+                  👩‍💼 Order (+CB)
+                </button>
+                <button onclick="setShafanaEntryRole('${{ent.id}}', 'shafana_redeem')" class="px-2 py-1 rounded-lg text-[10px] font-extrabold transition cursor-pointer ${{isRedeem ? 'bg-rose-600 text-white shadow-2xs' : 'text-slate-600 hover:bg-slate-100'}}" title="Shafana Used Accumulated Cashback (Amazon Pay Balance)">
+                  ➖ CB Used
+                </button>
+                <button onclick="setShafanaEntryRole('${{ent.id}}', 'personal')" class="px-2 py-1 rounded-lg text-[10px] font-extrabold transition cursor-pointer ${{!isOrder && !isRedeem ? 'bg-slate-800 text-white shadow-2xs' : 'text-slate-600 hover:bg-slate-100'}}" title="My Personal Transaction (Ignore for Shafana)">
+                  🙋‍♂️ Mine
+                </button>
+              </div>
+            </div>
+          </div>
+        `;
+      }}).join('');
+
+      const galleryHtml = gallery.length > 0 ? `
+        <div class="bg-white rounded-3xl border border-slate-200/90 shadow-sm p-6">
+          <h3 class="text-sm font-extrabold text-slate-900 mb-3">📸 Uploaded Screenshot Proofs (${{gallery.length}})</h3>
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            ${{gallery.map(g => `
+              <div class="p-3 rounded-2xl bg-slate-50 border border-slate-200 flex items-center gap-3.5">
+                <img src="${{g.b64}}" alt="${{g.file_name}}" class="w-16 h-28 object-cover rounded-xl border border-slate-300 shadow-xs flex-shrink-0">
+                <div class="min-w-0">
+                  <div class="text-xs font-extrabold text-slate-900 truncate">${{g.screen_type}}</div>
+                  <div class="text-[11px] font-semibold text-emerald-700 mt-0.5">${{g.summary}}</div>
+                  <div class="text-[10px] font-mono text-slate-400 mt-1 truncate">${{g.file_name}}</div>
+                </div>
+              </div>
+            `).join('')}}
+          </div>
+        </div>
+      ` : '';
+
+      container.innerHTML = `
+        <div class="space-y-6">
+
+          <!-- TOP SUMMARY: SHAFANA'S FULL BILL DUE VS. SEPARATE ACCUMULATED CASHBACK WALLET -->
+          <div class="bg-white rounded-3xl border-2 border-amber-300 shadow-md overflow-hidden">
+            <div class="p-6 bg-gradient-to-r from-amber-50 via-orange-50/70 to-emerald-50/60 border-b border-amber-200 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+              <div class="flex items-center gap-3.5">
+                <div class="w-12 h-12 rounded-2xl bg-amber-500 text-white flex items-center justify-center font-black text-2xl shadow-md shadow-amber-500/25">🎁</div>
+                <div>
+                  <div class="flex items-center gap-2 flex-wrap">
+                    <h2 class="text-lg font-black text-slate-900">Shafana's Amazon Cashback & Bill Tracker</h2>
+                    <span class="px-2.5 py-0.5 rounded-full text-[11px] font-extrabold bg-amber-500 text-white uppercase tracking-wider">Raja Mohamed • Karaikal 609602</span>
+                  </div>
+                  <p class="text-xs text-slate-600 mt-0.5">She pays the <b>full order amount</b> after your ICICI bill date, while her <b>5% cashback</b> accumulates in a separate wallet for her to use.</p>
+                </div>
+              </div>
+              <div class="flex items-center gap-2 flex-wrap no-print">
+                <button onclick="shareShafanaWhatsApp()" class="px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold text-xs shadow-md shadow-emerald-600/25 transition flex items-center gap-1.5 cursor-pointer active:scale-95">
+                  <span>📲</span>
+                  <span>Share Summary on WhatsApp</span>
+                </button>
+                <button onclick="clearShafanaVault()" class="px-3 py-2.5 rounded-xl bg-white hover:bg-rose-50 text-rose-600 border border-rose-200 font-bold text-xs transition cursor-pointer">
+                  🔄 Reset
+                </button>
+              </div>
+            </div>
+
+            <!-- 4 KPI TILES -->
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 p-6 bg-white">
+              <!-- Tile 1: Full Bill Shafana Pays You After Bill Date -->
+              <div class="p-4 rounded-2xl bg-amber-50/80 border border-amber-200">
+                <div class="text-[10px] font-extrabold uppercase tracking-wider text-amber-800">1. Full Bill Shafana Pays You</div>
+                <div class="text-2xl font-black text-slate-900 mt-1">₹${{sf.billDue.toLocaleString('en-IN', {{minimumFractionDigits: 2}})}}</div>
+                <div class="text-[11px] font-semibold text-amber-800 mt-1">To collect after your ICICI bill date</div>
+              </div>
+
+              <!-- Tile 2: Cashback Earned on Orders (+5%) -->
+              <div class="p-4 rounded-2xl bg-emerald-50/80 border border-emerald-200">
+                <div class="text-[10px] font-extrabold uppercase tracking-wider text-emerald-700">2. Cashback Earned (+5% Card)</div>
+                <div class="text-2xl font-black text-emerald-700 mt-1">+₹${{sf.cbEarned.toLocaleString('en-IN', {{minimumFractionDigits: 2}})}}</div>
+                <div class="text-[11px] font-semibold text-emerald-700 mt-1">E.g. ₹670 order → +₹33.00 CB</div>
+              </div>
+
+              <!-- Tile 3: Cashback Redeemed / Used via Amazon Pay Balance -->
+              <div class="p-4 rounded-2xl bg-rose-50/80 border border-rose-200">
+                <div class="text-[10px] font-extrabold uppercase tracking-wider text-rose-700">3. Cashback Used (Amazon Pay Bal)</div>
+                <div class="text-2xl font-black text-rose-600 mt-1">-₹${{sf.cbUsed.toLocaleString('en-IN', {{minimumFractionDigits: 2}})}}</div>
+                <div class="text-[11px] font-semibold text-rose-600 mt-1">E.g. ₹273 paid via Amazon Pay Balance</div>
+              </div>
+
+              <!-- Tile 4: Net Accumulated Cashback Kitty Available -->
+              <div class="p-4 rounded-2xl ${{sf.netKitty >= 0 ? 'bg-indigo-50/90 border-indigo-300' : 'bg-amber-100/80 border-amber-400'}} border">
+                <div class="text-[10px] font-extrabold uppercase tracking-wider text-indigo-800">4. Net Cashback Balance Left</div>
+                <div class="text-2xl font-black ${{sf.netKitty >= 0 ? 'text-indigo-950' : 'text-rose-700'}} mt-1">
+                  ${{sf.netKitty >= 0 ? '+' : '-'}}₹${{Math.abs(sf.netKitty).toLocaleString('en-IN', {{minimumFractionDigits: 2}})}}
+                </div>
+                <div class="text-[11px] font-semibold text-indigo-700 mt-1">
+                  (Prev ₹${{sf.openingCb.toFixed(0)}} + Earned ₹${{sf.cbEarned.toFixed(0)}} − Used ₹${{sf.cbUsed.toFixed(0)}})
+                </div>
+              </div>
+            </div>
+
+            <!-- Previous / Opening Cashback Balance Bar & Manual Add Bar -->
+            <div class="px-6 py-3.5 bg-slate-50 border-t border-slate-200 flex flex-col sm:flex-row justify-between items-stretch sm:items-center gap-3 no-print">
+              <div class="flex items-center gap-2 flex-wrap">
+                <span class="text-xs font-extrabold text-slate-700">💰 Shafana's Previous / Opening Cashback Balance (Before Today): ₹</span>
+                <input type="number" id="shafana-opening-cb-inp" value="${{sf.openingCb}}" step="1" class="w-28 px-3 py-1.5 text-xs font-extrabold bg-white border border-slate-300 rounded-xl text-slate-900">
+                <button onclick="saveShafanaOpeningCb()" class="px-3 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-extrabold cursor-pointer">
+                  💾 Save Opening Balance
+                </button>
+              </div>
+              <div class="text-[11px] text-slate-500 font-medium">
+                💡 Stored in your browser's localStorage so it stays remembered when your ICICI bill arrives!
+              </div>
+            </div>
+          </div>
+
+          <!-- ITEMIZED TRANSACTIONS & SCREENSHOT EXTRACTIONS -->
+          <div class="bg-white rounded-3xl border border-slate-200/90 shadow-sm overflow-hidden">
+            <div class="px-6 py-4 bg-slate-900 text-white flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
+              <div>
+                <h3 class="text-sm font-extrabold">📋 Extracted Amazon Transactions & Cashback Ledger</h3>
+                <p class="text-[11px] text-slate-300">Tap <b>👩‍💼 Order (+CB)</b> for Shafana's card orders, <b>➖ CB Used</b> when she spends Amazon Pay Balance, or <b>🙋‍♂️ Mine</b> to ignore personal swipes.</p>
+              </div>
+            </div>
+            <div>
+              ${{rowsHtml || '<div class="p-6 text-center text-xs text-slate-400">No transactions logged yet. Upload an Amazon screenshot or add one below.</div>'}}
+            </div>
+
+            <!-- Quick Manual Entry Bar -->
+            <div class="p-4 bg-slate-50 border-t border-slate-200 flex flex-wrap items-center gap-2 no-print">
+              <span class="text-xs font-extrabold text-slate-700 mr-1">➕ Add Manual Entry:</span>
+              <input type="text" id="sf-new-desc" placeholder="Item / Order description..." class="px-3 py-1.5 text-xs bg-white border border-slate-300 rounded-xl flex-1 min-w-[160px]">
+              <input type="number" id="sf-new-amt" placeholder="Amount ₹" step="0.01" class="w-28 px-3 py-1.5 text-xs bg-white border border-slate-300 rounded-xl">
+              <select id="sf-new-role" class="px-3 py-1.5 text-xs font-bold bg-white border border-slate-300 rounded-xl text-slate-800">
+                <option value="shafana_order">👩‍💼 Shafana Card Order (+5% CB)</option>
+                <option value="shafana_redeem">➖ Shafana CB Used (Amazon Pay Bal)</option>
+              </select>
+              <button onclick="addManualShafanaEntry()" class="px-3.5 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-white text-xs font-extrabold cursor-pointer">
+                ➕ Add to Shafana
+              </button>
+            </div>
+          </div>
+
+          ${{galleryHtml}}
+
+        </div>
+      `;
+    }}
 
     function renderPayslipWorkspace(stmt) {{
       const container = document.getElementById('date-breakdown-container');
@@ -3696,9 +4385,14 @@ def generate_modern_dashboard_html(results_list, output_dir=".", write_to_disk=T
       container.innerHTML = '';
 
       const isPayslip = (stmt.payslip_meta && stmt.payslip_meta.is_payslip);
+      const isShafana = (stmt.shafana_meta && stmt.shafana_meta.is_shafana);
       const searchFilterCard = document.getElementById('search-filter-card');
       if (searchFilterCard) {{
-        searchFilterCard.style.display = isPayslip ? 'none' : 'flex';
+        searchFilterCard.style.display = (isPayslip || isShafana) ? 'none' : 'flex';
+      }}
+      if (isShafana) {{
+        renderShafanaWorkspace(stmt);
+        return;
       }}
       if (isPayslip) {{
         renderPayslipWorkspace(stmt);
