@@ -622,8 +622,13 @@ if uploaded_files:
                 rdata = None
 
         if success and rdata:
-            st.session_state.statements_data[rdata["bank_short"]] = rdata
-            st.success(f"✅ Unlocked in memory: {up_file.name} ({rdata.get('bank_name')}) — {len(rdata.get('date_groups', {}))} date groups found")
+            slot_key = f"{rdata['bank_short']}_{rdata.get('statement_month', up_file.name)}"
+            st.session_state.statements_data[slot_key] = rdata
+            if rdata.get("payslip_meta", {}).get("is_payslip"):
+                pm = rdata["payslip_meta"]
+                st.success(f"✅ Salary Payslip Loaded: {up_file.name} ({pm.get('pay_period')}) — Net Pay {pm.get('net_pay')} • Full 30-Day Rate: ₹{pm.get('full_month_gross', 0):,.2f}/mo (₹{pm.get('per_day_rate', 0):,.2f}/day)")
+            else:
+                st.success(f"✅ Unlocked in memory: {up_file.name} ({rdata.get('bank_name')}) — {len(rdata.get('date_groups', {}))} date groups found")
         else:
             st.error(f"⚠️ {up_file.name}: {msg}")
             if "password" in msg.lower():

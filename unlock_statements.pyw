@@ -842,6 +842,76 @@ def parse_payslip_statement(reader, file_path, saved_names):
 
   date_groups[pay_date]["total"] = net_val
 
+  try:
+    gross_val = float(gross_str.replace(",", ""))
+  except ValueError:
+    gross_val = net_val
+  try:
+    ded_val = float(ded_str.replace(",", ""))
+  except ValueError:
+    ded_val = 0.0
+
+  try:
+    paid_days_num = float(paid_days) if paid_days else 30.0
+  except ValueError:
+    paid_days_num = 30.0
+  try:
+    lop_days_num = float(lop_days) if lop_days else 0.0
+  except ValueError:
+    lop_days_num = 0.0
+
+  # Determine standard calendar days in the pay period month (e.g. September 2026 -> 30 days)
+  month_days = 30
+  for m_idx in range(1, 13):
+    m_name = calendar.month_name[m_idx]
+    if m_name.lower() in clean_month.lower():
+      yr_m = re.search(r"(\d{4})", clean_month)
+      yr_val = int(yr_m.group(1)) if yr_m else 2026
+      month_days = calendar.monthrange(yr_val, m_idx)[1]
+      break
+
+  raw_per_day = (gross_val / paid_days_num) if paid_days_num > 0 else 0.0
+  raw_full_month = raw_per_day * month_days
+  # Snap to clean hundred if pro-rata truncation is within Rs. 15 (e.g. 14666 / 8 * 30 = 54997.50 -> 55000.00)
+  if raw_full_month > 0 and abs(round(raw_full_month, -2) - raw_full_month) <= 15.0:
+    full_month_gross = float(round(raw_full_month, -2))
+  else:
+    full_month_gross = round(raw_full_month, 2)
+
+  per_day_rate = round(full_month_gross / month_days, 2) if month_days > 0 else round(raw_per_day, 2)
+  exact_slip_per_day = round(raw_per_day, 2)
+  lop_money_lost = round(lop_days_num * per_day_rate, 2)
+  unworked_prorata_days = max(0.0, round(month_days - paid_days_num - lop_days_num, 1))
+  prorata_unworked_amount = max(0.0, round(full_month_gross - gross_val - lop_money_lost, 2))
+  annual_ctc_est = round(full_month_gross * 12, 2)
+
+  # Enrich each earning component with its full-month 30-day equivalent
+  for e_item in earnings_list:
+    raw_comp_full = (e_item["amount"] / paid_days_num) * month_days if paid_days_num > 0 else e_item["amount"]
+    if raw_comp_full > 0 and abs(round(raw_comp_full, -2) - raw_comp_full) <= 10.0:
+      comp_full = float(round(raw_comp_full, -2))
+    else:
+      comp_full = round(raw_comp_full, 2)
+    e_item["full_month_amount"] = comp_full
+    e_item["full_month_str"] = f"₹{comp_full:,.2f}"
+
+  # Generate clean unlocked (password-free) PDF in RAM for 1-click browser download
+  unlocked_pdf_b64 = ""
+  try:
+    import io as _io
+    from pypdf import PdfWriter as _PdfWriter
+    _writer = _PdfWriter()
+    for _page in reader.pages:
+      _writer.add_page(_page)
+    _bio = _io.BytesIO()
+    _writer.write(_bio)
+    unlocked_pdf_b64 = base64.b64encode(_bio.getvalue()).decode("utf-8")
+  except Exception:
+    pass
+
+  safe_emp = emp_id if emp_id else "Emp"
+  unlocked_pdf_name = f"Payslip_{safe_emp}_{clean_month.replace(' ', '_')}_Unlocked.pdf"
+
   payslip_meta = {
       "is_payslip": True,
       "company_name": company_name,
@@ -852,14 +922,29 @@ def parse_payslip_statement(reader, file_path, saved_names):
       "pay_period": clean_month,
       "pay_date": pay_date,
       "paid_days": paid_days,
+      "paid_days_num": paid_days_num,
       "lop_days": lop_days,
+      "lop_days_num": lop_days_num,
+      "month_days": month_days,
+      "per_day_rate": per_day_rate,
+      "exact_slip_per_day": exact_slip_per_day,
+      "full_month_gross": full_month_gross,
+      "annual_ctc_est": annual_ctc_est,
+      "lop_money_lost": lop_money_lost,
+      "unworked_prorata_days": unworked_prorata_days,
+      "prorata_unworked_amount": prorata_unworked_amount,
       "bank_account_no": bank_ac,
+      "gross_val": gross_val,
+      "ded_val": ded_val,
+      "net_val": net_val,
       "gross_earnings": f"₹{gross_str}",
       "total_deductions": f"₹{ded_str}",
       "net_pay": f"₹{net_str}",
       "amount_in_words": words_str,
       "earnings_list": earnings_list,
       "deductions_list": deductions_list,
+      "unlocked_pdf_b64": unlocked_pdf_b64,
+      "unlocked_pdf_name": unlocked_pdf_name,
   }
 
   return {
@@ -1472,7 +1557,7 @@ def generate_modern_dashboard_html(results_list, output_dir=".", write_to_disk=T
     <div id="ongoing-emi-section" class="mb-8"></div>
 
     <!-- Search Bar & Category Filters -->
-    <div class="bg-white rounded-2xl border border-slate-200/80 p-4 shadow-sm mb-6 flex flex-col gap-3">
+    <div id="search-filter-card" class="bg-white rounded-2xl border border-slate-200/80 p-4 shadow-sm mb-6 flex flex-col gap-3">
       <div class="flex flex-col sm:flex-row justify-between items-center gap-4">
         <div class="relative w-full sm:w-96">
           <span class="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">🔍</span>
@@ -2777,7 +2862,25 @@ def generate_modern_dashboard_html(results_list, output_dir=".", write_to_disk=T
               </div>
               `}}
 
-              <!-- Tile 2: Activity Summary & Direct Actions -->
+              <!-- Tile 2: Activity Summary & Direct Actions (Or Unlocked Payslip PDF Download + Rate Info) -->
+              ${{isPayslip ? `
+              <div class="p-5 rounded-3xl apple-glass flex flex-col justify-between">
+                <div class="flex justify-between items-center">
+                  <span class="text-[11px] font-extrabold tracking-[0.06em] text-slate-400 uppercase">Full-Month Rate & PDF</span>
+                  <span class="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-indigo-100 text-indigo-800">₹${{(pm.per_day_rate || 1833.33).toLocaleString('en-IN')}}/day</span>
+                </div>
+                <div class="flex items-center gap-2 mt-3">
+                  <button onclick="downloadUnlockedPayslip()" class="flex-1 px-3 py-2 text-xs font-extrabold bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl shadow-sm transition flex items-center justify-center gap-1.5 active:scale-95 cursor-pointer" title="Download password-free unlocked payslip PDF">
+                    <span>🔓</span>
+                    <span>Download Unlocked PDF</span>
+                  </button>
+                  <button onclick="window.print()" class="px-3 py-2 text-xs font-bold bg-slate-900 hover:bg-slate-800 text-white rounded-xl shadow-xs transition flex items-center justify-center gap-1 active:scale-95 cursor-pointer">
+                    <span>🖨️</span>
+                    <span>Print</span>
+                  </button>
+                </div>
+              </div>
+              ` : `
               <div class="p-5 rounded-3xl apple-glass flex flex-col justify-between">
                 <div class="flex justify-between items-center">
                   <span class="text-[11px] font-extrabold tracking-[0.06em] text-slate-400 uppercase">Statement Activity</span>
@@ -2794,6 +2897,7 @@ def generate_modern_dashboard_html(results_list, output_dir=".", write_to_disk=T
                   </button>
                 </div>
               </div>
+              `}}
 
             </div>
           </div>
@@ -3133,10 +3237,461 @@ def generate_modern_dashboard_html(results_list, output_dir=".", write_to_disk=T
       return null;
     }}
 
+    window.payslipSimLeaveDays = 1;
+    window.payslipCashflowUseFullMonth = false;
+
+    window.downloadUnlockedPayslip = function() {{
+      const stmt = getActiveStatement();
+      const pm = (stmt && stmt.payslip_meta) ? stmt.payslip_meta : null;
+      if (!pm || !pm.unlocked_pdf_b64) {{
+        showVaultToast("PDF Ready via Print", "Use Print / Save to export this payslip.");
+        return;
+      }}
+      const link = document.createElement("a");
+      link.href = "data:application/pdf;base64," + pm.unlocked_pdf_b64;
+      link.download = pm.unlocked_pdf_name || "Unlocked_Payslip.pdf";
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      showVaultToast("Unlocked Payslip Downloaded!", `Saved ${{pm.unlocked_pdf_name}} (password-free)`);
+    }};
+
+    window.setSimLeaveDays = function(days) {{
+      const num = parseFloat(days);
+      window.payslipSimLeaveDays = isNaN(num) || num < 0 ? 0 : num;
+      const inp = document.getElementById('leave-sim-input');
+      if (inp && parseFloat(inp.value) !== window.payslipSimLeaveDays) {{
+        inp.value = window.payslipSimLeaveDays;
+      }}
+      updateLeaveSimulatorUI();
+    }};
+
+    window.toggleCashflowSalaryMode = function(useFull) {{
+      window.payslipCashflowUseFullMonth = !!useFull;
+      renderDateGroups();
+    }};
+
+    window.updateLeaveSimulatorUI = function() {{
+      const stmt = getActiveStatement();
+      const pm = (stmt && stmt.payslip_meta) ? stmt.payslip_meta : null;
+      if (!pm) return;
+      const days = window.payslipSimLeaveDays || 0;
+      const perDay = pm.per_day_rate || 1833.33;
+      const fullGross = pm.full_month_gross || 55000;
+      const slipNet = pm.net_val || 14666;
+      const lostAmt = days * perDay;
+      const fullAfterLeave = Math.max(0, fullGross - lostAmt);
+      const slipAfterLeave = Math.max(0, slipNet - lostAmt);
+
+      const elDays = document.getElementById('sim-out-days');
+      const elLost = document.getElementById('sim-out-lost');
+      const elFullLeft = document.getElementById('sim-out-full-left');
+      const elSlipLeft = document.getElementById('sim-out-slip-left');
+
+      if (elDays) elDays.innerText = `${{days}} Day${{days === 1 ? '' : 's'}} Leave (LOP)`;
+      if (elLost) elLost.innerText = `-₹${{lostAmt.toLocaleString('en-IN', {{minimumFractionDigits: 2, maximumFractionDigits: 2}})}}`;
+      if (elFullLeft) elFullLeft.innerText = `₹${{fullAfterLeave.toLocaleString('en-IN', {{minimumFractionDigits: 2, maximumFractionDigits: 2}})}}`;
+      if (elSlipLeft) elSlipLeft.innerText = `₹${{slipAfterLeave.toLocaleString('en-IN', {{minimumFractionDigits: 2, maximumFractionDigits: 2}})}}`;
+
+      [0.5, 1, 2, 3, 4, 5, 7].forEach(d => {{
+        const btn = document.getElementById('leave-pill-' + String(d).replace('.', '_'));
+        if (btn) {{
+          btn.className = (days === d)
+            ? 'px-3 py-1.5 rounded-xl text-xs font-extrabold bg-rose-600 text-white shadow-sm transition cursor-pointer'
+            : 'px-3 py-1.5 rounded-xl text-xs font-bold bg-white text-slate-700 border border-slate-200 hover:bg-rose-50 hover:border-rose-200 transition cursor-pointer';
+        }}
+      }});
+    }};
+
+    function renderPayslipWorkspace(stmt) {{
+      const container = document.getElementById('date-breakdown-container');
+      const pm = stmt.payslip_meta || {{}};
+      const perDay = pm.per_day_rate || 1833.33;
+      const fullGross = pm.full_month_gross || 55000.0;
+      const annualCtc = pm.annual_ctc_est || (fullGross * 12);
+      const paidDays = pm.paid_days_num || 8;
+      const lopDays = pm.lop_days_num || 0;
+      const monthDays = pm.month_days || 30;
+      const lopLost = pm.lop_money_lost || 0.0;
+      const unworkedDays = pm.unworked_prorata_days || 0;
+      const unworkedAmt = pm.prorata_unworked_amount || 0.0;
+
+      // 1. Build 2-Column Earnings & Deductions Rows
+      const earningsRows = (pm.earnings_list || []).map(e => `
+        <div class="px-5 py-3.5 flex justify-between items-center border-b border-slate-100 last:border-none hover:bg-emerald-50/30 transition">
+          <div>
+            <div class="font-bold text-slate-800 text-sm">${{e.name}}</div>
+            <div class="text-[11px] text-slate-500 mt-0.5 flex items-center gap-2 flex-wrap">
+              <span>Full 30-Day Rate: <b class="text-slate-700">${{e.full_month_str || e.amount_str}}/mo</b></span>
+              ${{e.ytd ? `<span class="px-2 py-0.5 rounded bg-emerald-100 text-emerald-800 font-bold text-[10px]">YTD: ${{e.ytd}}</span>` : ''}}
+            </div>
+          </div>
+          <div class="text-right">
+            <div class="font-extrabold text-emerald-700 text-base">+${{e.amount_str}}</div>
+            <div class="text-[10px] font-bold uppercase text-emerald-600">Credited (${{paidDays}}d)</div>
+          </div>
+        </div>
+      `).join('');
+
+      const deductionsRows = (pm.deductions_list && pm.deductions_list.length > 0)
+        ? pm.deductions_list.map(d => `
+          <div class="px-5 py-3.5 flex justify-between items-center border-b border-slate-100 last:border-none hover:bg-rose-50/30 transition">
+            <div>
+              <div class="font-bold text-slate-800 text-sm">${{d.name}}</div>
+              ${{d.ytd ? `<div class="text-[10px] text-rose-700 font-bold mt-0.5">YTD: ${{d.ytd}}</div>` : ''}}
+            </div>
+            <div class="text-right">
+              <div class="font-extrabold text-rose-600 text-base">-${{d.amount_str}}</div>
+              <div class="text-[10px] font-bold uppercase text-rose-500">Deducted</div>
+            </div>
+          </div>
+        `).join('')
+        : `
+          <div class="p-6 text-center flex flex-col items-center justify-center gap-1.5">
+            <span class="w-10 h-10 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center text-lg font-bold">✅</span>
+            <div class="text-sm font-bold text-slate-800">Zero Deductions This Month (₹0.00)</div>
+            <div class="text-xs text-slate-500 max-w-xs">No LOP leave deductions, Professional Tax, or TDS withheld on this payslip.</div>
+          </div>
+        `;
+
+      // 2. Calculate Salary vs Credit Card Bills Cashflow Bridge across loaded session statements
+      const creditCardStmts = statements.filter(s => !(s.payslip_meta && s.payslip_meta.is_payslip));
+      let totalCardBills = 0;
+      let totalFriendEmis = 0;
+      const cardBreakdownPills = [];
+
+      creditCardStmts.forEach(cs => {{
+        const cDue = parseFloat(String(cs.total_due || '0').replace(/[^0-9.]/g, '')) || 0;
+        totalCardBills += cDue;
+        cardBreakdownPills.push(`<span class="px-2.5 py-1 rounded-lg bg-slate-100 text-slate-800 font-bold text-xs border border-slate-200">${{cs.bank_short}}: ₹${{cDue.toLocaleString('en-IN', {{minimumFractionDigits: 2}})}}</span>`);
+
+        Object.values(cs.date_groups || {{}}).forEach(grp => {{
+          if (grp.has_emi) {{
+            totalFriendEmis += (grp.total || 0);
+          }}
+        }});
+      }});
+
+      const myPersonalCardSpend = Math.max(0, totalCardBills - totalFriendEmis);
+      const activeSalaryBasis = window.payslipCashflowUseFullMonth ? fullGross : (pm.net_val || 14666);
+      const netBankSavingsAfterPersonal = activeSalaryBasis - myPersonalCardSpend;
+      const netBankSavingsAfterAllBills = activeSalaryBasis - totalCardBills;
+
+      // 3. Collect all loaded payslips for Multi-Month Salary & YTD Tracker
+      const allPayslips = statements.filter(s => s.payslip_meta && s.payslip_meta.is_payslip);
+      let cumulativeGross = 0;
+      let cumulativeNet = 0;
+      let cumulativeLopLost = 0;
+      const multiMonthRows = allPayslips.map(ps => {{
+        const m = ps.payslip_meta || {{}};
+        cumulativeGross += (m.gross_val || 0);
+        cumulativeNet += (m.net_val || 0);
+        cumulativeLopLost += (m.lop_money_lost || 0);
+        return `
+          <tr class="border-b border-slate-100 hover:bg-slate-50/80 text-xs">
+            <td class="py-3 px-4 font-extrabold text-slate-900">${{m.pay_period || ps.statement_month}}</td>
+            <td class="py-3 px-4 font-mono text-slate-600">${{m.pay_date || 'N/A'}}</td>
+            <td class="py-3 px-4 font-bold text-emerald-700">${{m.paid_days || '0'}} / ${{m.month_days || 30}} Days</td>
+            <td class="py-3 px-4 font-bold ${{(m.lop_days_num || 0) > 0 ? 'text-rose-600' : 'text-slate-500'}}">
+              ${{m.lop_days || '0'}} Days ${{(m.lop_money_lost || 0) > 0 ? `(-₹${{m.lop_money_lost.toLocaleString('en-IN')}})` : '(₹0 lost)'}}
+            </td>
+            <td class="py-3 px-4 font-bold text-slate-800">${{m.gross_earnings || '₹0.00'}}</td>
+            <td class="py-3 px-4 font-bold text-rose-600">${{m.total_deductions || '₹0.00'}}</td>
+            <td class="py-3 px-4 font-black text-emerald-700 text-sm">${{m.net_pay || ps.total_due}}</td>
+          </tr>
+        `;
+      }}).join('');
+
+      container.innerHTML = `
+        <div class="space-y-7">
+
+          <!-- MODULE 1: DEDICATED 2-COLUMN OFFICIAL PAYROLL LEDGER (NO CREDIT CARD FILTERS) -->
+          <div class="bg-white rounded-3xl border border-emerald-200/90 shadow-sm overflow-hidden">
+            <div class="p-6 bg-gradient-to-r from-emerald-50/90 via-teal-50/60 to-slate-50 border-b border-emerald-200/80 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+              <div class="flex items-center gap-3.5">
+                <div class="w-12 h-12 rounded-2xl bg-emerald-600 text-white flex items-center justify-center font-black text-xl shadow-md shadow-emerald-600/25">💼</div>
+                <div>
+                  <div class="flex items-center gap-2 flex-wrap">
+                    <h2 class="text-lg font-extrabold text-slate-900">Official Salary & Payroll Breakdown</h2>
+                    <span class="px-2.5 py-0.5 rounded-full text-[11px] font-extrabold bg-emerald-600 text-white uppercase tracking-wider">${{pm.pay_period || stmt.statement_month}}</span>
+                  </div>
+                  <p class="text-xs text-slate-600 mt-0.5">${{pm.company_name}} • Employee ID #${{pm.employee_id || '115'}} • Bank A/C: <b>${{pm.bank_account_no || 'N/A'}}</b></p>
+                </div>
+              </div>
+              <div class="flex items-center gap-2.5 flex-wrap no-print">
+                <button onclick="downloadUnlockedPayslip()" class="px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold text-xs shadow-md shadow-emerald-600/25 transition flex items-center gap-1.5 cursor-pointer active:scale-95">
+                  <span>🔓</span>
+                  <span>Download Unlocked Payslip PDF</span>
+                </button>
+              </div>
+            </div>
+
+            <div class="grid grid-cols-1 lg:grid-cols-2 divide-y lg:divide-y-0 lg:divide-x divide-slate-200">
+              <!-- Left Column: Earnings -->
+              <div>
+                <div class="px-5 py-3 bg-slate-50/90 border-b border-slate-200 flex justify-between items-center text-[11px] font-extrabold uppercase tracking-wider text-slate-500">
+                  <span>🟢 Salary Earnings & YTD</span>
+                  <span>Amount (${{paidDays}} Paid Days)</span>
+                </div>
+                <div>${{earningsRows}}</div>
+                <div class="px-5 py-3.5 bg-emerald-50/60 border-t border-emerald-200/70 flex justify-between items-center">
+                  <span class="text-xs font-extrabold uppercase tracking-wider text-emerald-900">Gross Earnings</span>
+                  <span class="text-base font-black text-emerald-800">${{pm.gross_earnings || stmt.total_due}}</span>
+                </div>
+              </div>
+
+              <!-- Right Column: Deductions -->
+              <div class="flex flex-col justify-between">
+                <div>
+                  <div class="px-5 py-3 bg-slate-50/90 border-b border-slate-200 flex justify-between items-center text-[11px] font-extrabold uppercase tracking-wider text-slate-500">
+                    <span>🔴 Taxes, PF & Leave Deductions</span>
+                    <span>Amount</span>
+                  </div>
+                  <div>${{deductionsRows}}</div>
+                </div>
+                <div class="px-5 py-3.5 bg-rose-50/60 border-t border-rose-200/70 flex justify-between items-center">
+                  <span class="text-xs font-extrabold uppercase tracking-wider text-rose-900">Total Deductions</span>
+                  <span class="text-base font-black text-rose-700">${{pm.total_deductions || '₹0.00'}}</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Net Payable Footer Bar -->
+            <div class="px-6 py-4 bg-slate-900 text-white flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+              <div>
+                <div class="text-[11px] font-extrabold uppercase tracking-wider text-emerald-400">Total Net Payable (Gross Earnings − Total Deductions)</div>
+                <div class="text-xs text-slate-300 mt-0.5">${{pm.amount_in_words ? ('Amount in Words: ' + pm.amount_in_words) : 'Credited directly to bank account'}}</div>
+              </div>
+              <div class="px-4 py-2 rounded-xl bg-emerald-600 text-white font-black text-xl tracking-tight shadow-md">
+                ${{pm.net_pay || stmt.total_due}}
+              </div>
+            </div>
+          </div>
+
+          <!-- MODULE 2: PRO-RATA TO FULL-MONTH ENGINE & LEAVE / LOP SALARY LOSS CALCULATOR -->
+          <div class="bg-white rounded-3xl border border-indigo-200/90 shadow-sm p-6">
+            <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 pb-4 border-b border-slate-100">
+              <div class="flex items-center gap-3">
+                <span class="w-11 h-11 rounded-2xl bg-indigo-600 text-white flex items-center justify-center font-black text-xl shadow-sm">🧮</span>
+                <div>
+                  <h2 class="text-base font-extrabold text-slate-900">Pro-Rata to Full-Month Salary & Leave (LOP) Loss Engine</h2>
+                  <p class="text-xs text-slate-500">Calculates your true 30-day monthly salary from your ${{paidDays}} paid days (joined ${{pm.date_of_joining || '23/09/2026'}}) and exact rupee loss per leave day.</p>
+                </div>
+              </div>
+              <span class="px-3 py-1 rounded-full text-xs font-extrabold bg-indigo-50 text-indigo-800 border border-indigo-200">
+                1 Day Leave Cost = -₹${{perDay.toLocaleString('en-IN', {{minimumFractionDigits: 2, maximumFractionDigits: 2}})}}
+              </span>
+            </div>
+
+            <!-- Top 4 Rate & Leave Metrics -->
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mt-5">
+              <div class="p-4 rounded-2xl bg-indigo-50/70 border border-indigo-200/80">
+                <div class="text-[10px] font-extrabold uppercase tracking-wider text-indigo-600">Exact Per-Day Salary Rate</div>
+                <div class="text-2xl font-black text-indigo-950 mt-1">₹${{perDay.toLocaleString('en-IN', {{minimumFractionDigits: 2, maximumFractionDigits: 2}})}}<span class="text-xs font-bold text-indigo-600">/day</span></div>
+                <div class="text-[11px] text-slate-500 mt-1">Slip 8-day avg: ₹${{(pm.exact_slip_per_day || perDay).toLocaleString('en-IN')}}/day</div>
+              </div>
+
+              <div class="p-4 rounded-2xl bg-emerald-50/70 border border-emerald-200/80">
+                <div class="text-[10px] font-extrabold uppercase tracking-wider text-emerald-700">Full ${{monthDays}}-Day Monthly Salary</div>
+                <div class="text-2xl font-black text-emerald-950 mt-1">₹${{fullGross.toLocaleString('en-IN', {{minimumFractionDigits: 2, maximumFractionDigits: 2}})}}<span class="text-xs font-bold text-emerald-700">/mo</span></div>
+                <div class="text-[11px] text-emerald-700 font-semibold mt-1">Annualized: ₹${{annualCtc.toLocaleString('en-IN')}}/yr</div>
+              </div>
+
+              <div class="p-4 rounded-2xl ${{lopDays > 0 ? 'bg-rose-50 border-rose-300' : 'bg-slate-50 border-slate-200/90'}} border">
+                <div class="text-[10px] font-extrabold uppercase tracking-wider ${{lopDays > 0 ? 'text-rose-600' : 'text-slate-500'}}">Leave (LOP) on This Payslip</div>
+                <div class="text-2xl font-black ${{lopDays > 0 ? 'text-rose-700' : 'text-slate-900'}} mt-1">${{lopDays}} Day${{lopDays === 1 ? '' : 's'}} Leave</div>
+                <div class="text-[11px] font-bold ${{lopDays > 0 ? 'text-rose-600' : 'text-emerald-600'}} mt-1">
+                  ${{lopDays > 0 ? `Money Lost: -₹${{lopLost.toLocaleString('en-IN', {{minimumFractionDigits: 2}})}}` : '✅ ₹0.00 Lost to Leave This Month'}}
+                </div>
+              </div>
+
+              <div class="p-4 rounded-2xl bg-amber-50/70 border border-amber-200/80">
+                <div class="text-[10px] font-extrabold uppercase tracking-wider text-amber-800">Mid-Month Joining Adjustment</div>
+                <div class="text-2xl font-black text-amber-950 mt-1">${{unworkedDays}} Unworked Days</div>
+                <div class="text-[11px] text-amber-800 font-semibold mt-1">
+                  ${{unworkedDays > 0 ? `Pre-joining difference: -₹${{unworkedAmt.toLocaleString('en-IN', {{minimumFractionDigits: 2}})}}` : 'Full month worked (0 unworked days)'}}
+                </div>
+              </div>
+            </div>
+
+            <!-- Interactive Leave (LOP) Simulator -->
+            <div class="mt-5 p-5 rounded-2xl bg-gradient-to-r from-rose-50/80 via-orange-50/50 to-amber-50/60 border border-rose-200/80">
+              <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 mb-4">
+                <div>
+                  <div class="text-xs font-extrabold uppercase tracking-wider text-rose-900 flex items-center gap-1.5">
+                    <span>📉</span>
+                    <span>Interactive Leave (LOP) Deduction Calculator — How Much You Lose on Leave</span>
+                  </div>
+                  <div class="text-[11px] text-slate-600 mt-0.5">Select or type any number of unpaid leave days (LOP) to see how much money is deducted and your revised take-home pay:</div>
+                </div>
+                <div class="flex items-center gap-1.5 flex-wrap">
+                  ${{[0.5, 1, 2, 3, 4, 5, 7].map(d => `
+                    <button id="leave-pill-${{String(d).replace('.', '_')}}" onclick="setSimLeaveDays(${{d}})" class="px-3 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer ${{window.payslipSimLeaveDays === d ? 'bg-rose-600 text-white shadow-sm font-extrabold' : 'bg-white text-slate-700 border border-slate-200 hover:bg-rose-50'}}">
+                      ${{d}}d
+                    </button>
+                  `).join('')}}
+                  <input type="number" id="leave-sim-input" min="0" max="30" step="0.5" value="${{window.payslipSimLeaveDays}}" oninput="setSimLeaveDays(this.value)" class="w-20 px-2.5 py-1.5 text-xs font-extrabold bg-white border border-rose-300 rounded-xl text-center text-slate-900 focus:outline-none focus:ring-2 focus:ring-rose-500" title="Custom leave days">
+                </div>
+              </div>
+
+              <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div class="p-3.5 rounded-xl bg-white border border-rose-200 shadow-2xs flex justify-between items-center">
+                  <div>
+                    <div class="text-[10px] font-extrabold uppercase text-slate-400">Selected Leave Days</div>
+                    <div id="sim-out-days" class="text-base font-black text-slate-900 mt-0.5">1 Day Leave (LOP)</div>
+                  </div>
+                  <div class="text-right">
+                    <div class="text-[10px] font-extrabold uppercase text-rose-600">Salary You Lose</div>
+                    <div id="sim-out-lost" class="text-lg font-black text-rose-600 mt-0.5">-₹${{perDay.toLocaleString('en-IN', {{minimumFractionDigits: 2, maximumFractionDigits: 2}})}}</div>
+                  </div>
+                </div>
+
+                <div class="p-3.5 rounded-xl bg-white border border-emerald-200 shadow-2xs flex justify-between items-center">
+                  <div>
+                    <div class="text-[10px] font-extrabold uppercase text-slate-400">Full Month (₹${{fullGross.toLocaleString('en-IN')}}) After Leave</div>
+                    <div id="sim-out-full-left" class="text-lg font-black text-emerald-700 mt-0.5">₹${{(fullGross - perDay).toLocaleString('en-IN', {{minimumFractionDigits: 2, maximumFractionDigits: 2}})}}</div>
+                  </div>
+                  <span class="text-xs font-bold text-emerald-600 bg-emerald-50 px-2 py-1 rounded-lg">Take-Home</span>
+                </div>
+
+                <div class="p-3.5 rounded-xl bg-white border border-indigo-200 shadow-2xs flex justify-between items-center">
+                  <div>
+                    <div class="text-[10px] font-extrabold uppercase text-slate-400">This Slip (₹${{(pm.net_val || 14666).toLocaleString('en-IN')}}) After Leave</div>
+                    <div id="sim-out-slip-left" class="text-lg font-black text-indigo-900 mt-0.5">₹${{Math.max(0, (pm.net_val || 14666) - perDay).toLocaleString('en-IN', {{minimumFractionDigits: 2, maximumFractionDigits: 2}})}}</div>
+                  </div>
+                  <span class="text-xs font-bold text-indigo-600 bg-indigo-50 px-2 py-1 rounded-lg">Pro-Rata</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- MODULE 3: SALARY VS. CREDIT CARD BILL CASHFLOW BRIDGE -->
+          <div class="bg-white rounded-3xl border border-blue-200/90 shadow-sm p-6">
+            <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 pb-4 border-b border-slate-100">
+              <div class="flex items-center gap-3">
+                <span class="w-11 h-11 rounded-2xl bg-blue-600 text-white flex items-center justify-center font-black text-xl shadow-sm">🌉</span>
+                <div>
+                  <h2 class="text-base font-extrabold text-slate-900">Salary vs. Credit Card Bill Cashflow Bridge</h2>
+                  <p class="text-xs text-slate-500">Compares your take-home salary in A/C <b>${{pm.bank_account_no || '50535110173'}}</b> against your loaded credit card bills (separating friend EMIs from your own spend).</p>
+                </div>
+              </div>
+              <div class="flex items-center gap-1.5 bg-slate-100 p-1 rounded-xl no-print">
+                <button onclick="toggleCashflowSalaryMode(false)" class="px-3 py-1.5 rounded-lg text-xs font-extrabold transition cursor-pointer ${{!window.payslipCashflowUseFullMonth ? 'bg-white text-slate-900 shadow-xs' : 'text-slate-600 hover:text-slate-900'}}">
+                  This Slip (₹${{(pm.net_val || 14666).toLocaleString('en-IN')}})
+                </button>
+                <button onclick="toggleCashflowSalaryMode(true)" class="px-3 py-1.5 rounded-lg text-xs font-extrabold transition cursor-pointer ${{window.payslipCashflowUseFullMonth ? 'bg-white text-slate-900 shadow-xs' : 'text-slate-600 hover:text-slate-900'}}">
+                  Full 30-Day Salary (₹${{fullGross.toLocaleString('en-IN')}})
+                </button>
+              </div>
+            </div>
+
+            ${{creditCardStmts.length === 0 ? `
+              <div class="mt-4 p-5 rounded-2xl bg-slate-50 border border-dashed border-slate-300 text-center">
+                <div class="text-sm font-bold text-slate-800">Upload Your Credit Card Statements Alongside This Payslip!</div>
+                <div class="text-xs text-slate-500 mt-1">When you upload your HDFC, ICICI, SBI, or Scapia PDFs in the same session, this bridge automatically calculates your net bank savings left after paying your card bills.</div>
+              </div>
+            ` : `
+              <div class="flex flex-wrap gap-2 mt-4">
+                <span class="text-xs font-bold text-slate-500 self-center mr-1">Loaded Card Bills:</span>
+                ${{cardBreakdownPills.join('')}}
+              </div>
+            `}}
+
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mt-4">
+              <div class="p-4 rounded-2xl bg-emerald-50/70 border border-emerald-200">
+                <div class="text-[10px] font-extrabold uppercase text-emerald-700">1. Salary Basis Credited</div>
+                <div class="text-2xl font-black text-emerald-900 mt-1">+₹${{activeSalaryBasis.toLocaleString('en-IN', {{minimumFractionDigits: 2, maximumFractionDigits: 2}})}}</div>
+                <div class="text-[11px] text-emerald-700 mt-1">${{window.payslipCashflowUseFullMonth ? 'Full 30-Day Monthly Rate' : (paidDays + ' Paid Days Credited')}}</div>
+              </div>
+
+              <div class="p-4 rounded-2xl bg-rose-50/70 border border-rose-200">
+                <div class="text-[10px] font-extrabold uppercase text-rose-700">2. Total Card Bills Due</div>
+                <div class="text-2xl font-black text-rose-900 mt-1">-₹${{totalCardBills.toLocaleString('en-IN', {{minimumFractionDigits: 2, maximumFractionDigits: 2}})}}</div>
+                <div class="text-[11px] text-rose-700 mt-1">Across ${{creditCardStmts.length}} loaded credit card(s)</div>
+              </div>
+
+              <div class="p-4 rounded-2xl bg-purple-50/70 border border-purple-200">
+                <div class="text-[10px] font-extrabold uppercase text-purple-700">3. Friend EMI Reimbursements</div>
+                <div class="text-2xl font-black text-purple-900 mt-1">+₹${{totalFriendEmis.toLocaleString('en-IN', {{minimumFractionDigits: 2, maximumFractionDigits: 2}})}}</div>
+                <div class="text-[11px] text-purple-700 mt-1">Your Own Card Spend: <b>₹${{myPersonalCardSpend.toLocaleString('en-IN', {{minimumFractionDigits: 2}})}}</b></div>
+              </div>
+
+              <div class="p-4 rounded-2xl ${{netBankSavingsAfterPersonal >= 0 ? 'bg-blue-50/80 border-blue-300' : 'bg-amber-50 border-amber-300'}} border">
+                <div class="text-[10px] font-extrabold uppercase ${{netBankSavingsAfterPersonal >= 0 ? 'text-blue-700' : 'text-amber-800'}}">4. Net Bank Balance Left</div>
+                <div class="text-2xl font-black ${{netBankSavingsAfterPersonal >= 0 ? 'text-blue-950' : 'text-amber-900'}} mt-1">
+                  ${{netBankSavingsAfterPersonal >= 0 ? '+' : '-'}}₹${{Math.abs(netBankSavingsAfterPersonal).toLocaleString('en-IN', {{minimumFractionDigits: 2, maximumFractionDigits: 2}})}}
+                </div>
+                <div class="text-[11px] font-semibold ${{netBankSavingsAfterPersonal >= 0 ? 'text-blue-700' : 'text-amber-800'}} mt-1">
+                  After your personal spend (Before friend payback: ${{netBankSavingsAfterAllBills >= 0 ? '+' : '-'}}₹${{Math.abs(netBankSavingsAfterAllBills).toLocaleString('en-IN', {{minimumFractionDigits: 2}})}})
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- MODULE 4: MULTI-MONTH SALARY & YTD TAX TRACKER -->
+          <div class="bg-white rounded-3xl border border-slate-200/90 shadow-sm p-6 overflow-hidden">
+            <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 pb-4 border-b border-slate-100">
+              <div class="flex items-center gap-3">
+                <span class="w-11 h-11 rounded-2xl bg-slate-900 text-white flex items-center justify-center font-black text-xl shadow-sm">📈</span>
+                <div>
+                  <h2 class="text-base font-extrabold text-slate-900">Multi-Month Salary & FY 2026–27 YTD Tax Tracker</h2>
+                  <p class="text-xs text-slate-500">Tracks all uploaded monthly payslips, cumulative YTD earnings, leave losses, and New Tax Regime TDS status.</p>
+                </div>
+              </div>
+              <span class="px-3 py-1 rounded-full text-xs font-extrabold bg-emerald-100 text-emerald-800 border border-emerald-200">
+                ✅ Zero-Tax Rebate Eligible (Annual ₹${{(annualCtc / 100000).toFixed(2)}}L &lt; ₹12.75L Limit)
+              </span>
+            </div>
+
+            <div class="overflow-x-auto mt-4">
+              <table class="w-full text-left border-collapse">
+                <thead>
+                  <tr class="border-b border-slate-200 text-[10px] font-extrabold uppercase tracking-wider text-slate-400 bg-slate-50/70">
+                    <th class="py-2.5 px-4">Pay Period</th>
+                    <th class="py-2.5 px-4">Pay Date</th>
+                    <th class="py-2.5 px-4">Paid Days</th>
+                    <th class="py-2.5 px-4">Leave (LOP) & Loss</th>
+                    <th class="py-2.5 px-4">Gross Earnings</th>
+                    <th class="py-2.5 px-4">Deductions</th>
+                    <th class="py-2.5 px-4">Net Take-Home</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${{multiMonthRows}}
+                </tbody>
+                <tfoot>
+                  <tr class="bg-slate-900 text-white text-xs font-extrabold">
+                    <td class="py-3 px-4 rounded-bl-xl" colspan="3">Session Cumulative Total (${{allPayslips.length}} Payslip${{allPayslips.length === 1 ? '' : 's'}})</td>
+                    <td class="py-3 px-4 text-rose-300">Total Leave Loss: ₹${{cumulativeLopLost.toLocaleString('en-IN', {{minimumFractionDigits: 2}})}}</td>
+                    <td class="py-3 px-4 text-emerald-300">₹${{cumulativeGross.toLocaleString('en-IN', {{minimumFractionDigits: 2}})}}</td>
+                    <td class="py-3 px-4">₹0.00</td>
+                    <td class="py-3 px-4 rounded-br-xl text-emerald-400 text-sm">₹${{cumulativeNet.toLocaleString('en-IN', {{minimumFractionDigits: 2}})}}</td>
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
+          </div>
+
+        </div>
+      `;
+
+      updateLeaveSimulatorUI();
+    }}
+
     function renderDateGroups(filterText = '') {{
       const stmt = getActiveStatement();
       const container = document.getElementById('date-breakdown-container');
       container.innerHTML = '';
+
+      const isPayslip = (stmt.payslip_meta && stmt.payslip_meta.is_payslip);
+      const searchFilterCard = document.getElementById('search-filter-card');
+      if (searchFilterCard) {{
+        searchFilterCard.style.display = isPayslip ? 'none' : 'flex';
+      }}
+      if (isPayslip) {{
+        renderPayslipWorkspace(stmt);
+        return;
+      }}
 
       let matchedTxnCount = 0;
 
