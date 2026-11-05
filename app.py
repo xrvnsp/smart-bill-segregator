@@ -179,6 +179,47 @@ if "emi_nicknames" not in st.session_state:
     st.session_state.emi_nicknames = {}
 if "emi_phones" not in st.session_state:
     st.session_state.emi_phones = {}
+if "show_shafana_tracker" not in st.session_state:
+    st.session_state.show_shafana_tracker = False
+
+@st.cache_resource
+def get_shared_shafana_store():
+    """Cross-session shared in-memory & disk store ONLY for Shafana's non-sensitive cashback ledger."""
+    return unlock_statements.load_shafana_web_ledger()
+
+def update_shared_shafana_store(new_ledger, gh_token=""):
+    """Updates the shared server store, writes shafana_cashback.json, and optionally pushes to GitHub."""
+    store = get_shared_shafana_store()
+    store.clear()
+    store.update(new_ledger)
+    unlock_statements.save_shafana_web_ledger(store)
+    token = (gh_token or os.environ.get("GITHUB_TOKEN", "")).strip()
+    if token:
+        try:
+            import urllib.request
+            api_url = "https://api.github.com/repos/xrvnsp/smart-bill-segregator/contents/shafana_cashback.json"
+            req_get = urllib.request.Request(api_url, headers={"Authorization": f"Bearer {token}", "Accept": "application/vnd.github+json", "User-Agent": "SmartBillSegregator"})
+            sha = None
+            try:
+                with urllib.request.urlopen(req_get, timeout=4) as resp:
+                    meta = json.loads(resp.read().decode("utf-8"))
+                    sha = meta.get("sha")
+            except Exception:
+                pass
+            content_b64 = base64.b64encode(json.dumps(store, indent=2, ensure_ascii=False).encode("utf-8")).decode("utf-8")
+            body = {"message": "Sync Shafana cashback ledger across web", "content": content_b64, "branch": "main"}
+            if sha:
+                body["sha"] = sha
+            req_put = urllib.request.Request(
+                api_url,
+                data=json.dumps(body).encode("utf-8"),
+                method="PUT",
+                headers={"Authorization": f"Bearer {token}", "Accept": "application/vnd.github+json", "Content-Type": "application/json", "User-Agent": "SmartBillSegregator"}
+            )
+            urllib.request.urlopen(req_put, timeout=5)
+        except Exception:
+            pass
+    return store
 
 def forget_browser_passwords():
     st.session_state.session_passwords = {"scapia": "", "icici": "", "hdfc": "", "sbi": "", "payslip": "", "sheets_webhook_url": ""}
@@ -453,6 +494,73 @@ with st.sidebar:
                 }
                 st.rerun()
 
+    shared_sf = get_shared_shafana_store()
+    sf_entries = shared_sf.get("entries", [])
+    sf_open_cb = float(shared_sf.get("openingCb", 0.0) or 0.0)
+    sf_bill_due = sum(float(e.get("amount", 0.0)) for e in sf_entries if e.get("role") == "shafana_order")
+    sf_cb_earned = sum(float(e.get("cashback_earned", 0.0)) for e in sf_entries if e.get("role") == "shafana_order")
+    sf_cb_used = sum(float(e.get("amount", 0.0)) for e in sf_entries if e.get("role") == "shafana_redeem")
+    sf_net_kitty = sf_open_cb + sf_cb_earned - sf_cb_used
+
+    with st.expander("🎁 Shafana Cashback (Web Synced)", expanded=True):
+        st.caption("🌐 Synced across the web (`shafana_cashback.json`). Only Shafana's cashback is stored online; bank passwords stay 100% private.")
+        st.markdown(f"""
+        <div style="background: linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%); border: 1.5px solid #f59e0b; border-radius: 12px; padding: 10px 12px; margin-bottom: 10px;">
+            <div style="font-size: 11px; font-weight: 800; color: #92400e; text-transform: uppercase;">👩‍💼 Shafana (Raja Mohamed • Karaikal)</div>
+            <div style="font-size: 13px; font-weight: 900; color: #0f172a; margin-top: 3px;">Full Bill to Collect: ₹{sf_bill_due:,.2f}</div>
+            <div style="font-size: 11.5px; font-weight: 700; color: #047857; margin-top: 2px;">Earned: +₹{sf_cb_earned:,.2f} • Used: -₹{sf_cb_used:,.2f}</div>
+            <div style="font-size: 12px; font-weight: 900; color: #4338ca; margin-top: 3px;">👉 Net Cashback Kitty: {'+' if sf_net_kitty >= 0 else '-'}₹{abs(sf_net_kitty):,.2f}</div>
+        </div>
+        """, unsafe_allow_html=True)
+
+        btn_label_side = "✖️ Close Shafana Cashback Tracker" if st.session_state.show_shafana_tracker else "🎁 Open Shafana Cashback Tracker"
+        if st.button(btn_label_side, use_container_width=True, type="primary", key="side_toggle_shafana"):
+            st.session_state.show_shafana_tracker = not st.session_state.show_shafana_tracker
+            st.rerun()
+
+        new_open_cb = st.number_input(
+            "Opening Cashback Balance (₹)",
+            value=float(sf_open_cb),
+            step=10.0,
+            key="side_sf_open_cb"
+        )
+        if st.button("💾 Save Opening Cashback", use_container_width=True, key="side_save_open_cb"):
+            shared_sf["openingCb"] = float(new_open_cb)
+            update_shared_shafana_store(shared_sf)
+            st.session_state.show_shafana_tracker = True
+            st.rerun()
+
+        st.markdown("<div style='font-size:11px;font-weight:800;color:#475569;margin-top:6px;'>➕ Quick Add Order / CB Used:</div>", unsafe_allow_html=True)
+        q_sf_desc = st.text_input("Order / Item Description", placeholder="e.g. Paid on Amazon (Raja Mohamed)", key="side_sf_desc")
+        q_sf_amt = st.number_input("Amount (₹)", min_value=0.0, step=10.0, key="side_sf_amt")
+        q_sf_role = st.selectbox(
+            "Entry Type",
+            ["shafana_order", "shafana_redeem"],
+            format_func=lambda x: "👩‍💼 Shafana Card Order (+5% CB)" if x == "shafana_order" else "➖ Cashback Used (Amazon Pay Bal)",
+            key="side_sf_role"
+        )
+        if st.button("➕ Add to Shafana Web Ledger", use_container_width=True, key="side_add_sf_entry"):
+            if q_sf_amt > 0:
+                import math as _math
+                ist_now = datetime.now(tz=timezone(timedelta(hours=5, minutes=30))).strftime("%d %b %Y, %I:%M %p")
+                cb_calc = float(_math.floor(q_sf_amt * 0.05)) if q_sf_role == "shafana_order" else 0.0
+                shared_sf.setdefault("entries", []).insert(0, {
+                    "id": f"web_{int(time.time())}_{q_sf_amt:.2f}",
+                    "method": "Amazon Pay Credit Card" if q_sf_role == "shafana_order" else "Amazon Pay Balance",
+                    "description": q_sf_desc.strip() or ("Paid on Amazon — Delivering to Raja mohamed" if q_sf_role == "shafana_order" else "Paid on Amazon"),
+                    "amount": float(q_sf_amt),
+                    "cashback_earned": cb_calc,
+                    "date_time": ist_now,
+                    "role": q_sf_role,
+                    "recipient": "Raja mohamed",
+                    "address": "Raja mohamed, 8 puduthurai main road, Karaikal, PUDUCHERRY, 609602, India" if q_sf_role == "shafana_order" else "",
+                    "arriving_by": "",
+                    "source_file": "Web Synced Entry"
+                })
+                update_shared_shafana_store(shared_sf)
+                st.session_state.show_shafana_tracker = True
+                st.rerun()
+
     st.link_button(
         "📋 Copy Google Sheet Template",
         unlock_statements.GOOGLE_SHEET_TEMPLATE_URL,
@@ -530,6 +638,27 @@ with st.container():
             </div>
             """, unsafe_allow_html=True)
 
+        # Permanent Shafana Web-Synced Cashback Card & 1-Tap Button
+        st.markdown(f"""
+        <div style="background: linear-gradient(135deg, rgba(255, 251, 235, 0.98) 0%, rgba(254, 243, 199, 0.95) 100%); border: 1.5px solid #f59e0b; border-radius: 14px; padding: 10px 14px; margin-bottom: 6px; box-shadow: 0 2px 8px rgba(245, 158, 11, 0.12);">
+            <div style="font-size: 12px; font-weight: 800; color: #92400e; display: flex; align-items: center; justify-content: space-between; gap: 6px;">
+                <span>🎁 Shafana's Cashback Kitty</span>
+                <span style="background: #f59e0b; color: #ffffff; font-size: 9.5px; padding: 1px 6px; border-radius: 999px; text-transform: uppercase;">Web Synced</span>
+            </div>
+            <div style="font-size: 11.5px; color: #0f172a; margin-top: 4px; font-weight: 800;">
+                Bill to Collect: ₹{sf_bill_due:,.2f} • Net CB: {'+' if sf_net_kitty >= 0 else '-'}₹{abs(sf_net_kitty):,.2f}
+            </div>
+            <div style="font-size: 10.5px; color: #047857; margin-top: 1px; font-weight: 700;">
+                Earned: +₹{sf_cb_earned:,.2f} (5%) • Used: -₹{sf_cb_used:,.2f} (APay Bal)
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+
+        main_sf_btn_label = "✖️ Close Shafana Cashback Tracker" if st.session_state.show_shafana_tracker else "🎁 Open Shafana Cashback Tracker"
+        if st.button(main_sf_btn_label, use_container_width=True, type="primary" if not st.session_state.show_shafana_tracker else "secondary", key="main_btn_open_shafana"):
+            st.session_state.show_shafana_tracker = not st.session_state.show_shafana_tracker
+            st.rerun()
+
         # In-Page Quick Password Manager (Native Streamlit Expander)
         with st.expander("🔑 Quick Device Passwords", expanded=False):
             st.caption("🔒 Stored in your client browser on this device. Never saved on any server.")
@@ -606,6 +735,7 @@ if uploaded_files:
         img_payload = [{"name": f.name, "bytes": f.getvalue()} for f in img_files]
         sf_ok, sf_msg, sf_data = unlock_statements.process_shafana_screenshots(img_payload)
         if sf_ok and sf_data:
+            update_shared_shafana_store(unlock_statements.load_shafana_web_ledger())
             st.session_state.statements_data["Shafana_Cashback"] = sf_data
             sm = sf_data.get("shafana_meta", {})
             st.success(
@@ -694,6 +824,11 @@ if uploaded_files:
                             }
                             st.rerun()
 
+# Always include Web-Synced Shafana Cashback Tracker when toggled open OR when an ICICI statement is uploaded for cross-verification
+has_icici_loaded = any("icici" in k.lower() for k in st.session_state.statements_data.keys())
+if (st.session_state.show_shafana_tracker or has_icici_loaded) and "Shafana_Cashback" not in st.session_state.statements_data:
+    st.session_state.statements_data["Shafana_Cashback"] = unlock_statements.build_shafana_statement_from_ledger(get_shared_shafana_store())
+
 # --- Active Statements Controls & Clear State ---
 if st.session_state.statements_data:
     status_cols = st.columns([3, 1, 1])
@@ -709,6 +844,7 @@ if st.session_state.statements_data:
     with status_cols[2]:
         if st.button("🗑️ Clear Session", use_container_width=True, help="Wipe loaded statements from memory"):
             st.session_state.statements_data = {}
+            st.session_state.show_shafana_tracker = False
             st.rerun()
 
 # --- CARDS SUPPORTED SO FAR: Professional Dual Deck Display with Crazy Comic Disclaimer ---
