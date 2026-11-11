@@ -181,6 +181,46 @@ if "emi_phones" not in st.session_state:
     st.session_state.emi_phones = {}
 if "show_shafana_tracker" not in st.session_state:
     st.session_state.show_shafana_tracker = False
+if "show_kayal_roster" not in st.session_state:
+    st.session_state.show_kayal_roster = False
+
+@st.cache_resource
+def get_shared_kayal_store():
+    """Cross-session shared store for Dr. Kayalvizhi's duty roster."""
+    return unlock_statements.load_kayal_web_roster()
+
+def update_shared_kayal_store(new_roster, gh_token=""):
+    """Updates the shared server store, writes kayal_duty.json, and optionally pushes to GitHub."""
+    store = get_shared_kayal_store()
+    store.clear()
+    store.update(new_roster)
+    unlock_statements.save_kayal_web_roster(store)
+    token = (gh_token or os.environ.get("GITHUB_TOKEN", "")).strip()
+    if token:
+        try:
+            import urllib.request
+            api_url = "https://api.github.com/repos/xrvnsp/smart-bill-segregator/contents/kayal_duty.json"
+            req_get = urllib.request.Request(api_url, headers={"Authorization": f"Bearer {token}", "Accept": "application/vnd.github+json", "User-Agent": "SmartBillSegregator"})
+            sha = None
+            try:
+                with urllib.request.urlopen(req_get, timeout=4) as resp:
+                    sha = json.loads(resp.read().decode("utf-8")).get("sha")
+            except Exception:
+                pass
+            content_b64 = base64.b64encode(json.dumps(store, indent=2, ensure_ascii=False).encode("utf-8")).decode("utf-8")
+            body = {"message": "Sync Dr. Kayalvizhi duty roster", "content": content_b64, "branch": "main"}
+            if sha:
+                body["sha"] = sha
+            req_put = urllib.request.Request(
+                api_url,
+                data=json.dumps(body).encode("utf-8"),
+                method="PUT",
+                headers={"Authorization": f"Bearer {token}", "Accept": "application/vnd.github+json", "Content-Type": "application/json", "User-Agent": "SmartBillSegregator"}
+            )
+            urllib.request.urlopen(req_put, timeout=5)
+        except Exception:
+            pass
+    return store
 
 @st.cache_resource
 def get_shared_shafana_store():
@@ -556,6 +596,26 @@ with st.sidebar:
                 st.session_state.show_shafana_tracker = True
                 st.rerun()
 
+    shared_ky = get_shared_kayal_store()
+    ky_entries = shared_ky.get("entries", [])
+    ky_active = sum(1 for e in ky_entries if e.get("shift", "OFF").upper() != "OFF")
+    ky_off = sum(1 for e in ky_entries if e.get("shift", "OFF").upper() == "OFF")
+
+    with st.expander("🩺💖 Dr. Kayalvizhi Duty Roster", expanded=True):
+        st.caption("💖 Romantic duty schedule for your wife (CHC Thirunallar). Upload a roster photo anytime to extract & share on WhatsApp!")
+        st.markdown(f"""
+        <div style="background: linear-gradient(135deg, #fff1f2 0%, #ffe4e6 100%); border: 1.5px solid #fb7185; border-radius: 12px; padding: 10px 12px; margin-bottom: 10px;">
+            <div style="font-size: 11px; font-weight: 800; color: #9f1239; text-transform: uppercase;">🩺💖 My Forever Doctor</div>
+            <div style="font-size: 13.5px; font-weight: 900; color: #881337; margin-top: 3px;">Dr. Kayalvizhi ({shared_ky.get('period', '01–15 Nov 2026')})</div>
+            <div style="font-size: 11.5px; font-weight: 700; color: #be123c; margin-top: 2px;">🩺 {ky_active} Active Shifts • 💞 {ky_off} Days Together</div>
+        </div>
+        """, unsafe_allow_html=True)
+
+        btn_ky_side = "✖️ Close Dr. Kayalvizhi's Roster" if st.session_state.show_kayal_roster else "🩺💖 Open Dr. Kayalvizhi's Roster"
+        if st.button(btn_ky_side, use_container_width=True, type="primary", key="side_toggle_kayal"):
+            st.session_state.show_kayal_roster = not st.session_state.show_kayal_roster
+            st.rerun()
+
     st.link_button(
         "📋 Copy Google Sheet Template",
         unlock_statements.GOOGLE_SHEET_TEMPLATE_URL,
@@ -654,6 +714,27 @@ with st.container():
             st.session_state.show_shafana_tracker = not st.session_state.show_shafana_tracker
             st.rerun()
 
+        # Permanent Dr. Kayalvizhi Romantic Duty Roster Card & 1-Tap Button
+        st.markdown(f"""
+        <div style="background: linear-gradient(135deg, rgba(255, 241, 242, 0.98) 0%, rgba(255, 228, 230, 0.95) 100%); border: 1.5px solid #fb7185; border-radius: 14px; padding: 10px 14px; margin-top: 8px; margin-bottom: 6px; box-shadow: 0 2px 8px rgba(244, 63, 94, 0.12);">
+            <div style="font-size: 12px; font-weight: 800; color: #9f1239; display: flex; align-items: center; justify-content: space-between; gap: 6px;">
+                <span>🩺💖 Dr. Kayalvizhi's Roster</span>
+                <span style="background: #e11d48; color: #ffffff; font-size: 9.5px; padding: 1px 6px; border-radius: 999px; text-transform: uppercase;">CHC Thirunallar</span>
+            </div>
+            <div style="font-size: 12px; color: #881337; margin-top: 4px; font-weight: 900;">
+                🩺 {ky_active} Shifts • 💞 {ky_off} Off Days Together
+            </div>
+            <div style="font-size: 10.5px; color: #be123c; margin-top: 1px; font-weight: 700;">
+                Upload roster photo → 1-Tap WhatsApp Table
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+
+        main_ky_btn_label = "✖️ Close Dr. Kayalvizhi's Roster" if st.session_state.show_kayal_roster else "🩺💖 Open Dr. Kayalvizhi's Roster"
+        if st.button(main_ky_btn_label, use_container_width=True, type="primary" if not st.session_state.show_kayal_roster else "secondary", key="main_btn_open_kayal"):
+            st.session_state.show_kayal_roster = not st.session_state.show_kayal_roster
+            st.rerun()
+
         # In-Page Quick Password Manager (Native Streamlit Expander)
         with st.expander("🔑 Quick Device Passwords", expanded=False):
             st.caption("🔒 Stored in your client browser on this device. Never saved on any server.")
@@ -727,18 +808,38 @@ if uploaded_files:
     img_files = [f for f in uploaded_files if not f.name.lower().endswith(".pdf")]
 
     if img_files:
-        img_payload = [{"name": f.name, "bytes": f.getvalue()} for f in img_files]
-        sf_ok, sf_msg, sf_data = unlock_statements.process_shafana_screenshots(img_payload)
-        if sf_ok and sf_data:
-            update_shared_shafana_store(unlock_statements.load_shafana_web_ledger())
-            st.session_state.statements_data["Shafana_Cashback"] = sf_data
-            sm = sf_data.get("shafana_meta", {})
-            st.success(
-                f"🎁 Shafana Amazon Cashback Screenshot(s) Loaded ({len(img_files)} file(s)) — "
-                f"Full Bill to Collect After Bill Date: ₹{sm.get('bill_due_total', 0):,.2f} • "
-                f"Cashback Earned: +₹{sm.get('cb_earned_total', 0):,.2f} • "
-                f"Cashback Used (Amazon Pay Balance): -₹{sm.get('cb_used_total', 0):,.2f}"
-            )
+        roster_imgs = []
+        shafana_imgs = []
+        for f in img_files:
+            raw_b = f.getvalue()
+            if unlock_statements.is_duty_roster_image(raw_b, f.name):
+                roster_imgs.append({"name": f.name, "bytes": raw_b})
+            else:
+                shafana_imgs.append({"name": f.name, "bytes": raw_b})
+
+        if roster_imgs:
+            ky_ok, ky_msg, ky_data = unlock_statements.process_kayal_duty_roster(roster_imgs)
+            if ky_ok and ky_data:
+                update_shared_kayal_store(unlock_statements.load_kayal_web_roster())
+                st.session_state.statements_data["Kayal_Duty_Roster"] = ky_data
+                km = ky_data.get("kayal_meta", {})
+                st.success(
+                    f"🩺💖 Dr. Kayalvizhi Duty Roster Loaded ({len(roster_imgs)} photo(s)) — "
+                    f"{km.get('active_count', 0)} Active Shifts • {km.get('off_count', 0)} Off Days! "
+                    f"Tap '📲 Share Table on WhatsApp' inside her romantic view below."
+                )
+
+        if shafana_imgs:
+            sf_ok, sf_msg, sf_data = unlock_statements.process_shafana_screenshots(shafana_imgs)
+            if sf_ok and sf_data:
+                update_shared_shafana_store(unlock_statements.load_shafana_web_ledger())
+                st.session_state.statements_data["Shafana_Cashback"] = sf_data
+                sm = sf_data.get("shafana_meta", {})
+                st.success(
+                    f"🎁 Shafana Amazon Cashback Screenshot(s) Loaded ({len(shafana_imgs)} file(s)) — "
+                    f"Full Bill to Collect: ₹{sm.get('bill_due_total', 0):,.2f} • "
+                    f"Cashback Earned: +₹{sm.get('cb_earned_total', 0):,.2f}"
+                )
 
     for up_file in pdf_files:
         pdf_bytes_io = io.BytesIO(up_file.getvalue())
@@ -821,6 +922,8 @@ if uploaded_files:
 
 # Always include Web-Synced Shafana Cashback Tracker when toggled open OR when an ICICI statement is uploaded for cross-verification
 has_icici_loaded = any("icici" in k.lower() for k in st.session_state.statements_data.keys())
+if st.session_state.show_kayal_roster and "Kayal_Duty_Roster" not in st.session_state.statements_data:
+    st.session_state.statements_data["Kayal_Duty_Roster"] = unlock_statements.build_kayal_statement_from_roster(get_shared_kayal_store())
 if (st.session_state.show_shafana_tracker or has_icici_loaded) and "Shafana_Cashback" not in st.session_state.statements_data:
     st.session_state.statements_data["Shafana_Cashback"] = unlock_statements.build_shafana_statement_from_ledger(get_shared_shafana_store())
 
@@ -840,6 +943,7 @@ if st.session_state.statements_data:
         if st.button("🗑️ Clear Session", use_container_width=True, help="Wipe loaded statements from memory"):
             st.session_state.statements_data = {}
             st.session_state.show_shafana_tracker = False
+            st.session_state.show_kayal_roster = False
             st.rerun()
 
 # --- CARDS SUPPORTED SO FAR: Professional Dual Deck Display with Crazy Comic Disclaimer ---
