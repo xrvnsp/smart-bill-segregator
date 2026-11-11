@@ -183,6 +183,8 @@ if "show_shafana_tracker" not in st.session_state:
     st.session_state.show_shafana_tracker = False
 if "show_kayal_roster" not in st.session_state:
     st.session_state.show_kayal_roster = False
+if "active_special_view" not in st.session_state:
+    st.session_state.active_special_view = None
 
 @st.cache_resource
 def get_ist_kayal_greeting():
@@ -571,6 +573,7 @@ with st.sidebar:
         btn_label_side = "✖️ Close Shafana Page" if st.session_state.show_shafana_tracker else "🎁 Open Shafana Page"
         if st.button(btn_label_side, use_container_width=True, type="primary", key="side_toggle_shafana"):
             st.session_state.show_shafana_tracker = not st.session_state.show_shafana_tracker
+            st.session_state.active_special_view = "shafana" if st.session_state.show_shafana_tracker else None
             st.rerun()
 
         new_cb_used = st.number_input(
@@ -629,6 +632,7 @@ with st.sidebar:
         btn_ky_side = "✖️ Close Dr. Kayalvizhi's Roster" if st.session_state.show_kayal_roster else "🩺💖 Open Dr. Kayalvizhi's Roster"
         if st.button(btn_ky_side, use_container_width=True, type="primary", key="side_toggle_kayal"):
             st.session_state.show_kayal_roster = not st.session_state.show_kayal_roster
+            st.session_state.active_special_view = "kayal" if st.session_state.show_kayal_roster else None
             st.rerun()
 
     st.link_button(
@@ -727,6 +731,7 @@ with st.container():
         main_sf_btn_label = "✖️ Close Shafana Cashback Tracker" if st.session_state.show_shafana_tracker else "🎁 Open Shafana Cashback Tracker"
         if st.button(main_sf_btn_label, use_container_width=True, type="primary" if not st.session_state.show_shafana_tracker else "secondary", key="main_btn_open_shafana"):
             st.session_state.show_shafana_tracker = not st.session_state.show_shafana_tracker
+            st.session_state.active_special_view = "shafana" if st.session_state.show_shafana_tracker else None
             st.rerun()
 
         # Permanent Dr. Kayalvizhi Romantic Duty Roster Card & 1-Tap Button
@@ -748,6 +753,7 @@ with st.container():
         main_ky_btn_label = "✖️ Close Dr. Kayalvizhi's Roster" if st.session_state.show_kayal_roster else "🩺💖 Open Dr. Kayalvizhi's Roster"
         if st.button(main_ky_btn_label, use_container_width=True, type="primary" if not st.session_state.show_kayal_roster else "secondary", key="main_btn_open_kayal"):
             st.session_state.show_kayal_roster = not st.session_state.show_kayal_roster
+            st.session_state.active_special_view = "kayal" if st.session_state.show_kayal_roster else None
             st.rerun()
 
         # In-Page Quick Password Manager (Native Streamlit Expander)
@@ -837,6 +843,7 @@ if uploaded_files:
             if ky_ok and ky_data:
                 update_shared_kayal_store(unlock_statements.load_kayal_web_roster())
                 st.session_state.statements_data["Kayal_Duty_Roster"] = ky_data
+                st.session_state.active_special_view = "kayal"
                 km = ky_data.get("kayal_meta", {})
                 ist_greet, ist_now_str = get_ist_kayal_greeting()
                 st.toast(f"{ist_greet} ({ist_now_str}) — With Love, Saro 💖", icon="💖")
@@ -1477,8 +1484,13 @@ def get_card_shuffle_html():
 
 # --- Render Web Dashboard Strictly in RAM ---
 if st.session_state.statements_data:
+    ordered_items = list(st.session_state.statements_data.items())
+    if st.session_state.get("active_special_view") == "kayal":
+        ordered_items.sort(key=lambda kv: 0 if kv[0] == "Kayal_Duty_Roster" else 1)
+    elif st.session_state.get("active_special_view") == "shafana":
+        ordered_items.sort(key=lambda kv: 0 if kv[0] == "Shafana_Cashback" else 1)
     dashboard_html = unlock_statements.generate_modern_dashboard_html(
-        list(st.session_state.statements_data.values()),
+        [v for _, v in ordered_items],
         output_dir=".",
         write_to_disk=False
     )
