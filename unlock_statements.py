@@ -1093,17 +1093,17 @@ def is_duty_roster_image(raw_bytes, filename=""):
       if os.path.exists(win_path):
         pytesseract.pytesseract.tesseract_cmd = win_path
         break
-    img = Image.open(_io.BytesIO(raw_bytes))
+    img = ImageOps.exif_transpose(Image.open(_io.BytesIO(raw_bytes)))
     w, h = img.size
     proc_img = ImageOps.grayscale(img)
-    if max(w, h) < 1600:
+    if max(w, h) < 1800:
       proc_img = proc_img.resize((w * 2, h * 2))
     proc_img = ImageEnhance.Contrast(proc_img).enhance(1.8)
     txt = pytesseract.image_to_string(proc_img) or ""
     txt_low = txt.lower()
-    if any(k in txt_low for k in ("duty roster", "medical officer", "thirunallar", "relieving duty", "kayal", "regha", "sarath", "anand")):
+    if any(k in txt_low for k in ("duty roster", "roster", "medical officer", "thirunallar", "relieving", "kayal", "regha", "sarath", "anand", "kovilpathu", "kesavaraj", "opd")):
       return True
-    if re.search(r"\d{2}[-/]\d{2}[-/]\d{4}", txt_low) and ("opd" in txt_low or "evening" in txt_low or "night" in txt_low):
+    if re.search(r"\d{2}[-/]\d{2}[-/]\d{4}", txt_low) and not ("amazon" in txt_low or "cashback" in txt_low or "paid on" in txt_low):
       return True
   except Exception:
     pass
@@ -1207,9 +1207,12 @@ def process_kayal_duty_roster(image_items):
     detected_dates = 0
     if ocr_available:
       try:
-        img_obj = Image.open(_io.BytesIO(raw_bytes))
+        img_obj = ImageOps.exif_transpose(Image.open(_io.BytesIO(raw_bytes)))
         w, h = img_obj.size
         gray = ImageOps.grayscale(img_obj)
+        if max(w, h) < 1800:
+          gray = gray.resize((w * 2, h * 2))
+          w, h = gray.size
         sharp = ImageEnhance.Contrast(gray).enhance(1.6)
         data = pytesseract.image_to_data(sharp, output_type=pytesseract.Output.DICT)
 
