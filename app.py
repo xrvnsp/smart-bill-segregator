@@ -653,7 +653,7 @@ with st.container():
 
     with up_col:
         uploaded_files = st.file_uploader(
-            "📁 Select Statement PDF(s) or Amazon Cashback Screenshot(s) (In-Memory Session):",
+            "📁 Upload Statement PDF(s), Shafana Screenshot(s), or Dr. Kayalvizhi Duty Roster Photo(s):",
             type=["pdf", "png", "jpg", "jpeg", "webp"],
             accept_multiple_files=True,
             help="Upload your Axis Bank (Scapia), HDFC, ICICI, SBI PDFs, Salary Payslips, or Shafana's Amazon Order/Cashback Screenshots. Processed strictly in RAM."
@@ -812,7 +812,7 @@ if uploaded_files:
         shafana_imgs = []
         for f in img_files:
             raw_b = f.getvalue()
-            if unlock_statements.is_duty_roster_image(raw_b, f.name):
+            if st.session_state.show_kayal_roster or unlock_statements.is_duty_roster_image(raw_b, f.name):
                 roster_imgs.append({"name": f.name, "bytes": raw_b})
             else:
                 shafana_imgs.append({"name": f.name, "bytes": raw_b})
