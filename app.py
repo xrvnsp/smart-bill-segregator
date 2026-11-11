@@ -616,17 +616,17 @@ with st.sidebar:
     ky_active = sum(1 for e in ky_entries if e.get("shift", "OFF").upper() != "OFF")
     ky_off = sum(1 for e in ky_entries if e.get("shift", "OFF").upper() == "OFF")
 
-    with st.expander("🩺💖 Dr Cuteuh Pattuh Duty Roster", expanded=True):
+    with st.expander("🩺💖 Dr. Kayalvizhi Duty Roster", expanded=True):
         st.caption("💖 Romantic duty schedule for your wife (CHC Thirunallar). Upload a roster photo anytime to extract & share on WhatsApp!")
         st.markdown(f"""
         <div style="background: linear-gradient(135deg, #fff1f2 0%, #ffe4e6 100%); border: 1.5px solid #fb7185; border-radius: 12px; padding: 10px 12px; margin-bottom: 10px;">
             <div style="font-size: 11px; font-weight: 800; color: #9f1239; text-transform: uppercase;">🩺💖 My Forever Doctor</div>
-            <div style="font-size: 13.5px; font-weight: 900; color: #881337; margin-top: 3px;">Dr Cuteuh Pattuh 💖 ({shared_ky.get('period', '01–15 Nov 2026')})</div>
+            <div style="font-size: 13.5px; font-weight: 900; color: #881337; margin-top: 3px;">Dr. Kayalvizhi ({shared_ky.get('period', '01–15 Nov 2026')})</div>
             <div style="font-size: 11.5px; font-weight: 700; color: #be123c; margin-top: 2px;">🩺 {ky_active} Active Shifts • 💞 {ky_off} Days Together</div>
         </div>
         """, unsafe_allow_html=True)
 
-        btn_ky_side = "✖️ Close Dr Cuteuh Pattuh's Roster" if st.session_state.show_kayal_roster else "🩺💖 Open Dr Cuteuh Pattuh's Roster"
+        btn_ky_side = "✖️ Close Dr. Kayalvizhi's Roster" if st.session_state.show_kayal_roster else "🩺💖 Open Dr. Kayalvizhi's Roster"
         if st.button(btn_ky_side, use_container_width=True, type="primary", key="side_toggle_kayal"):
             st.session_state.show_kayal_roster = not st.session_state.show_kayal_roster
             st.rerun()
@@ -733,8 +733,8 @@ with st.container():
         st.markdown(f"""
         <div style="background: linear-gradient(135deg, rgba(255, 241, 242, 0.98) 0%, rgba(255, 228, 230, 0.95) 100%); border: 1.5px solid #fb7185; border-radius: 14px; padding: 10px 14px; margin-top: 8px; margin-bottom: 6px; box-shadow: 0 2px 8px rgba(244, 63, 94, 0.12);">
             <div style="font-size: 12px; font-weight: 800; color: #9f1239; display: flex; align-items: center; justify-content: space-between; gap: 6px;">
-                <span>🩺💖 Dr Cuteuh Pattuh's Roster</span>
-                <span style="background: #e11d48; color: #ffffff; font-size: 9.5px; padding: 1px 6px; border-radius: 999px; text-transform: uppercase;">With Love, Saro 💖</span>
+                <span>🩺💖 Dr. Kayalvizhi's Roster</span>
+                <span style="background: #e11d48; color: #ffffff; font-size: 9.5px; padding: 1px 6px; border-radius: 999px; text-transform: uppercase;">CHC Thirunallar</span>
             </div>
             <div style="font-size: 12px; color: #881337; margin-top: 4px; font-weight: 900;">
                 🩺 {ky_active} Shifts • 💞 {ky_off} Off Days Together
@@ -745,7 +745,7 @@ with st.container():
         </div>
         """, unsafe_allow_html=True)
 
-        main_ky_btn_label = "✖️ Close Dr Cuteuh Pattuh's Roster" if st.session_state.show_kayal_roster else "🩺💖 Open Dr Cuteuh Pattuh's Roster"
+        main_ky_btn_label = "✖️ Close Dr. Kayalvizhi's Roster" if st.session_state.show_kayal_roster else "🩺💖 Open Dr. Kayalvizhi's Roster"
         if st.button(main_ky_btn_label, use_container_width=True, type="primary" if not st.session_state.show_kayal_roster else "secondary", key="main_btn_open_kayal"):
             st.session_state.show_kayal_roster = not st.session_state.show_kayal_roster
             st.rerun()
