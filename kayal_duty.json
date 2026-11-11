@@ -1,15 +1,17 @@
 {
-  "doctor_name": "Dr. Kayalvizhi",
+  "doctor_name": "Dr Cuteuh Pattuh (Dr. Kayalvizhi)",
+  "pet_name": "Dr Cuteuh Pattuh",
+  "sign_off": "With Love, Saro 💖",
   "center_name": "CHC Thirunallar",
   "period": "01–15 Nov 2026",
-  "husband_note": "No matter how busy your OPD, Evening, or Night shifts get, you are my favorite hero in a white coat. Counting down to every off day with you! 💖",
-  "updated_at": "2026-11-11T11:45:00+05:30",
+  "husband_note": "No matter how busy your OPD, Evening, or Night shifts get, you are my favorite hero in a white coat. Counting down to every off day with you! — With Love, Saro 💖",
+  "updated_at": "2026-11-11T12:14:00+05:30",
   "entries": [
     {
       "date": "01-11-2026",
       "day": "Sun",
       "shift": "OFF",
-      "note": "Rest Day"
+      "note": "Sunday Rest Day"
     },
     {
       "date": "02-11-2026",
@@ -75,7 +77,7 @@
       "date": "12-11-2026",
       "day": "Thu",
       "shift": "OFF",
-      "note": "Off (Dr. Sarath / Dr. Anand / PHC Kovilpathu)"
+      "note": "Off Day Together"
     },
     {
       "date": "13-11-2026",
