@@ -4249,6 +4249,11 @@ def generate_modern_dashboard_html(results_list, output_dir=".", write_to_disk=T
       }}
     }};
 
+    function isKayalRomanticMode() {{
+      const st = getActiveStatement();
+      return !!(st && st.kayal_meta && st.kayal_meta.just_uploaded);
+    }}
+
     function getISTGreetingAndTime() {{
       const now = new Date();
       const istTimeStr = now.toLocaleTimeString('en-IN', {{
@@ -4270,11 +4275,12 @@ def generate_modern_dashboard_html(results_list, output_dir=".", write_to_disk=T
         hour12: false
       }});
       const hr = parseInt(istHourStr, 10) || 12;
-      let greet = "☀️ Good Afternoon, Dr Cuteuh Pattuh! 💖";
-      if (hr >= 5 && hr < 12) greet = "🌅 Good Morning, Dr Cuteuh Pattuh! 💖";
-      else if (hr >= 12 && hr < 17) greet = "☀️ Good Afternoon, Dr Cuteuh Pattuh! 💖";
-      else if (hr >= 17 && hr < 21) greet = "🌆 Good Evening, Dr Cuteuh Pattuh! 💖";
-      else greet = "🌙 Good Night, Dr Cuteuh Pattuh! 💖";
+      const who = isKayalRomanticMode() ? "Dr Cuteuh Pattuh" : "Dr. Kayalvizhi";
+      let greet = `☀️ Good Afternoon, ${{who}}! 💖`;
+      if (hr >= 5 && hr < 12) greet = `🌅 Good Morning, ${{who}}! 💖`;
+      else if (hr >= 12 && hr < 17) greet = `☀️ Good Afternoon, ${{who}}! 💖`;
+      else if (hr >= 17 && hr < 21) greet = `🌆 Good Evening, ${{who}}! 💖`;
+      else greet = `🌙 Good Night, ${{who}}! 💖`;
 
       const parts = new Intl.DateTimeFormat('en-GB', {{
         timeZone: 'Asia/Kolkata',
@@ -4292,7 +4298,7 @@ def generate_modern_dashboard_html(results_list, output_dir=".", write_to_disk=T
 
     function getShiftCareReminder(shift, note) {{
       const sh = (shift || 'OFF').toUpperCase();
-      if (sh === 'OPD') return "8:00 AM – 2:00 PM • Have a bright morning at CHC Thirunallar, Cuteuh Pattuh 🌸";
+      if (sh === 'OPD') return isKayalRomanticMode() ? "8:00 AM – 2:00 PM • Have a bright morning at CHC Thirunallar, Cuteuh Pattuh 🌸" : "8:00 AM – 2:00 PM • Morning OPD at CHC Thirunallar 🌸";
       if (sh === 'EVENING') return "2:00 PM – 8:00 PM • Take a tea break & don't tire yourself out ✨";
       if (sh === 'NIGHT') return "8:00 PM – 8:00 AM • Don't skip dinner & rest well tomorrow morning ❤️";
       if (note && note.toLowerCase().includes('post-night')) return "Post-Night Recovery • Sleep deeply & recharge today 💤💖";
@@ -4413,7 +4419,7 @@ def generate_modern_dashboard_html(results_list, output_dir=".", write_to_disk=T
       const EMJ_CHART = "\\uD83D\\uDCCA";
 
       let lines = [
-        `${{EMJ_HEART}} *DR CUTEUH PATTUH (DR. KAYALVIZHI)* ${{EMJ_DOC}}`,
+        `${{EMJ_HEART}} *${{isKayalRomanticMode() ? "DR CUTEUH PATTUH (DR. KAYALVIZHI)" : "DR. KAYALVIZHI"}}* ${{EMJ_DOC}}`,
         `${{EMJ_PIN}} *CHC Thirunallar • Duty Roster (01–15 Nov 2026)*`,
         `_${{ks.ist.greet}} (${{ks.ist.istDateStr}}, ${{ks.ist.istTimeStr}} IST)_`,
         ""
@@ -4442,7 +4448,7 @@ def generate_modern_dashboard_html(results_list, output_dir=".", write_to_disk=T
 
       lines.push("");
       lines.push(`${{EMJ_CHART}} *Summary:* ${{ks.activeCount}} Shifts (${{EMJ_SUN}} ${{ks.opdCount}} OPD • ${{EMJ_EVE}} ${{ks.eveCount}} Eve • ${{EMJ_MOON}} ${{ks.nightCount}} Night) • ${{EMJ_COUPLE}} ${{ks.offCount}} Off Days`);
-      lines.push(`${{EMJ_SPARK}} _With Love, Saro_ ${{EMJ_HEART}}`);
+      if (isKayalRomanticMode()) lines.push(`${{EMJ_SPARK}} _With Love, Saro_ ${{EMJ_HEART}}`);
       return lines.join("\\n");
     }}
 
@@ -4531,7 +4537,7 @@ def generate_modern_dashboard_html(results_list, output_dir=".", write_to_disk=T
       ctx.textAlign = 'left';
       ctx.font = `900 28px ${{fontSans}}`;
       ctx.fillStyle = '#ffffff';
-      ctx.fillText('Dr Cuteuh Pattuh (Dr. Kayalvizhi) 💖', cardX + 26, cardY + 74);
+      ctx.fillText(isKayalRomanticMode() ? 'Dr Cuteuh Pattuh (Dr. Kayalvizhi) 💖' : 'Dr. Kayalvizhi — Duty Roster 🩺', cardX + 26, cardY + 74);
 
       ctx.font = `600 13.5px ${{fontSans}}`;
       ctx.fillStyle = 'rgba(255,255,255,0.92)';
@@ -4657,7 +4663,7 @@ def generate_modern_dashboard_html(results_list, output_dir=".", write_to_disk=T
       ctx.fillText('Proud of you every single shift — take care & shine bright at CHC Thirunallar!', cardX + 26, curY + 50);
 
       // Right Sign-Off Pill ("With Love, Saro 💖")
-      const signText = 'With Love, Saro 💖';
+      const signText = isKayalRomanticMode() ? 'With Love, Saro 💖' : 'CHC Thirunallar 🩺';
       ctx.font = `800 15px ${{fontSans}}`;
       const sW = ctx.measureText(signText).width + 36;
       roundRect(cardX + cardW - 26 - sW, curY + 19, sW, 40, 14, th.canvasAccent, '#ffffff', 1.5);
@@ -4680,7 +4686,7 @@ def generate_modern_dashboard_html(results_list, output_dir=".", write_to_disk=T
         const blob = await canvasToPngBlobPromise(canvas);
         const fileName = "Dr_Cuteuh_Pattuh_Duty_Roster.png";
         const file = new File([blob], fileName, {{ type: "image/png" }});
-        const caption = `💖 Dr Cuteuh Pattuh Duty Roster (01–15 Nov 2026) — With Love, Saro 💖`;
+        const caption = isKayalRomanticMode() ? `💖 Dr Cuteuh Pattuh Duty Roster (01–15 Nov 2026) — With Love, Saro 💖` : `🩺 Dr. Kayalvizhi Duty Roster (01–15 Nov 2026) — CHC Thirunallar`;
 
         // 1. On Android S24 Ultra / Mobile: Native Web Share Sheet with the PNG Screenshot File!
         const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent || "");
@@ -4898,10 +4904,10 @@ def generate_modern_dashboard_html(results_list, output_dir=".", write_to_disk=T
               <div class="space-y-1.5">
                 <div class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full border ${{th.pillBg}} text-[11px] font-extrabold uppercase tracking-wider">
                   <span>🩺💖</span>
-                  <span>Dr Cuteuh Pattuh • CHC Thirunallar</span>
+                  <span>${{justUp ? "Dr Cuteuh Pattuh • CHC Thirunallar" : "Dr. Kayalvizhi • CHC Thirunallar"}}</span>
                 </div>
                 <h2 class="text-2xl sm:text-3xl font-black ${{th.titleText}} tracking-tight">
-                  Dr Cuteuh Pattuh's Duty Roster ✨
+                  ${{justUp ? "Dr Cuteuh Pattuh's Duty Roster ✨" : "Dr. Kayalvizhi's Duty Roster 🩺"}}
                 </h2>
                 <p class="text-xs sm:text-sm font-semibold ${{th.subText}} leading-relaxed max-w-xl">
                   "${{ks.vault.loveNote}}"
@@ -4940,8 +4946,8 @@ def generate_modern_dashboard_html(results_list, output_dir=".", write_to_disk=T
                 <div class="text-[11px] font-bold text-emerald-600 mt-0.5">All ${{ks.offCount}} Off Days: ${{ks.offDaysShort}}</div>
               </div>
               <div class="bg-white/90 rounded-2xl border border-amber-200 p-4">
-                <div class="text-[10px] font-extrabold uppercase text-amber-800">💌 Signed With Love</div>
-                <div class="text-lg font-black text-rose-700 mt-1">With Love, Saro 💖</div>
+                <div class="text-[10px] font-extrabold uppercase text-amber-800">${{justUp ? "💌 Signed With Love" : "🏥 Duty Center"}}</div>
+                <div class="text-lg font-black text-rose-700 mt-1">${{justUp ? "With Love, Saro 💖" : "CHC Thirunallar"}}</div>
                 <div class="text-[11px] font-bold text-amber-800 mt-0.5">CHC Thirunallar • Medical Officer</div>
               </div>
             </div>
@@ -4950,7 +4956,7 @@ def generate_modern_dashboard_html(results_list, output_dir=".", write_to_disk=T
           <!-- 15-DAY INTERACTIVE DUTY TABLE -->
           <div class="bg-white rounded-3xl border border-rose-200/90 shadow-sm overflow-hidden">
             <div class="px-6 py-4 bg-gradient-to-r ${{th.tblHeader}} text-white flex flex-col sm:flex-row justify-between items-start sm:items-center gap-1">
-              <span class="text-sm font-extrabold">📅 Dr Cuteuh Pattuh — 15-Day Duty Schedule</span>
+              <span class="text-sm font-extrabold">📅 ${{justUp ? "Dr Cuteuh Pattuh" : "Dr. Kayalvizhi"}} — 15-Day Duty Schedule</span>
               <span class="text-xs font-bold text-rose-200">Tap any shift button on the right to edit</span>
             </div>
             <div>
