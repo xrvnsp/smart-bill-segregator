@@ -668,18 +668,18 @@ st.markdown("<div style='margin-top: 0px; margin-bottom: 4px;'><h1 style='font-s
 st.caption("Automatic statement analysis, installment segregation, and cashback audit.")
 
 with st.container():
-    up_col, info_col = st.columns([3, 1])
+    # Full-Width Upload Bar (Zero Left/Right Wasted Space)
+    uploaded_files = st.file_uploader(
+        "📁 Upload Statement PDF(s), Shafana Screenshot(s), or Dr. Kayalvizhi Duty Roster Photo(s):",
+        type=["pdf", "png", "jpg", "jpeg", "webp"],
+        accept_multiple_files=True,
+        help="Upload your Axis Bank (Scapia), HDFC, ICICI, SBI PDFs, Salary Payslips, Shafana's Amazon Screenshots, or Dr. Kayalvizhi's Duty Roster Photo. Processed strictly in RAM."
+    )
 
-    with up_col:
-        uploaded_files = st.file_uploader(
-            "📁 Upload Statement PDF(s), Shafana Screenshot(s), or Dr. Kayalvizhi Duty Roster Photo(s):",
-            type=["pdf", "png", "jpg", "jpeg", "webp"],
-            accept_multiple_files=True,
-            help="Upload your Axis Bank (Scapia), HDFC, ICICI, SBI PDFs, Salary Payslips, or Shafana's Amazon Order/Cashback Screenshots. Processed strictly in RAM."
-        )
+    # 4 Evenly Distributed Feature Cards Directly Below the Upload Bar
+    card_col1, card_col2, card_col3, card_col4 = st.columns(4)
 
-    with info_col:
-        # Visual Vault Notification Card
+    with card_col1:
         active_vault_list = []
         if st.session_state.session_passwords.get("scapia"): active_vault_list.append("Scapia")
         if st.session_state.session_passwords.get("hdfc"): active_vault_list.append("HDFC")
@@ -691,72 +691,72 @@ with st.container():
         emi_count_text = f" • 🏷️ {emi_saved_count} EMI Tag(s)" if emi_saved_count > 0 else ""
         if active_vault_list:
             st.markdown(f"""
-            <div style="background: rgba(240, 253, 244, 0.95); border: 1px solid #86efac; border-radius: 14px; padding: 10px 14px; margin-bottom: 6px; box-shadow: 0 2px 8px rgba(22,101,52,0.06);">
+            <div style="background: rgba(240, 253, 244, 0.95); border: 1px solid #86efac; border-radius: 14px; padding: 10px 14px; margin-bottom: 6px; box-shadow: 0 2px 8px rgba(22,101,52,0.06); min-height: 82px;">
                 <div style="font-size: 12px; font-weight: 800; color: #166534; display: flex; align-items: center; gap: 6px;">
                     <span>🟢</span><span>Vault Active: {', '.join(active_vault_list)}{emi_count_text}</span>
                 </div>
-                <div style="font-size: 11px; color: #15803d; margin-top: 3px; font-weight: 600;">
+                <div style="font-size: 11px; color: #15803d; margin-top: 4px; font-weight: 600;">
                     Statements & EMI nicknames load automatically on this device!
                 </div>
             </div>
             """, unsafe_allow_html=True)
         else:
             st.markdown("""
-            <div style="background: rgba(248, 250, 252, 0.95); border: 1px solid #cbd5e1; border-radius: 14px; padding: 10px 14px; margin-bottom: 6px;">
+            <div style="background: rgba(248, 250, 252, 0.95); border: 1px solid #cbd5e1; border-radius: 14px; padding: 10px 14px; margin-bottom: 6px; min-height: 82px;">
                 <div style="font-size: 12px; font-weight: 700; color: #475569; display: flex; align-items: center; gap: 6px;">
                     <span>⚪</span><span>No Device Passwords Saved</span>
                 </div>
-                <div style="font-size: 11px; color: #64748b; margin-top: 3px;">
-                    Open the sidebar top-left or configure below.
+                <div style="font-size: 11px; color: #64748b; margin-top: 4px;">
+                    Configure in Quick Device Passwords or sidebar.
                 </div>
             </div>
             """, unsafe_allow_html=True)
 
-        # Permanent Shafana Web-Synced Cashback Card & 1-Tap Button
+    with card_col2:
         st.markdown(f"""
-        <div style="background: linear-gradient(135deg, rgba(255, 251, 235, 0.98) 0%, rgba(254, 243, 199, 0.95) 100%); border: 1.5px solid #f59e0b; border-radius: 14px; padding: 10px 14px; margin-bottom: 6px; box-shadow: 0 2px 8px rgba(245, 158, 11, 0.12);">
+        <div style="background: linear-gradient(135deg, rgba(255, 251, 235, 0.98) 0%, rgba(254, 243, 199, 0.95) 100%); border: 1.5px solid #f59e0b; border-radius: 14px; padding: 10px 14px; margin-bottom: 6px; box-shadow: 0 2px 8px rgba(245, 158, 11, 0.12); min-height: 82px;">
             <div style="font-size: 12px; font-weight: 800; color: #92400e; display: flex; align-items: center; justify-content: space-between; gap: 6px;">
-                <span>🎁 Shafana's Cashback Kitty</span>
+                <span>🎁 Shafana's Cashback</span>
                 <span style="background: #f59e0b; color: #ffffff; font-size: 9.5px; padding: 1px 6px; border-radius: 999px; text-transform: uppercase;">Web Synced</span>
             </div>
             <div style="font-size: 12px; color: #0f172a; margin-top: 4px; font-weight: 900;">
                 🧾 Bill: ₹{sf_bill_due:,.0f} • 🎁 CB Left: {'-' if sf_net_kitty < 0 else ''}₹{abs(sf_net_kitty):,.0f}
             </div>
-            <div style="font-size: 10.5px; color: #047857; margin-top: 1px; font-weight: 700;">
+            <div style="font-size: 10.5px; color: #047857; margin-top: 2px; font-weight: 700;">
                 Earned: +₹{(sf_open_cb + sf_cb_earned):,.0f} • Used: -₹{sf_cb_used:,.0f}
             </div>
         </div>
         """, unsafe_allow_html=True)
 
-        main_sf_btn_label = "✖️ Close Shafana Cashback Tracker" if st.session_state.show_shafana_tracker else "🎁 Open Shafana Cashback Tracker"
+        main_sf_btn_label = "✖️ Close Shafana Tracker" if st.session_state.show_shafana_tracker else "🎁 Open Shafana Tracker"
         if st.button(main_sf_btn_label, use_container_width=True, type="primary" if not st.session_state.show_shafana_tracker else "secondary", key="main_btn_open_shafana"):
             st.session_state.show_shafana_tracker = not st.session_state.show_shafana_tracker
             st.session_state.active_special_view = "shafana" if st.session_state.show_shafana_tracker else None
             st.rerun()
 
-        # Permanent Dr. Kayalvizhi Romantic Duty Roster Card & 1-Tap Button
+    with card_col3:
         st.markdown(f"""
-        <div style="background: linear-gradient(135deg, rgba(255, 241, 242, 0.98) 0%, rgba(255, 228, 230, 0.95) 100%); border: 1.5px solid #fb7185; border-radius: 14px; padding: 10px 14px; margin-top: 8px; margin-bottom: 6px; box-shadow: 0 2px 8px rgba(244, 63, 94, 0.12);">
+        <div style="background: linear-gradient(135deg, rgba(255, 241, 242, 0.98) 0%, rgba(255, 228, 230, 0.95) 100%); border: 1.5px solid #fb7185; border-radius: 14px; padding: 10px 14px; margin-bottom: 6px; box-shadow: 0 2px 8px rgba(244, 63, 94, 0.12); min-height: 82px;">
             <div style="font-size: 12px; font-weight: 800; color: #9f1239; display: flex; align-items: center; justify-content: space-between; gap: 6px;">
-                <span>🩺💖 Dr. Kayalvizhi's Roster</span>
+                <span>🩺💖 Dr. Kayalvizhi</span>
                 <span style="background: #e11d48; color: #ffffff; font-size: 9.5px; padding: 1px 6px; border-radius: 999px; text-transform: uppercase;">CHC Thirunallar</span>
             </div>
             <div style="font-size: 12px; color: #881337; margin-top: 4px; font-weight: 900;">
-                🩺 {ky_active} Shifts • 💞 {ky_off} Off Days Together
+                🩺 {ky_active} Shifts • 💞 {ky_off} Off Days
             </div>
-            <div style="font-size: 10.5px; color: #be123c; margin-top: 1px; font-weight: 700;">
-                Upload roster photo → 1-Tap WhatsApp Table
+            <div style="font-size: 10.5px; color: #be123c; margin-top: 2px; font-weight: 700;">
+                Upload roster photo → WhatsApp Table
             </div>
         </div>
         """, unsafe_allow_html=True)
 
-        main_ky_btn_label = "✖️ Close Dr. Kayalvizhi's Roster" if st.session_state.show_kayal_roster else "🩺💖 Open Dr. Kayalvizhi's Roster"
+        main_ky_btn_label = "✖️ Close Dr. Kayalvizhi" if st.session_state.show_kayal_roster else "🩺💖 Open Dr. Kayalvizhi"
         if st.button(main_ky_btn_label, use_container_width=True, type="primary" if not st.session_state.show_kayal_roster else "secondary", key="main_btn_open_kayal"):
             st.session_state.show_kayal_roster = not st.session_state.show_kayal_roster
             st.session_state.active_special_view = "kayal" if st.session_state.show_kayal_roster else None
             st.rerun()
 
-        # In-Page Quick Password Manager (Native Streamlit Expander)
+    with card_col4:
         with st.expander("🔑 Quick Device Passwords", expanded=False):
             st.caption("🔒 Stored in your client browser on this device. Never saved on any server.")
             q_scapia = st.text_input(
