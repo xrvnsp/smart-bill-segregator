@@ -1028,6 +1028,266 @@ def process_shafana_screenshots(image_items):
   return True, "Success", result_data
 
 
+KAYAL_WEB_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "kayal_duty.json")
+
+DEFAULT_KAYAL_DUTY = {
+  "doctor_name": "Dr. Kayalvizhi",
+  "center_name": "CHC Thirunallar",
+  "period": "01–15 Nov 2026",
+  "husband_note": "No matter how busy your OPD, Evening, or Night shifts get, you are my favorite hero in a white coat. Counting down to every off day with you! 💖",
+  "updated_at": "2026-11-11T11:45:00+05:30",
+  "entries": [
+    {"date": "01-11-2026", "day": "Sun", "shift": "OFF", "note": "Rest Day"},
+    {"date": "02-11-2026", "day": "Mon", "shift": "NIGHT", "note": "Solo Night Duty"},
+    {"date": "03-11-2026", "day": "Tue", "shift": "OFF", "note": "Post-Night Rest"},
+    {"date": "04-11-2026", "day": "Wed", "shift": "EVENING", "note": "Solo Evening Duty"},
+    {"date": "05-11-2026", "day": "Thu", "shift": "NIGHT", "note": "Solo Night Duty"},
+    {"date": "06-11-2026", "day": "Fri", "shift": "OFF", "note": "Post-Night Rest"},
+    {"date": "07-11-2026", "day": "Sat", "shift": "OPD", "note": "Solo OPD (Morning)"},
+    {"date": "08-11-2026", "day": "Sun", "shift": "OFF", "note": "Sunday Off"},
+    {"date": "09-11-2026", "day": "Mon", "shift": "EVENING", "note": "Solo Evening Duty"},
+    {"date": "10-11-2026", "day": "Tue", "shift": "OPD", "note": "Solo OPD (Morning)"},
+    {"date": "11-11-2026", "day": "Wed", "shift": "OPD", "note": "With Dr. Regha"},
+    {"date": "12-11-2026", "day": "Thu", "shift": "OFF", "note": "Off (Dr. Sarath / Dr. Anand / PHC Kovilpathu)"},
+    {"date": "13-11-2026", "day": "Fri", "shift": "NIGHT", "note": "Solo Night Duty"},
+    {"date": "14-11-2026", "day": "Sat", "shift": "OFF", "note": "Post-Night Rest"},
+    {"date": "15-11-2026", "day": "Sun", "shift": "EVENING", "note": "Solo Evening Duty"}
+  ]
+}
+
+def load_kayal_web_roster():
+  """Loads Dr. Kayalvizhi's duty roster from kayal_duty.json."""
+  import copy as _copy
+  if os.path.exists(KAYAL_WEB_FILE):
+    try:
+      with open(KAYAL_WEB_FILE, "r", encoding="utf-8") as f:
+        data = json.load(f)
+      if isinstance(data, dict) and isinstance(data.get("entries"), list):
+        return data
+    except Exception:
+      pass
+  return _copy.deepcopy(DEFAULT_KAYAL_DUTY)
+
+def save_kayal_web_roster(roster):
+  """Saves Dr. Kayalvizhi's duty roster to kayal_duty.json."""
+  from datetime import datetime, timezone, timedelta
+  ist_tz = timezone(timedelta(hours=5, minutes=30))
+  roster["updated_at"] = datetime.now(tz=ist_tz).isoformat(timespec="seconds")
+  try:
+    with open(KAYAL_WEB_FILE, "w", encoding="utf-8") as f:
+      json.dump(roster, f, indent=2, ensure_ascii=False)
+  except Exception:
+    pass
+  return roster
+
+def is_duty_roster_image(raw_bytes, filename=""):
+  """Detects whether an uploaded image is a Medical Officer Duty Roster rather than an Amazon screenshot."""
+  fn_low = (filename or "").lower()
+  if any(k in fn_low for k in ("roster", "duty", "kayal", "schedule", "chc")):
+    return True
+  try:
+    import io as _io
+    import pytesseract
+    from PIL import Image, ImageOps, ImageEnhance
+    for win_path in [r"C:\Program Files\Tesseract-OCR\tesseract.exe", r"C:\Users\AppData\Local\Tesseract-OCR\tesseract.exe"]:
+      if os.path.exists(win_path):
+        pytesseract.pytesseract.tesseract_cmd = win_path
+        break
+    img = Image.open(_io.BytesIO(raw_bytes))
+    w, h = img.size
+    proc_img = ImageOps.grayscale(img)
+    if max(w, h) < 1600:
+      proc_img = proc_img.resize((w * 2, h * 2))
+    proc_img = ImageEnhance.Contrast(proc_img).enhance(1.8)
+    txt = pytesseract.image_to_string(proc_img) or ""
+    txt_low = txt.lower()
+    if any(k in txt_low for k in ("duty roster", "medical officer", "thirunallar", "relieving duty", "kayal", "regha", "sarath", "anand")):
+      return True
+    if re.search(r"\d{2}[-/]\d{2}[-/]\d{4}", txt_low) and ("opd" in txt_low or "evening" in txt_low or "night" in txt_low):
+      return True
+  except Exception:
+    pass
+  return False
+
+def build_kayal_statement_from_roster(roster=None, screenshots=None, just_uploaded=False):
+  """Builds a unified dashboard statement dict for Dr. Kayalvizhi's Romantic Duty Roster."""
+  if roster is None:
+    roster = load_kayal_web_roster()
+  entries = roster.get("entries", [])
+  active_shifts = [e for e in entries if e.get("shift", "OFF").upper() != "OFF"]
+  opd_count = sum(1 for e in entries if e.get("shift", "").upper() == "OPD")
+  eve_count = sum(1 for e in entries if e.get("shift", "").upper() == "EVENING")
+  night_count = sum(1 for e in entries if e.get("shift", "").upper() == "NIGHT")
+  off_count = sum(1 for e in entries if e.get("shift", "").upper() == "OFF")
+
+  date_groups = defaultdict(lambda: {"total": 0.0, "items": [], "has_emi": False})
+  all_txns = []
+  for e in entries:
+    dt_str = e.get("date", "")
+    sh = e.get("shift", "OFF").upper()
+    t_obj = {
+        "date": dt_str,
+        "description": f"{sh} — {e.get('note', '')}".strip(" —"),
+        "amount": 1.0 if sh != "OFF" else 0.0,
+        "is_credit": sh == "OFF",
+        "is_emi": False,
+        "amount_str": sh,
+    }
+    all_txns.append(t_obj)
+    date_groups[dt_str]["items"].append(t_obj)
+
+  kayal_meta = {
+      "is_kayal": True,
+      "doctor_name": roster.get("doctor_name", "Dr. Kayalvizhi"),
+      "center_name": roster.get("center_name", "CHC Thirunallar"),
+      "period": roster.get("period", "01–15 Nov 2026"),
+      "husband_note": roster.get("husband_note", DEFAULT_KAYAL_DUTY["husband_note"]),
+      "updated_at": roster.get("updated_at", ""),
+      "entries": entries,
+      "active_count": len(active_shifts),
+      "opd_count": opd_count,
+      "eve_count": eve_count,
+      "night_count": night_count,
+      "off_count": off_count,
+      "screenshots": screenshots or [],
+      "just_uploaded": just_uploaded,
+  }
+
+  return {
+      "file_name": ", ".join(s["file_name"] for s in (screenshots or [])) if screenshots else "kayal_duty.json (Web Synced)",
+      "saved_path": "Romantic Duty Roster (Dr. Kayalvizhi)",
+      "saved_name": f"{len(active_shifts)} Active Shifts • {off_count} Off Days",
+      "month_folder": ".",
+      "month_folder_name": "Kayal_Duty_Roster",
+      "bank_name": "Dr. Kayalvizhi Duty Roster",
+      "bank_short": "Dr. Kayalvizhi",
+      "statement_month": roster.get("period", "Nov 2026"),
+      "total_due": f"{len(active_shifts)} Shifts",
+      "due_date": f"{off_count} Days Together (Off)",
+      "cardholder_name": "DR. KAYALVIZHI 💖",
+      "reward_points": f"☀️{opd_count} 🌆{eve_count} 🌙{night_count}",
+      "date_groups": dict(date_groups),
+      "all_txns": all_txns,
+      "ongoing_emis": [],
+      "kayal_meta": kayal_meta,
+      "was_encrypted": False,
+      "decryption_note": "Dr. Kayalvizhi Duty Roster",
+  }
+
+def process_kayal_duty_roster(image_items):
+  """Extracts Dr. Kayalvizhi's duty shifts from uploaded duty roster photo(s) using OCR + column bounding boxes,
+  strictly distinguishing Dr. Kayalvizhi/Kayal from Kovilpathu/Kothu/Kesavaraj.
+  """
+  import io as _io
+  from datetime import datetime as _dt
+
+  roster = load_kayal_web_roster()
+  screenshots_gallery = []
+  parsed_rows = []
+
+  ocr_available = False
+  try:
+    import pytesseract
+    from PIL import Image, ImageOps, ImageEnhance
+    for win_path in [r"C:\Program Files\Tesseract-OCR\tesseract.exe", r"C:\Users\AppData\Local\Tesseract-OCR\tesseract.exe"]:
+      if os.path.exists(win_path):
+        pytesseract.pytesseract.tesseract_cmd = win_path
+        break
+    ocr_available = True
+  except Exception:
+    pass
+
+  for item in image_items:
+    fname = item["name"] if isinstance(item, dict) else item[0]
+    raw_bytes = item["bytes"] if isinstance(item, dict) else item[1]
+    ext = os.path.splitext(fname)[1].lower().replace(".", "") or "jpg"
+    mime = "image/jpeg" if ext in ("jpg", "jpeg") else ("image/webp" if ext == "webp" else "image/png")
+    b64_img = f"data:{mime};base64," + base64.b64encode(raw_bytes).decode("utf-8")
+
+    detected_dates = 0
+    if ocr_available:
+      try:
+        img_obj = Image.open(_io.BytesIO(raw_bytes))
+        w, h = img_obj.size
+        gray = ImageOps.grayscale(img_obj)
+        sharp = ImageEnhance.Contrast(gray).enhance(1.6)
+        data = pytesseract.image_to_data(sharp, output_type=pytesseract.Output.DICT)
+
+        # Group OCR words by approximate horizontal band (y-coordinate)
+        date_anchors = []
+        words = []
+        n = len(data["text"])
+        for idx in range(n):
+          word = (data["text"][idx] or "").strip()
+          if not word:
+            continue
+          x = int(data["left"][idx])
+          y = int(data["top"][idx])
+          wd = int(data["width"][idx])
+          ht = int(data["height"][idx])
+          words.append({"text": word, "x": x, "y": y, "w": wd, "h": ht, "cx": x + wd / 2.0, "cy": y + ht / 2.0})
+          m_d = re.search(r"(\d{2}[-/]\d{2}[-/]\d{4})", word)
+          if m_d:
+            date_anchors.append({"date": m_d.group(1).replace("/", "-"), "cy": y + ht / 2.0, "h": max(ht, 14)})
+
+        # Deduplicate date anchors by date string
+        seen_d = set()
+        unique_anchors = []
+        for anc in sorted(date_anchors, key=lambda a: a["cy"]):
+          if anc["date"] not in seen_d:
+            seen_d.add(anc["date"])
+            unique_anchors.append(anc)
+
+        for anc in unique_anchors:
+          band_y = anc["cy"]
+          tol = max(anc["h"] * 1.35, h * 0.018)
+          row_words = [wd for wd in words if abs(wd["cy"] - band_y) <= tol]
+          kayal_hits = []
+          for wd in row_words:
+            wl = re.sub(r"[^a-z]", "", wd["text"].lower())
+            # Strictly match Kayal / Kayalvizhi, never Kovilpathu / Kotho / Kesavaraj
+            if ("kayal" in wl or "koyal" in wl or "kayol" in wl) and "kovil" not in wl and "koth" not in wl and "kesav" not in wl:
+              kayal_hits.append(wd)
+
+          shift = "OFF"
+          note = "Rest Day"
+          if kayal_hits:
+            # Determine column by horizontal center ratio across image width
+            avg_x_ratio = sum(kh["cx"] for kh in kayal_hits) / (len(kayal_hits) * max(w, 1))
+            if avg_x_ratio < 0.45:
+              shift = "OPD"
+              note = "OPD (Morning)"
+            elif avg_x_ratio < 0.72:
+              shift = "EVENING"
+              note = "Evening Duty"
+            else:
+              shift = "NIGHT"
+              note = "Night Duty"
+
+          try:
+            day_str = _dt.strptime(anc["date"], "%d-%m-%Y").strftime("%a")
+          except Exception:
+            day_str = ""
+          parsed_rows.append({"date": anc["date"], "day": day_str, "shift": shift, "note": note})
+          detected_dates += 1
+      except Exception:
+        pass
+
+    screenshots_gallery.append({
+        "file_name": fname,
+        "screen_type": "Medical Officer Duty Roster",
+        "summary": f"{detected_dates} day(s) scanned" if detected_dates >= 5 else "Duty Roster Photo Attached",
+        "b64": b64_img
+    })
+
+  # Only overwrite roster entries if OCR cleanly extracted >= 5 valid dated rows; otherwise preserve verified schedule
+  if len(parsed_rows) >= 5:
+    roster["entries"] = parsed_rows
+    save_kayal_web_roster(roster)
+
+  result_data = build_kayal_statement_from_roster(roster, screenshots=screenshots_gallery, just_uploaded=True)
+  return True, "Success", result_data
+
 def parse_payslip_statement(reader, file_path, saved_names):
   """Dedicated parser for Salary Payslips (Skillveri / Zoho Payroll) and TDS Summary PDFs.
   Password format: Employee No + PAN [last 4 digits] (e.g. 1234000A / 115000A).
@@ -2756,7 +3016,7 @@ def generate_modern_dashboard_html(results_list, output_dir=".", write_to_disk=T
         statements.forEach(s => {{
           (s.all_txns || []).forEach(t => combined.all_txns.push({{ ...t, bank_badge: s.bank_short }}));
           (s.ongoing_emis || []).forEach(e => combined.ongoing_emis.push({{ ...e, bank_badge: s.bank_short }}));
-          const isSlip = (s.bank_short || '').toLowerCase().includes('payslip') || (s.payslip_meta && s.payslip_meta.is_payslip) || (s.shafana_meta && s.shafana_meta.is_shafana);
+          const isSlip = (s.bank_short || '').toLowerCase().includes('payslip') || (s.payslip_meta && s.payslip_meta.is_payslip) || (s.shafana_meta && s.shafana_meta.is_shafana) || (s.kayal_meta && s.kayal_meta.is_kayal);
           const cleanDue = parseFloat(String(s.total_due || '0').replace(/[^0-9.]/g, ''));
           if (!isNaN(cleanDue) && !isSlip) sumDue += cleanDue;
 
@@ -2812,9 +3072,10 @@ def generate_modern_dashboard_html(results_list, output_dir=".", write_to_disk=T
         const isScapia = bName.includes('scapia') || bName.includes('axis') || bName.includes('federal');
         const isPayslip = bName.includes('payslip') || bName.includes('skillveri') || bName.includes('salary');
         const isShafana = bName.includes('shafana') || (stmt.shafana_meta && stmt.shafana_meta.is_shafana);
+        const isKayal = bName.includes('kayal') || (stmt.kayal_meta && stmt.kayal_meta.is_kayal);
 
-        let dotColor = isShafana ? 'bg-amber-500' : (isPayslip ? 'bg-emerald-500' : (isSwiggy ? 'bg-[#fc8019]' : (isAmazon ? 'bg-[#ff9900]' : (isSbi ? 'bg-[#882438]' : (isScapia ? 'bg-[#f2530f]' : 'bg-blue-600')))));
-        let icon = isShafana ? '🎁' : (isPayslip ? '💼' : (isSwiggy ? '🛵' : (isAmazon ? '🛒' : (isSbi ? '💳' : (isScapia ? '✈️' : '🏛️')))));
+        let dotColor = isKayal ? 'bg-rose-500' : (isShafana ? 'bg-amber-500' : (isPayslip ? 'bg-emerald-500' : (isSwiggy ? 'bg-[#fc8019]' : (isAmazon ? 'bg-[#ff9900]' : (isSbi ? 'bg-[#882438]' : (isScapia ? 'bg-[#f2530f]' : 'bg-blue-600'))))));
+        let icon = isKayal ? '🩺' : (isShafana ? '🎁' : (isPayslip ? '💼' : (isSwiggy ? '🛵' : (isAmazon ? '🛒' : (isSbi ? '💳' : (isScapia ? '✈️' : '🏛️'))))));
 
         btn.className = `apple-tab-btn px-5 py-2.5 rounded-xl text-xs font-bold transition flex items-center gap-2 ${{
           isActive 
@@ -2907,10 +3168,52 @@ def generate_modern_dashboard_html(results_list, output_dir=".", write_to_disk=T
       const isScapia = bName.includes('scapia') || bName.includes('axis') || bName.includes('federal');
       const isPayslip = bName.includes('payslip') || bName.includes('skillveri') || bName.includes('salary') || (stmt.payslip_meta && stmt.payslip_meta.is_payslip);
       const isShafana = bName.includes('shafana') || (stmt.shafana_meta && stmt.shafana_meta.is_shafana);
+      const isKayal = bName.includes('kayal') || (stmt.kayal_meta && stmt.kayal_meta.is_kayal);
       const pm = stmt.payslip_meta || {{}};
       const sm = stmt.shafana_meta || {{}};
+      const km = stmt.kayal_meta || {{}};
 
-      if (isShafana) {{
+      if (isKayal) {{
+        const kSum = getKayalComputedTotals(stmt);
+        ambientColor = 'rgba(244, 63, 94, 0.28)';
+        cardBadgeText = "Dr. Kayalvizhi 💖 Duty Pass";
+        cardBadgeClass = 'bg-rose-100 text-rose-900 border-rose-300';
+        cardStageHtml = `
+          <div id="apple-active-card" class="apple-physical-card shadow-2xl relative p-5 flex flex-col justify-between text-white" style="background: linear-gradient(135deg, #881337 0%, #be123c 50%, #4c0519 100%); border: 1px solid rgba(251, 113, 133, 0.45);">
+            <div class="apple-card-glare"></div>
+            <div class="flex justify-between items-start relative z-10">
+              <div>
+                <div class="text-[10px] font-extrabold uppercase tracking-[0.15em] text-rose-200">CHC Thirunallar • Medical Officer</div>
+                <div class="text-sm font-black tracking-tight text-white mt-0.5">🩺💖 Dr. Kayalvizhi</div>
+              </div>
+              <span class="px-2.5 py-0.5 rounded-full text-[10px] font-black bg-rose-400/25 text-rose-100 border border-rose-300/35 uppercase tracking-wider">
+                ${{km.period || 'Nov 2026'}}
+              </span>
+            </div>
+
+            <div class="my-1 py-2.5 px-3.5 rounded-xl bg-white/15 backdrop-blur-md border border-white/20 flex justify-between items-center relative z-10">
+              <div>
+                <div class="text-[9px] font-bold uppercase tracking-wider text-rose-100">Active Shifts</div>
+                <div class="text-2xl font-black text-white tracking-tight">${{kSum.activeCount}} Duties</div>
+              </div>
+              <div class="text-right">
+                <div class="text-[10px] font-extrabold text-amber-200">☀️ ${{kSum.opdCount}} OPD • 🌆 ${{kSum.eveCount}} Eve • 🌙 ${{kSum.nightCount}} Night</div>
+                <div class="text-[10px] font-extrabold text-emerald-200">💞 ${{kSum.offCount}} Off Days Together</div>
+              </div>
+            </div>
+
+            <div class="flex justify-between items-end relative z-10">
+              <div>
+                <div class="text-[11px] font-black tracking-[0.08em] uppercase text-rose-100 font-mono">My Forever Doctor</div>
+                <div class="text-[10px] font-semibold text-rose-200">Tap Share on WhatsApp below ✨</div>
+              </div>
+              <div class="text-right">
+                <span class="text-lg font-black text-white">💖🩺</span>
+              </div>
+            </div>
+          </div>
+        `;
+      }} else if (isShafana) {{
         const sfSummary = getShafanaComputedTotals(stmt);
         ambientColor = 'rgba(245, 158, 11, 0.28)';
         cardBadgeText = "Shafana's Amazon Pay Cashback Pass";
@@ -3885,6 +4188,279 @@ def generate_modern_dashboard_html(results_list, output_dir=".", write_to_disk=T
       window.open(`https://wa.me/?text=${{encodeURIComponent(msg)}}`, '_blank');
     }};
 
+    function loadKayalVault() {{
+      const raw = vaultGetItem("smartbill_kayal_duty_vault");
+      let vault = {{ entries: [], updated_at: "" }};
+      let hadLocal = false;
+      if (raw) {{
+        try {{
+          const parsed = JSON.parse(raw);
+          if (parsed && typeof parsed === "object" && Array.isArray(parsed.entries)) {{
+            vault.entries = parsed.entries;
+            vault.updated_at = parsed.updated_at || "";
+            hadLocal = true;
+          }}
+        }} catch (e) {{}}
+      }}
+      statements.forEach(s => {{
+        if (s.kayal_meta && Array.isArray(s.kayal_meta.entries)) {{
+          if (!hadLocal || (s.kayal_meta.updated_at && (!vault.updated_at || s.kayal_meta.updated_at >= vault.updated_at))) {{
+            vault.entries = s.kayal_meta.entries.map(e => ({{ ...e }}));
+            vault.updated_at = s.kayal_meta.updated_at || "";
+          }}
+        }}
+      }});
+      vaultSetItem("smartbill_kayal_duty_vault", JSON.stringify(vault));
+      return vault;
+    }}
+
+    function saveKayalVault(vault) {{
+      vault.updated_at = new Date().toISOString();
+      vaultSetItem("smartbill_kayal_duty_vault", JSON.stringify(vault));
+      const ghToken = vaultGetItem("s24_github_pat");
+      if (ghToken && ghToken.trim().length > 10) {{
+        window.syncKayalVaultToWeb(true);
+      }}
+    }}
+
+    window.syncKayalVaultToWeb = async function(silent = false) {{
+      const ghToken = vaultGetItem("s24_github_pat") || "";
+      if (!ghToken) {{
+        if (!silent) showVaultToast("Saved on Device", "Saved locally! Add your GitHub token in the S24 Pusher once to sync across web.");
+        return;
+      }}
+      const vault = loadKayalVault();
+      const payloadObj = {{
+        doctor_name: "Dr. Kayalvizhi",
+        center_name: "CHC Thirunallar",
+        period: "01–15 Nov 2026",
+        husband_note: "No matter how busy your OPD, Evening, or Night shifts get, you are my favorite hero in a white coat. Counting down to every off day with you! 💖",
+        updated_at: new Date().toISOString(),
+        entries: vault.entries || []
+      }};
+      try {{
+        const apiUrl = "https://api.github.com/repos/xrvnsp/smart-bill-segregator/contents/kayal_duty.json";
+        const getRes = await fetch(apiUrl, {{
+          headers: {{ "Authorization": `Bearer ${{ghToken}}`, "Accept": "application/vnd.github+json" }}
+        }});
+        let sha = undefined;
+        if (getRes.ok) {{
+          const meta = await getRes.json();
+          sha = meta.sha;
+        }}
+        const b64Content = btoa(unescape(encodeURIComponent(JSON.stringify(payloadObj, null, 2))));
+        const putBody = {{ message: "Update Dr. Kayalvizhi duty roster", content: b64Content, branch: "main" }};
+        if (sha) putBody.sha = sha;
+        await fetch(apiUrl, {{
+          method: "PUT",
+          headers: {{ "Authorization": `Bearer ${{ghToken}}`, "Accept": "application/vnd.github+json", "Content-Type": "application/json" }},
+          body: JSON.stringify(putBody)
+        }});
+      }} catch (err) {{}}
+    }};
+
+    function getKayalComputedTotals(stmt) {{
+      const vault = loadKayalVault();
+      const entries = vault.entries || [];
+      const opdCount = entries.filter(e => (e.shift || '').toUpperCase() === 'OPD').length;
+      const eveCount = entries.filter(e => (e.shift || '').toUpperCase() === 'EVENING').length;
+      const nightCount = entries.filter(e => (e.shift || '').toUpperCase() === 'NIGHT').length;
+      const offCount = entries.filter(e => (e.shift || '').toUpperCase() === 'OFF').length;
+      const activeCount = opdCount + eveCount + nightCount;
+      return {{ vault, entries, opdCount, eveCount, nightCount, offCount, activeCount }};
+    }}
+
+    function buildKayalWhatsAppText() {{
+      const ks = getKayalComputedTotals();
+      let lines = [
+        "💖 *MY FOREVER DOCTOR — DR. KAYALVIZHI* 🩺",
+        "📍 *CHC Thirunallar (01–15 Nov 2026)*",
+        "",
+        "```",
+        "Date    Day   Shift / Status",
+        "----------------------------"
+      ];
+      ks.entries.forEach(e => {{
+        const dPart = (e.date || "").slice(0, 2) + " Nov";
+        const dayPart = (e.day || "").padEnd(4, " ").slice(0, 4);
+        const sh = (e.shift || "OFF").toUpperCase();
+        let shLabel = "🛋️ OFF";
+        if (sh === "OPD") shLabel = e.note && e.note.includes("Regha") ? "☀️ OPD (+Dr.Regha)" : "☀️ OPD (Morning)";
+        else if (sh === "EVENING") shLabel = "🌆 EVENING DUTY";
+        else if (sh === "NIGHT") shLabel = "🌙 NIGHT DUTY";
+        else if (e.note && e.note.includes("Post-Night")) shLabel = "💤 Off (Post-Night)";
+        else if (e.note && e.note.includes("Sunday")) shLabel = "🛋️ OFF (Sunday)";
+        lines.push(`${{dPart.padEnd(7, " ")}} ${{dayPart}}  ${{shLabel}}`);
+      }});
+      lines.push("```");
+      lines.push("");
+      lines.push(`📊 *Total Shifts:* ${{ks.activeCount}} (☀️ ${{ks.opdCount}} OPD • 🌆 ${{ks.eveCount}} Evening • 🌙 ${{ks.nightCount}} Night • 💞 ${{ks.offCount}} Off)`);
+      lines.push("✨ _Proud of you every single shift, Pondatti!_ 💖");
+      return lines.join("\n");
+    }}
+
+    window.shareKayalWhatsApp = function() {{
+      const msg = buildKayalWhatsAppText();
+      window.open(`https://wa.me/?text=${{encodeURIComponent(msg)}}`, '_blank');
+    }};
+
+    window.copyKayalWhatsAppTable = async function() {{
+      const msg = buildKayalWhatsAppText();
+      try {{
+        await navigator.clipboard.writeText(msg);
+        showVaultToast("Copied WhatsApp Table!", "Paste directly into WhatsApp for Dr. Kayalvizhi 💖");
+      }} catch (e) {{
+        showVaultToast("Ready to Share", "Tap 'Share on WhatsApp' to send directly!");
+      }}
+    }};
+
+    window.setKayalRowShift = function(dateStr, newShift) {{
+      const vault = loadKayalVault();
+      const target = vault.entries.find(e => e.date === dateStr);
+      if (target) {{
+        target.shift = newShift;
+        if (newShift === "OPD") target.note = "OPD (Morning)";
+        else if (newShift === "EVENING") target.note = "Evening Duty";
+        else if (newShift === "NIGHT") target.note = "Night Duty";
+        else target.note = "Off Day";
+        saveKayalVault(vault);
+        renderDashboard();
+      }}
+    }};
+
+    function renderKayalWorkspace(stmt) {{
+      const container = document.getElementById('date-breakdown-container');
+      const ks = getKayalComputedTotals(stmt);
+      const km = stmt.kayal_meta || {{}};
+      const justUp = !!km.just_uploaded;
+
+      const rowsHtml = ks.entries.map(ent => {{
+        const sh = (ent.shift || 'OFF').toUpperCase();
+        const isOff = sh === 'OFF';
+        let badgeCls = 'bg-emerald-100 text-emerald-800 border-emerald-300';
+        let badgeIcon = '💞 OFF';
+        let rowBg = 'bg-rose-50/20';
+        if (sh === 'OPD') {{
+          badgeCls = 'bg-amber-100 text-amber-900 border-amber-300';
+          badgeIcon = '☀️ OPD (Morning)';
+          rowBg = 'bg-amber-50/35';
+        }} else if (sh === 'EVENING') {{
+          badgeCls = 'bg-orange-100 text-orange-900 border-orange-300';
+          badgeIcon = '🌆 Evening Duty';
+          rowBg = 'bg-orange-50/35';
+        }} else if (sh === 'NIGHT') {{
+          badgeCls = 'bg-indigo-100 text-indigo-900 border-indigo-300';
+          badgeIcon = '🌙 Night Duty';
+          rowBg = 'bg-indigo-50/35';
+        }}
+
+        return `
+          <div class="p-3.5 sm:px-6 border-b border-rose-100 last:border-none flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2.5 ${{rowBg}} transition">
+            <div class="flex items-center gap-3">
+              <div class="w-12 h-12 rounded-2xl ${{isOff ? 'bg-emerald-50 border-emerald-200 text-emerald-700' : 'bg-rose-50 border-rose-200 text-rose-800'}} border flex flex-col items-center justify-center flex-shrink-0">
+                <span class="text-sm font-black leading-none">${{(ent.date || '').slice(0, 2)}}</span>
+                <span class="text-[10px] font-extrabold uppercase mt-0.5">${{ent.day || ''}}</span>
+              </div>
+              <div>
+                <div class="flex items-center gap-2 flex-wrap">
+                  <span class="px-2.5 py-0.5 rounded-full text-[11px] font-extrabold border ${{badgeCls}}">${{badgeIcon}}</span>
+                  <span class="text-xs font-bold text-slate-700">${{ent.note || ''}}</span>
+                </div>
+                <div class="text-[11px] text-rose-500 font-semibold mt-0.5">${{ent.date}} • CHC Thirunallar</div>
+              </div>
+            </div>
+
+            <div class="flex items-center gap-1 bg-white/90 p-1 rounded-xl border border-rose-200 no-print">
+              ${{['OPD', 'EVENING', 'NIGHT', 'OFF'].map(opt => `
+                <button onclick="setKayalRowShift('${{ent.date}}', '${{opt}}')" class="px-2 py-1 rounded-lg text-[10px] font-extrabold transition cursor-pointer ${{sh === opt ? 'bg-rose-600 text-white shadow-2xs' : 'text-slate-600 hover:bg-rose-50'}}">
+                  ${{opt}}
+                </button>
+              `).join('')}}
+            </div>
+          </div>
+        `;
+      }}).join('');
+
+      container.innerHTML = `
+        <div class="max-w-3xl mx-auto space-y-5">
+
+          ${{justUp ? `
+          <div class="bg-gradient-to-r from-emerald-500 to-teal-600 text-white rounded-2xl p-4 shadow-md flex flex-col sm:flex-row items-center justify-between gap-3">
+            <div class="flex items-center gap-2.5">
+              <span class="text-2xl">✅</span>
+              <div>
+                <div class="text-sm font-black">Duty Roster Photo Scanned & Ready!</div>
+                <div class="text-xs text-emerald-50">Tap the button on the right to send your formatted table straight to WhatsApp.</div>
+              </div>
+            </div>
+            <button onclick="shareKayalWhatsApp()" class="px-4 py-2 rounded-xl bg-white text-emerald-700 font-black text-xs shadow-sm hover:bg-emerald-50 cursor-pointer flex-shrink-0">
+              📲 Share on WhatsApp Now
+            </button>
+          </div>
+          ` : ''}}
+
+          <!-- ROMANTIC HEADER BANNER FOR DR. KAYALVIZHI -->
+          <div class="bg-gradient-to-br from-rose-50 via-pink-50/90 to-amber-50/70 rounded-3xl border-2 border-rose-200 shadow-sm p-6 sm:p-7">
+            <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+              <div class="space-y-1.5">
+                <div class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-rose-500/15 border border-rose-300 text-rose-800 text-[11px] font-extrabold uppercase tracking-wider">
+                  <span>💖</span>
+                  <span>For My Forever Doctor</span>
+                </div>
+                <h2 class="text-2xl sm:text-3xl font-black text-rose-950 tracking-tight">
+                  Dr. Kayalvizhi's Duty Roster 🩺✨
+                </h2>
+                <p class="text-xs sm:text-sm font-semibold text-rose-800/90 leading-relaxed max-w-xl">
+                  ${{km.husband_note || "No matter how busy your OPD, Evening, or Night shifts get, you are my favorite hero in a white coat. Counting down to every off day with you! 💖"}}
+                </p>
+              </div>
+              <div class="flex flex-col gap-2 w-full sm:w-auto flex-shrink-0">
+                <button onclick="shareKayalWhatsApp()" class="w-full sm:w-auto px-5 py-3 rounded-2xl bg-gradient-to-r from-rose-600 to-pink-600 hover:from-rose-500 hover:to-pink-500 text-white font-extrabold text-xs shadow-md shadow-rose-500/25 transition flex items-center justify-center gap-2 cursor-pointer">
+                  <span>📲</span>
+                  <span>Share Table on WhatsApp</span>
+                </button>
+                <button onclick="copyKayalWhatsAppTable()" class="w-full sm:w-auto px-4 py-2 rounded-xl bg-white hover:bg-rose-50 text-rose-700 border border-rose-200 font-extrabold text-xs transition flex items-center justify-center gap-1.5 cursor-pointer">
+                  <span>📋</span>
+                  <span>Copy WhatsApp Table</span>
+                </button>
+              </div>
+            </div>
+
+            <!-- 3 ROMANTIC SUMMARY TILES -->
+            <div class="grid grid-cols-3 gap-3 mt-5">
+              <div class="bg-white/90 rounded-2xl border border-rose-200 p-3.5 text-center">
+                <div class="text-[10px] font-extrabold uppercase text-rose-600">🩺 Active Shifts</div>
+                <div class="text-2xl font-black text-rose-950 mt-0.5">${{ks.activeCount}}</div>
+                <div class="text-[10px] font-bold text-slate-500">☀️${{ks.opdCount}} • 🌆${{ks.eveCount}} • 🌙${{ks.nightCount}}</div>
+              </div>
+              <div class="bg-white/90 rounded-2xl border border-emerald-200 p-3.5 text-center">
+                <div class="text-[10px] font-extrabold uppercase text-emerald-700">💞 Days Together</div>
+                <div class="text-2xl font-black text-emerald-700 mt-0.5">${{ks.offCount}}</div>
+                <div class="text-[10px] font-bold text-emerald-600">Off / Rest Days</div>
+              </div>
+              <div class="bg-white/90 rounded-2xl border border-amber-200 p-3.5 text-center">
+                <div class="text-[10px] font-extrabold uppercase text-amber-800">🏥 Center</div>
+                <div class="text-sm font-black text-slate-900 mt-1.5">CHC Thirunallar</div>
+                <div class="text-[10px] font-bold text-amber-700">${{km.period || 'Nov 2026'}}</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- 15-DAY DUTY TABLE -->
+          <div class="bg-white rounded-3xl border border-rose-200/90 shadow-sm overflow-hidden">
+            <div class="px-6 py-4 bg-gradient-to-r from-rose-900 to-pink-900 text-white flex justify-between items-center">
+              <span class="text-sm font-extrabold">📅 Dr. Kayalvizhi — 15-Day Duty Schedule</span>
+              <span class="text-xs font-bold text-rose-200">Tap any pill to adjust</span>
+            </div>
+            <div>
+              ${{rowsHtml}}
+            </div>
+          </div>
+
+        </div>
+      `;
+    }}
+
     function renderShafanaWorkspace(stmt) {{
       const container = document.getElementById('date-breakdown-container');
       const sf = getShafanaComputedTotals(stmt);
@@ -4411,9 +4987,14 @@ def generate_modern_dashboard_html(results_list, output_dir=".", write_to_disk=T
 
       const isPayslip = (stmt.payslip_meta && stmt.payslip_meta.is_payslip);
       const isShafana = (stmt.shafana_meta && stmt.shafana_meta.is_shafana);
+      const isKayal = (stmt.kayal_meta && stmt.kayal_meta.is_kayal);
       const searchFilterCard = document.getElementById('search-filter-card');
       if (searchFilterCard) {{
-        searchFilterCard.style.display = (isPayslip || isShafana) ? 'none' : 'flex';
+        searchFilterCard.style.display = (isPayslip || isShafana || isKayal) ? 'none' : 'flex';
+      }}
+      if (isKayal) {{
+        renderKayalWorkspace(stmt);
+        return;
       }}
       if (isShafana) {{
         renderShafanaWorkspace(stmt);
