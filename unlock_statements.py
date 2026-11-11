@@ -4299,7 +4299,7 @@ def generate_modern_dashboard_html(results_list, output_dir=".", write_to_disk=T
       lines.push("");
       lines.push(`📊 *Total Shifts:* ${{ks.activeCount}} (☀️ ${{ks.opdCount}} OPD • 🌆 ${{ks.eveCount}} Evening • 🌙 ${{ks.nightCount}} Night • 💞 ${{ks.offCount}} Off)`);
       lines.push("✨ _Proud of you every single shift, Pondatti!_ 💖");
-      return lines.join("\n");
+      return lines.join("\\n");
     }}
 
     window.shareKayalWhatsApp = function() {{
