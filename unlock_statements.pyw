@@ -1031,10 +1031,12 @@ def process_shafana_screenshots(image_items):
 KAYAL_WEB_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "kayal_duty.json")
 
 DEFAULT_KAYAL_DUTY = {
-  "doctor_name": "Dr. Kayalvizhi",
+  "doctor_name": "Dr Cuteuh Pattuh (Dr. Kayalvizhi)",
+  "pet_name": "Dr Cuteuh Pattuh",
+  "sign_off": "With Love, Saro 💖",
   "center_name": "CHC Thirunallar",
   "period": "01–15 Nov 2026",
-  "husband_note": "No matter how busy your OPD, Evening, or Night shifts get, you are my favorite hero in a white coat. Counting down to every off day with you! 💖",
+  "husband_note": "No matter how busy your OPD, Evening, or Night shifts get, you are my favorite hero in a white coat. Counting down to every off day with you! — With Love, Saro 💖",
   "updated_at": "2026-11-11T11:45:00+05:30",
   "entries": [
     {"date": "01-11-2026", "day": "Sun", "shift": "OFF", "note": "Rest Day"},
@@ -2106,7 +2108,7 @@ def generate_modern_dashboard_html(results_list, output_dir=".", write_to_disk=T
 </head>
 <body class="bg-slate-50 text-slate-900 min-h-screen">
 
-  <header class="bg-slate-900 border-b border-slate-800 text-white sticky top-0 z-50 shadow-md">
+  <header id="top-app-header" class="bg-slate-900 border-b border-slate-800 text-white sticky top-0 z-50 shadow-md">
     <div class="max-w-7xl mx-auto px-6 py-4 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
       <div class="flex items-center gap-3">
         <div class="w-10 h-10 rounded-xl bg-blue-600 flex items-center justify-center font-bold text-xl shadow-lg shadow-blue-500/30">💳</div>
@@ -3176,7 +3178,18 @@ def generate_modern_dashboard_html(results_list, output_dir=".", write_to_disk=T
       const sm = stmt.shafana_meta || {{}};
       const km = stmt.kayal_meta || {{}};
 
+      const topHdr = document.getElementById('top-app-header');
+      if (topHdr) topHdr.style.display = isKayal ? 'none' : '';
       if (isKayal) {{
+        if (hero) {{
+          hero.innerHTML = '';
+          hero.style.display = 'none';
+        }}
+        return;
+      }} else if (hero) {{
+        hero.style.display = '';
+      }}
+      if (false) {{
         const kSum = getKayalComputedTotals(stmt);
         ambientColor = 'rgba(244, 63, 94, 0.28)';
         cardBadgeText = "Dr. Kayalvizhi 💖 Duty Pass";
@@ -4191,17 +4204,123 @@ def generate_modern_dashboard_html(results_list, output_dir=".", write_to_disk=T
       window.open(`https://wa.me/?text=${{encodeURIComponent(msg)}}`, '_blank');
     }};
 
+    const KAYAL_THEMES = {{
+      rose: {{
+        name: "🌹 Rose & Gold",
+        pageBg: "from-rose-50 via-pink-50/90 to-amber-50/80",
+        border: "border-rose-200",
+        pillBg: "bg-rose-500/15 border-rose-300 text-rose-900",
+        titleText: "text-rose-950",
+        subText: "text-rose-800",
+        btnGrad: "from-rose-600 to-pink-600 hover:from-rose-500 hover:to-pink-500 shadow-rose-500/25",
+        tblHeader: "from-rose-900 via-pink-900 to-rose-950",
+        canvasGrad1: "#881337",
+        canvasGrad2: "#be123c",
+        canvasAccent: "#f43f5e",
+        canvasBorder: "#fda4af"
+      }},
+      lavender: {{
+        name: "💜 Lavender & Blush",
+        pageBg: "from-purple-50 via-fuchsia-50/85 to-rose-50/80",
+        border: "border-purple-200",
+        pillBg: "bg-purple-500/15 border-purple-300 text-purple-900",
+        titleText: "text-purple-950",
+        subText: "text-purple-800",
+        btnGrad: "from-purple-600 to-fuchsia-600 hover:from-purple-500 hover:to-fuchsia-500 shadow-purple-500/25",
+        tblHeader: "from-purple-950 via-fuchsia-900 to-indigo-950",
+        canvasGrad1: "#4c1d95",
+        canvasGrad2: "#7e22ce",
+        canvasAccent: "#a855f7",
+        canvasBorder: "#d8b4fe"
+      }},
+      mint: {{
+        name: "🌿 Pastel Mint & Pearl",
+        pageBg: "from-teal-50 via-emerald-50/85 to-amber-50/70",
+        border: "border-teal-200",
+        pillBg: "bg-teal-500/15 border-teal-300 text-teal-900",
+        titleText: "text-teal-950",
+        subText: "text-teal-800",
+        btnGrad: "from-teal-600 to-emerald-600 hover:from-teal-500 hover:to-emerald-500 shadow-teal-500/25",
+        tblHeader: "from-teal-950 via-emerald-900 to-slate-900",
+        canvasGrad1: "#115e59",
+        canvasGrad2: "#0d9488",
+        canvasAccent: "#14b8a6",
+        canvasBorder: "#99f6e4"
+      }}
+    }};
+
+    function getISTGreetingAndTime() {{
+      const now = new Date();
+      const istTimeStr = now.toLocaleTimeString('en-IN', {{
+        timeZone: 'Asia/Kolkata',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+        hour12: true
+      }}).toUpperCase();
+      const istDateStr = now.toLocaleDateString('en-IN', {{
+        timeZone: 'Asia/Kolkata',
+        day: '2-digit',
+        month: 'short',
+        year: 'numeric'
+      }});
+      const istHourStr = now.toLocaleTimeString('en-US', {{
+        timeZone: 'Asia/Kolkata',
+        hour: '2-digit',
+        hour12: false
+      }});
+      const hr = parseInt(istHourStr, 10) || 12;
+      let greet = "☀️ Good Afternoon, Dr Cuteuh Pattuh! 💖";
+      if (hr >= 5 && hr < 12) greet = "🌅 Good Morning, Dr Cuteuh Pattuh! 💖";
+      else if (hr >= 12 && hr < 17) greet = "☀️ Good Afternoon, Dr Cuteuh Pattuh! 💖";
+      else if (hr >= 17 && hr < 21) greet = "🌆 Good Evening, Dr Cuteuh Pattuh! 💖";
+      else greet = "🌙 Good Night, Dr Cuteuh Pattuh! 💖";
+
+      const parts = new Intl.DateTimeFormat('en-GB', {{
+        timeZone: 'Asia/Kolkata',
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric'
+      }}).formatToParts(now);
+      const dd = (parts.find(p => p.type === 'day') || {{value: '11'}}).value;
+      const mm = (parts.find(p => p.type === 'month') || {{value: '11'}}).value;
+      const yyyy = (parts.find(p => p.type === 'year') || {{value: '2026'}}).value;
+      const todayKey = `${{dd}}-${{mm}}-${{yyyy}}`;
+
+      return {{ greet, istTimeStr, istDateStr, todayKey, dd: parseInt(dd, 10) || 11 }};
+    }}
+
+    function getShiftCareReminder(shift, note) {{
+      const sh = (shift || 'OFF').toUpperCase();
+      if (sh === 'OPD') return "8:00 AM – 2:00 PM • Have a bright morning at CHC Thirunallar, Cuteuh Pattuh 🌸";
+      if (sh === 'EVENING') return "2:00 PM – 8:00 PM • Take a tea break & don't tire yourself out ✨";
+      if (sh === 'NIGHT') return "8:00 PM – 8:00 AM • Don't skip dinner & rest well tomorrow morning ❤️";
+      if (note && note.toLowerCase().includes('post-night')) return "Post-Night Recovery • Sleep deeply & recharge today 💤💖";
+      return "Our Day Together • Relax, smile & enjoy your day off! 💞";
+    }}
+
     function loadKayalVault() {{
       const raw = vaultGetItem("smartbill_kayal_duty_vault");
-      let vault = {{ entries: [], updated_at: "" }};
+      let vault = {{
+        entries: [],
+        phone: "",
+        theme: "rose",
+        loveNote: "No matter how busy your OPD, Evening, or Night shifts get, you are my favorite hero in a white coat. Counting down to every off day with you! — With Love, Saro 💖",
+        updated_at: ""
+      }};
       let hadLocal = false;
       if (raw) {{
         try {{
           const parsed = JSON.parse(raw);
-          if (parsed && typeof parsed === "object" && Array.isArray(parsed.entries)) {{
-            vault.entries = parsed.entries;
+          if (parsed && typeof parsed === "object") {{
+            if (Array.isArray(parsed.entries) && parsed.entries.length > 0) {{
+              vault.entries = parsed.entries;
+              hadLocal = true;
+            }}
+            if (parsed.phone) vault.phone = String(parsed.phone);
+            if (parsed.theme && KAYAL_THEMES[parsed.theme]) vault.theme = parsed.theme;
+            if (parsed.loveNote) vault.loveNote = String(parsed.loveNote);
             vault.updated_at = parsed.updated_at || "";
-            hadLocal = true;
           }}
         }} catch (e) {{}}
       }}
@@ -4228,16 +4347,15 @@ def generate_modern_dashboard_html(results_list, output_dir=".", write_to_disk=T
 
     window.syncKayalVaultToWeb = async function(silent = false) {{
       const ghToken = vaultGetItem("s24_github_pat") || "";
-      if (!ghToken) {{
-        if (!silent) showVaultToast("Saved on Device", "Saved locally! Add your GitHub token in the S24 Pusher once to sync across web.");
-        return;
-      }}
+      if (!ghToken) return;
       const vault = loadKayalVault();
       const payloadObj = {{
-        doctor_name: "Dr. Kayalvizhi",
+        doctor_name: "Dr Cuteuh Pattuh (Dr. Kayalvizhi)",
+        pet_name: "Dr Cuteuh Pattuh",
+        sign_off: "With Love, Saro 💖",
         center_name: "CHC Thirunallar",
         period: "01–15 Nov 2026",
-        husband_note: "No matter how busy your OPD, Evening, or Night shifts get, you are my favorite hero in a white coat. Counting down to every off day with you! 💖",
+        husband_note: vault.loveNote,
         updated_at: new Date().toISOString(),
         entries: vault.entries || []
       }};
@@ -4252,7 +4370,7 @@ def generate_modern_dashboard_html(results_list, output_dir=".", write_to_disk=T
           sha = meta.sha;
         }}
         const b64Content = btoa(unescape(encodeURIComponent(JSON.stringify(payloadObj, null, 2))));
-        const putBody = {{ message: "Update Dr. Kayalvizhi duty roster", content: b64Content, branch: "main" }};
+        const putBody = {{ message: "Update Dr Cuteuh Pattuh duty roster", content: b64Content, branch: "main" }};
         if (sha) putBody.sha = sha;
         await fetch(apiUrl, {{
           method: "PUT",
@@ -4268,53 +4386,393 @@ def generate_modern_dashboard_html(results_list, output_dir=".", write_to_disk=T
       const opdCount = entries.filter(e => (e.shift || '').toUpperCase() === 'OPD').length;
       const eveCount = entries.filter(e => (e.shift || '').toUpperCase() === 'EVENING').length;
       const nightCount = entries.filter(e => (e.shift || '').toUpperCase() === 'NIGHT').length;
-      const offCount = entries.filter(e => (e.shift || '').toUpperCase() === 'OFF').length;
+      const offEntries = entries.filter(e => (e.shift || '').toUpperCase() === 'OFF');
+      const offCount = offEntries.length;
       const activeCount = opdCount + eveCount + nightCount;
-      return {{ vault, entries, opdCount, eveCount, nightCount, offCount, activeCount }};
+
+      const ist = getISTGreetingAndTime();
+      const todayEntry = entries.find(e => e.date === ist.todayKey) || null;
+      const nextOff = offEntries.find(e => (parseInt((e.date || '0').slice(0, 2), 10) || 0) >= ist.dd) || offEntries[0] || null;
+      const offDaysShort = offEntries.map(e => (e.date || '').slice(0, 2) + ' Nov').join(', ');
+
+      return {{ vault, entries, opdCount, eveCount, nightCount, offCount, activeCount, ist, todayEntry, nextOff, offDaysShort }};
     }}
 
+    // Rich WhatsApp Text Builder OUTSIDE monospace ``` blocks so emojis NEVER turn into replacement diamonds!
     function buildKayalWhatsAppText() {{
       const ks = getKayalComputedTotals();
+      const EMJ_DOC = "\\uD83E\\uDE7A";
+      const EMJ_HEART = "\\uD83D\\uDC96";
+      const EMJ_PIN = "\\uD83D\\uDCCD";
+      const EMJ_SUN = "\\u2600\\uFE0F";
+      const EMJ_EVE = "\\uD83C\\uDF06";
+      const EMJ_MOON = "\\uD83C\\uDF19";
+      const EMJ_ZZZ = "\\uD83D\\uDCA4";
+      const EMJ_COUPLE = "\\uD83D\\uDC9E";
+      const EMJ_SPARK = "\\u2728";
+      const EMJ_CHART = "\\uD83D\\uDCCA";
+
       let lines = [
-        "💖 *MY FOREVER DOCTOR — DR. KAYALVIZHI* 🩺",
-        "📍 *CHC Thirunallar (01–15 Nov 2026)*",
-        "",
-        "```",
-        "Date    Day   Shift / Status",
-        "----------------------------"
+        `${{EMJ_HEART}} *DR CUTEUH PATTUH (DR. KAYALVIZHI)* ${{EMJ_DOC}}`,
+        `${{EMJ_PIN}} *CHC Thirunallar • Duty Roster (01–15 Nov 2026)*`,
+        `_${{ks.ist.greet}} (${{ks.ist.istDateStr}}, ${{ks.ist.istTimeStr}} IST)_`,
+        ""
       ];
+
       ks.entries.forEach(e => {{
         const dPart = (e.date || "").slice(0, 2) + " Nov";
-        const dayPart = (e.day || "").padEnd(4, " ").slice(0, 4);
+        const dayPart = e.day || "";
         const sh = (e.shift || "OFF").toUpperCase();
-        let shLabel = "🛋️ OFF";
-        if (sh === "OPD") shLabel = e.note && e.note.includes("Regha") ? "☀️ OPD (+Dr.Regha)" : "☀️ OPD (Morning)";
-        else if (sh === "EVENING") shLabel = "🌆 EVENING DUTY";
-        else if (sh === "NIGHT") shLabel = "🌙 NIGHT DUTY";
-        else if (e.note && e.note.includes("Post-Night")) shLabel = "💤 Off (Post-Night)";
-        else if (e.note && e.note.includes("Sunday")) shLabel = "🛋️ OFF (Sunday)";
-        lines.push(`${{dPart.padEnd(7, " ")}} ${{dayPart}}  ${{shLabel}}`);
+        let shLabel = `${{EMJ_COUPLE}} *OFF (Our Day Together)*`;
+        if (sh === "OPD") {{
+          shLabel = (e.note && e.note.includes("Regha"))
+            ? `${{EMJ_SUN}} *OPD (8 AM–2 PM)* _(with Dr. Regha)_`
+            : `${{EMJ_SUN}} *OPD (8 AM–2 PM)*`;
+        }} else if (sh === "EVENING") {{
+          shLabel = `${{EMJ_EVE}} *EVENING DUTY (2 PM–8 PM)*`;
+        }} else if (sh === "NIGHT") {{
+          shLabel = `${{EMJ_MOON}} *NIGHT DUTY (8 PM–8 AM)*`;
+        }} else if (e.note && e.note.toLowerCase().includes("post-night")) {{
+          shLabel = `${{EMJ_ZZZ}} *Off (Post-Night Rest)*`;
+        }} else if (e.note && e.note.toLowerCase().includes("sunday")) {{
+          shLabel = `${{EMJ_COUPLE}} *OFF (Sunday Rest)*`;
+        }}
+        lines.push(`• *${{dPart}} (${{dayPart}}):* ${{shLabel}}`);
       }});
-      lines.push("```");
+
       lines.push("");
-      lines.push(`📊 *Total Shifts:* ${{ks.activeCount}} (☀️ ${{ks.opdCount}} OPD • 🌆 ${{ks.eveCount}} Evening • 🌙 ${{ks.nightCount}} Night • 💞 ${{ks.offCount}} Off)`);
-      lines.push("✨ _Proud of you every single shift, Pondatti!_ 💖");
+      lines.push(`${{EMJ_CHART}} *Summary:* ${{ks.activeCount}} Shifts (${{EMJ_SUN}} ${{ks.opdCount}} OPD • ${{EMJ_EVE}} ${{ks.eveCount}} Eve • ${{EMJ_MOON}} ${{ks.nightCount}} Night) • ${{EMJ_COUPLE}} ${{ks.offCount}} Off Days`);
+      lines.push(`${{EMJ_SPARK}} _With Love, Saro_ ${{EMJ_HEART}}`);
       return lines.join("\\n");
     }}
 
-    window.shareKayalWhatsApp = function() {{
-      const msg = buildKayalWhatsAppText();
-      window.open(`https://wa.me/?text=${{encodeURIComponent(msg)}}`, '_blank');
+    // High-Resolution Retina PNG Table Screenshot Generator
+    function drawKayalDutyCanvas() {{
+      const ks = getKayalComputedTotals();
+      const thKey = ks.vault.theme || "rose";
+      const th = KAYAL_THEMES[thKey] || KAYAL_THEMES.rose;
+      const entries = ks.entries;
+      const scale = 2;
+      const width = 940;
+      const cardX = 6;
+      const cardY = 6;
+      const cardW = width - 12;
+      const cardR = 22;
+      const headerH = 165;
+      const subBarH = 54;
+      const rowH = 56;
+      const footerH = 78;
+      const cardH = headerH + subBarH + (entries.length * rowH) + footerH;
+      const height = cardH + 12;
+
+      const canvas = document.createElement('canvas');
+      canvas.width = width * scale;
+      canvas.height = height * scale;
+      const ctx = canvas.getContext('2d');
+      ctx.scale(scale, scale);
+
+      const fontSans = "Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif";
+
+      function roundRect(x, y, w, h, r, fill, stroke, strokeW = 1) {{
+        ctx.beginPath();
+        ctx.moveTo(x + r, y);
+        ctx.lineTo(x + w - r, y);
+        ctx.arcTo(x + w, y, x + w, y + r, r);
+        ctx.lineTo(x + w, y + h - r);
+        ctx.arcTo(x + w, y + h, x + w - r, y + h, r);
+        ctx.lineTo(x + r, y + h);
+        ctx.arcTo(x, y + h, x, y + h - r, r);
+        ctx.lineTo(x, y + r);
+        ctx.arcTo(x, y, x + r, y, r);
+        ctx.closePath();
+        if (fill) {{ ctx.fillStyle = fill; ctx.fill(); }}
+        if (stroke) {{ ctx.strokeStyle = stroke; ctx.lineWidth = strokeW; ctx.stroke(); }}
+      }}
+
+      // Base Card Background
+      roundRect(cardX, cardY, cardW, cardH, cardR, '#ffffff', null);
+
+      // 1. Romantic Gradient Header
+      ctx.save();
+      ctx.beginPath();
+      ctx.moveTo(cardX + cardR, cardY);
+      ctx.lineTo(cardX + cardW - cardR, cardY);
+      ctx.arcTo(cardX + cardW, cardY, cardX + cardW, cardY + cardR, cardR);
+      ctx.lineTo(cardX + cardW, cardY + headerH);
+      ctx.lineTo(cardX, cardY + headerH);
+      ctx.lineTo(cardX, cardY + cardR);
+      ctx.arcTo(cardX, cardY, cardX + cardR, cardY, cardR);
+      ctx.closePath();
+      const grad = ctx.createLinearGradient(cardX, cardY, cardX + cardW, cardY + headerH);
+      grad.addColorStop(0, th.canvasGrad1);
+      grad.addColorStop(1, th.canvasGrad2);
+      ctx.fillStyle = grad;
+      ctx.fill();
+      ctx.restore();
+
+      // Top Pill
+      roundRect(cardX + 26, cardY + 20, 260, 26, 13, 'rgba(255,255,255,0.18)', 'rgba(255,255,255,0.35)', 1);
+      ctx.font = `bold 11px ${{fontSans}}`;
+      ctx.fillStyle = '#ffffff';
+      ctx.textAlign = 'left';
+      ctx.textBaseline = 'middle';
+      ctx.fillText('🩺 FOR MY FOREVER DOCTOR 💖', cardX + 38, cardY + 33);
+
+      // IST Greeting Pill on Top Right
+      const istBadge = `🕒 ${{ks.ist.istDateStr}} • ${{ks.ist.istTimeStr}} IST`;
+      ctx.font = `bold 11px ${{fontSans}}`;
+      const istW = ctx.measureText(istBadge).width + 28;
+      roundRect(cardX + cardW - 26 - istW, cardY + 20, istW, 26, 13, 'rgba(0,0,0,0.25)', 'rgba(255,255,255,0.3)', 1);
+      ctx.fillStyle = '#fde68a';
+      ctx.textAlign = 'center';
+      ctx.fillText(istBadge, cardX + cardW - 26 - istW / 2, cardY + 33);
+
+      // Main Title
+      ctx.textAlign = 'left';
+      ctx.font = `900 28px ${{fontSans}}`;
+      ctx.fillStyle = '#ffffff';
+      ctx.fillText('Dr Cuteuh Pattuh (Dr. Kayalvizhi) 💖', cardX + 26, cardY + 74);
+
+      ctx.font = `600 13.5px ${{fontSans}}`;
+      ctx.fillStyle = 'rgba(255,255,255,0.92)';
+      ctx.fillText('📍 Community Health Center, Thirunallar • Duty Roster (01–15 Nov 2026)', cardX + 26, cardY + 104);
+
+      ctx.font = `italic 600 12.5px ${{fontSans}}`;
+      ctx.fillStyle = '#fecdd3';
+      const noteShort = (ks.vault.loveNote || '').slice(0, 105);
+      ctx.fillText(`"${{noteShort}}"`, cardX + 26, cardY + 134);
+
+      // 2. Summary Sub-Bar
+      let curY = cardY + headerH;
+      ctx.fillStyle = '#fff1f2';
+      ctx.fillRect(cardX, curY, cardW, subBarH);
+      ctx.beginPath();
+      ctx.moveTo(cardX, curY + subBarH);
+      ctx.lineTo(cardX + cardW, curY + subBarH);
+      ctx.strokeStyle = '#fecdd3';
+      ctx.lineWidth = 1.5;
+      ctx.stroke();
+
+      ctx.font = `800 13px ${{fontSans}}`;
+      ctx.fillStyle = '#881337';
+      ctx.textAlign = 'left';
+      ctx.fillText(`🩺 Total Active Shifts: ${{ks.activeCount}}   (☀️ ${{ks.opdCount}} OPD  •  🌆 ${{ks.eveCount}} Evening  •  🌙 ${{ks.nightCount}} Night)`, cardX + 26, curY + 27);
+
+      ctx.textAlign = 'right';
+      ctx.fillStyle = '#047857';
+      ctx.fillText(`💞 ${{ks.offCount}} Off Days Together: ${{ks.offDaysShort}}`, cardX + cardW - 26, curY + 27);
+
+      curY += subBarH;
+
+      // 3. 15-Day Table Rows
+      entries.forEach((ent, idx) => {{
+        const sh = (ent.shift || 'OFF').toUpperCase();
+        const isOff = sh === 'OFF';
+        const isToday = ent.date === ks.ist.todayKey;
+
+        ctx.fillStyle = isToday ? '#fffbeb' : (isOff ? '#f0fdf4' : (idx % 2 === 0 ? '#ffffff' : '#fff1f2'));
+        ctx.fillRect(cardX, curY, cardW, rowH);
+
+        // Left Accent Bar
+        ctx.fillStyle = sh === 'OPD' ? '#f59e0b' : (sh === 'EVENING' ? '#ea580c' : (sh === 'NIGHT' ? '#4f46e5' : '#10b981'));
+        ctx.fillRect(cardX, curY, 6, rowH);
+
+        // Bottom row line
+        ctx.beginPath();
+        ctx.moveTo(cardX, curY + rowH);
+        ctx.lineTo(cardX + cardW, curY + rowH);
+        ctx.strokeStyle = '#f1f5f9';
+        ctx.lineWidth = 1;
+        ctx.stroke();
+
+        // Date & Day Badge
+        const dShort = (ent.date || '').slice(0, 2) + ' Nov';
+        roundRect(cardX + 22, curY + 11, 118, 34, 10, isOff ? '#dcfce7' : '#ffe4e6', isOff ? '#86efac' : '#fda4af', 1);
+        ctx.font = `800 13px ${{fontSans}}`;
+        ctx.fillStyle = isOff ? '#065f46' : '#881337';
+        ctx.textAlign = 'center';
+        ctx.fillText(`${{dShort}} (${{ent.day || ''}})`, cardX + 81, curY + 28);
+
+        // Shift Pill
+        let pillText = '💞 OFF / REST DAY';
+        let pillBg = '#d1fae5';
+        let pillFg = '#065f46';
+        if (sh === 'OPD') {{
+          pillText = '☀️ OPD (8 AM – 2 PM)';
+          pillBg = '#fef3c7';
+          pillFg = '#92400e';
+        }} else if (sh === 'EVENING') {{
+          pillText = '🌆 EVENING (2 PM – 8 PM)';
+          pillBg = '#ffedd5';
+          pillFg = '#9a3412';
+        }} else if (sh === 'NIGHT') {{
+          pillText = '🌙 NIGHT (8 PM – 8 AM)';
+          pillBg = '#e0e7ff';
+          pillFg = '#3730a3';
+        }}
+        roundRect(cardX + 156, curY + 11, 220, 34, 10, pillBg, null);
+        ctx.font = `800 12.5px ${{fontSans}}`;
+        ctx.fillStyle = pillFg;
+        ctx.textAlign = 'center';
+        ctx.fillText(pillText, cardX + 266, curY + 28);
+
+        // Right Care Note & Co-Doctor
+        ctx.textAlign = 'left';
+        ctx.font = `700 13px ${{fontSans}}`;
+        ctx.fillStyle = '#1e293b';
+        const mainNote = ent.note || (isOff ? 'Off Day' : sh);
+        ctx.fillText(mainNote + (isToday ? '  ⭐ TODAY' : ''), cardX + 394, curY + 21);
+
+        ctx.font = `500 11.5px ${{fontSans}}`;
+        ctx.fillStyle = '#64748b';
+        const careMsg = getShiftCareReminder(sh, ent.note).split('•').pop().trim();
+        ctx.fillText(careMsg, cardX + 394, curY + 39);
+
+        curY += rowH;
+      }});
+
+      // 4. Romantic Footer
+      const footerBottom = cardY + cardH;
+      ctx.save();
+      ctx.beginPath();
+      ctx.moveTo(cardX, curY);
+      ctx.lineTo(cardX + cardW, curY);
+      ctx.lineTo(cardX + cardW, footerBottom - cardR);
+      ctx.arcTo(cardX + cardW, footerBottom, cardX + cardW - cardR, footerBottom, cardR);
+      ctx.lineTo(cardX + cardR, footerBottom);
+      ctx.arcTo(cardX, footerBottom, cardX, footerBottom - cardR, cardR);
+      ctx.lineTo(cardX, curY);
+      ctx.closePath();
+      ctx.fillStyle = th.canvasGrad1;
+      ctx.fill();
+      ctx.restore();
+
+      ctx.textAlign = 'left';
+      ctx.font = `bold 14px ${{fontSans}}`;
+      ctx.fillStyle = '#ffffff';
+      ctx.fillText(`💖 ${{ks.ist.greet}}`, cardX + 26, curY + 28);
+
+      ctx.font = `500 12px ${{fontSans}}`;
+      ctx.fillStyle = '#fecdd3';
+      ctx.fillText('Proud of you every single shift — take care & shine bright at CHC Thirunallar!', cardX + 26, curY + 50);
+
+      // Right Sign-Off Pill ("With Love, Saro 💖")
+      const signText = 'With Love, Saro 💖';
+      ctx.font = `800 15px ${{fontSans}}`;
+      const sW = ctx.measureText(signText).width + 36;
+      roundRect(cardX + cardW - 26 - sW, curY + 19, sW, 40, 14, th.canvasAccent, '#ffffff', 1.5);
+      ctx.fillStyle = '#ffffff';
+      ctx.textAlign = 'center';
+      ctx.fillText(signText, cardX + cardW - 26 - sW / 2, curY + 39);
+
+      // Outer Card Border
+      roundRect(cardX, cardY, cardW, cardH, cardR, null, th.canvasBorder, 2.5);
+      return canvas;
+    }}
+
+    window.shareKayalWhatsApp = async function() {{
+      const ks = getKayalComputedTotals();
+      let cleanPhone = (ks.vault.phone || "").replace(/\\D/g, "");
+      if (cleanPhone.length === 10) cleanPhone = "91" + cleanPhone;
+
+      try {{
+        const canvas = drawKayalDutyCanvas();
+        const blob = await canvasToPngBlobPromise(canvas);
+        const fileName = "Dr_Cuteuh_Pattuh_Duty_Roster.png";
+        const file = new File([blob], fileName, {{ type: "image/png" }});
+        const caption = `💖 Dr Cuteuh Pattuh Duty Roster (01–15 Nov 2026) — With Love, Saro 💖`;
+
+        // 1. On Android S24 Ultra / Mobile: Native Web Share Sheet with the PNG Screenshot File!
+        const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent || "");
+        if (isMobile && navigator.canShare && navigator.canShare({{ files: [file] }})) {{
+          await navigator.share({{
+            files: [file],
+            title: "Dr Cuteuh Pattuh Duty Roster 💖",
+            text: caption
+          }});
+          showClipboardToast("Shared Duty Roster Screenshot to WhatsApp! 💖", true);
+          return;
+        }}
+
+        // 2. On Desktop / Fallback: Copy PNG Image to Clipboard + Download PNG + Open WhatsApp Chat
+        let copiedImg = false;
+        if (navigator.clipboard && window.ClipboardItem) {{
+          try {{
+            await navigator.clipboard.write([new ClipboardItem({{ "image/png": blob }})]);
+            copiedImg = true;
+          }} catch (e) {{}}
+        }}
+
+        const link = document.createElement("a");
+        link.download = fileName;
+        link.href = URL.createObjectURL(blob);
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+
+        const waUrl = cleanPhone
+          ? `https://wa.me/${{cleanPhone}}?text=${{encodeURIComponent(caption)}}`
+          : `https://wa.me/?text=${{encodeURIComponent(caption)}}`;
+        window.open(waUrl, "_blank");
+
+        if (copiedImg) {{
+          showClipboardToast("Screenshot Copied to Clipboard & Downloaded! Press Ctrl+V in WhatsApp 💖", true);
+        }} else {{
+          showClipboardToast("Duty Roster Screenshot Downloaded! Attach it in WhatsApp 💖", true);
+        }}
+      }} catch (err) {{
+        showClipboardToast("Tap the Screenshot Preview Card below to save or share!", false);
+      }}
+    }};
+
+    window.downloadKayalTablePng = async function() {{
+      try {{
+        const canvas = drawKayalDutyCanvas();
+        const blob = await canvasToPngBlobPromise(canvas);
+        const link = document.createElement("a");
+        link.download = "Dr_Cuteuh_Pattuh_Duty_Roster.png";
+        link.href = URL.createObjectURL(blob);
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        showClipboardToast("Downloaded Dr_Cuteuh_Pattuh_Duty_Roster.png! 💖", true);
+      }} catch (e) {{}}
     }};
 
     window.copyKayalWhatsAppTable = async function() {{
       const msg = buildKayalWhatsAppText();
       try {{
         await navigator.clipboard.writeText(msg);
-        showVaultToast("Copied WhatsApp Table!", "Paste directly into WhatsApp for Dr. Kayalvizhi 💖");
+        showClipboardToast("Copied Text with Full Emojis! Paste into WhatsApp 💖", true);
       }} catch (e) {{
-        showVaultToast("Ready to Share", "Tap 'Share on WhatsApp' to send directly!");
+        const ta = document.createElement("textarea");
+        ta.value = msg;
+        document.body.appendChild(ta);
+        ta.select();
+        document.execCommand("copy");
+        document.body.removeChild(ta);
+        showClipboardToast("Copied Text with Full Emojis! Paste into WhatsApp 💖", true);
       }}
+    }};
+
+    window.setKayalTheme = function(themeKey) {{
+      const vault = loadKayalVault();
+      if (KAYAL_THEMES[themeKey]) {{
+        vault.theme = themeKey;
+        saveKayalVault(vault);
+        renderDashboard();
+      }}
+    }};
+
+    window.saveKayalPersonalSettings = function() {{
+      const phInp = document.getElementById("kayal-wa-phone-inp");
+      const noteInp = document.getElementById("kayal-love-note-inp");
+      const vault = loadKayalVault();
+      if (phInp) vault.phone = phInp.value.trim();
+      if (noteInp && noteInp.value.trim()) vault.loveNote = noteInp.value.trim();
+      saveKayalVault(vault);
+      showClipboardToast("Saved Dr Cuteuh Pattuh's WhatsApp & Love Note in Browser! 💖", true);
+      renderDashboard();
     }};
 
     window.setKayalRowShift = function(dateStr, newShift) {{
@@ -4325,7 +4783,7 @@ def generate_modern_dashboard_html(results_list, output_dir=".", write_to_disk=T
         if (newShift === "OPD") target.note = "OPD (Morning)";
         else if (newShift === "EVENING") target.note = "Evening Duty";
         else if (newShift === "NIGHT") target.note = "Night Duty";
-        else target.note = "Off Day";
+        else target.note = "Off Day Together";
         saveKayalVault(vault);
         renderDashboard();
       }}
@@ -4336,46 +4794,56 @@ def generate_modern_dashboard_html(results_list, output_dir=".", write_to_disk=T
       const ks = getKayalComputedTotals(stmt);
       const km = stmt.kayal_meta || {{}};
       const justUp = !!km.just_uploaded;
+      const thKey = ks.vault.theme || "rose";
+      const th = KAYAL_THEMES[thKey] || KAYAL_THEMES.rose;
+
+      const todayShiftText = ks.todayEntry
+        ? `Today (${{ks.todayEntry.date.slice(0, 5)}}): ${{ks.todayEntry.shift}} — ${{ks.todayEntry.note || ''}}`
+        : `01–15 Nov 2026 Schedule Active`;
+      const nextOffText = ks.nextOff
+        ? `${{ks.nextOff.date.slice(0, 2)}} Nov (${{ks.nextOff.day}}) — ${{ks.nextOff.note || 'Off Day'}}`
+        : `6 Off Days`;
 
       const rowsHtml = ks.entries.map(ent => {{
         const sh = (ent.shift || 'OFF').toUpperCase();
         const isOff = sh === 'OFF';
+        const isToday = ent.date === ks.ist.todayKey;
         let badgeCls = 'bg-emerald-100 text-emerald-800 border-emerald-300';
-        let badgeIcon = '💞 OFF';
-        let rowBg = 'bg-rose-50/20';
+        let badgeIcon = '💞 OFF / OUR DAY';
+        let rowBg = isToday ? 'bg-amber-50/80 ring-2 ring-amber-400' : (isOff ? 'bg-emerald-50/35' : 'bg-white');
         if (sh === 'OPD') {{
           badgeCls = 'bg-amber-100 text-amber-900 border-amber-300';
-          badgeIcon = '☀️ OPD (Morning)';
-          rowBg = 'bg-amber-50/35';
+          badgeIcon = '☀️ OPD (8 AM – 2 PM)';
         }} else if (sh === 'EVENING') {{
           badgeCls = 'bg-orange-100 text-orange-900 border-orange-300';
-          badgeIcon = '🌆 Evening Duty';
-          rowBg = 'bg-orange-50/35';
+          badgeIcon = '🌆 Evening (2 PM – 8 PM)';
         }} else if (sh === 'NIGHT') {{
           badgeCls = 'bg-indigo-100 text-indigo-900 border-indigo-300';
-          badgeIcon = '🌙 Night Duty';
-          rowBg = 'bg-indigo-50/35';
+          badgeIcon = '🌙 Night (8 PM – 8 AM)';
         }}
 
+        const careReminder = getShiftCareReminder(sh, ent.note);
+
         return `
-          <div class="p-3.5 sm:px-6 border-b border-rose-100 last:border-none flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2.5 ${{rowBg}} transition">
-            <div class="flex items-center gap-3">
-              <div class="w-12 h-12 rounded-2xl ${{isOff ? 'bg-emerald-50 border-emerald-200 text-emerald-700' : 'bg-rose-50 border-rose-200 text-rose-800'}} border flex flex-col items-center justify-center flex-shrink-0">
-                <span class="text-sm font-black leading-none">${{(ent.date || '').slice(0, 2)}}</span>
+          <div class="p-4 sm:px-6 border-b border-rose-100/80 last:border-none flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 ${{rowBg}} transition">
+            <div class="flex items-center gap-3.5">
+              <div class="w-13 h-13 rounded-2xl ${{isOff ? 'bg-emerald-100 border-emerald-300 text-emerald-800' : 'bg-rose-100/80 border-rose-300 text-rose-900'}} border flex flex-col items-center justify-center flex-shrink-0 px-2.5 py-2">
+                <span class="text-base font-black leading-none">${{(ent.date || '').slice(0, 2)}}</span>
                 <span class="text-[10px] font-extrabold uppercase mt-0.5">${{ent.day || ''}}</span>
               </div>
               <div>
                 <div class="flex items-center gap-2 flex-wrap">
                   <span class="px-2.5 py-0.5 rounded-full text-[11px] font-extrabold border ${{badgeCls}}">${{badgeIcon}}</span>
-                  <span class="text-xs font-bold text-slate-700">${{ent.note || ''}}</span>
+                  <span class="text-xs font-extrabold text-slate-800">${{ent.note || ''}}</span>
+                  ${{isToday ? `<span class="px-2 py-0.5 rounded-full text-[10px] font-black bg-amber-400 text-slate-950 uppercase">⭐ Today</span>` : ''}}
                 </div>
-                <div class="text-[11px] text-rose-500 font-semibold mt-0.5">${{ent.date}} • CHC Thirunallar</div>
+                <div class="text-[11.5px] text-rose-700 font-semibold mt-1">💌 ${{careReminder}}</div>
               </div>
             </div>
 
-            <div class="flex items-center gap-1 bg-white/90 p-1 rounded-xl border border-rose-200 no-print">
+            <div class="flex items-center gap-1 bg-slate-50 p-1 rounded-xl border border-slate-200 no-print self-end sm:self-center">
               ${{['OPD', 'EVENING', 'NIGHT', 'OFF'].map(opt => `
-                <button onclick="setKayalRowShift('${{ent.date}}', '${{opt}}')" class="px-2 py-1 rounded-lg text-[10px] font-extrabold transition cursor-pointer ${{sh === opt ? 'bg-rose-600 text-white shadow-2xs' : 'text-slate-600 hover:bg-rose-50'}}">
+                <button onclick="setKayalRowShift('${{ent.date}}', '${{opt}}')" class="px-2.5 py-1 rounded-lg text-[10px] font-extrabold transition cursor-pointer ${{sh === opt ? 'bg-rose-600 text-white shadow-2xs' : 'text-slate-600 hover:bg-rose-50'}}">
                   ${{opt}}
                 </button>
               `).join('')}}
@@ -4387,81 +4855,169 @@ def generate_modern_dashboard_html(results_list, output_dir=".", write_to_disk=T
       container.innerHTML = `
         <div class="max-w-3xl mx-auto space-y-5">
 
-          ${{justUp ? `
-          <div class="bg-gradient-to-r from-emerald-500 to-teal-600 text-white rounded-2xl p-4 shadow-md flex flex-col sm:flex-row items-center justify-between gap-3">
-            <div class="flex items-center gap-2.5">
-              <span class="text-2xl">✅</span>
+          <!-- LIVE INDIAN STANDARD TIME (IST) GREETING BANNER -->
+          <div class="bg-gradient-to-r ${{th.tblHeader}} text-white rounded-3xl p-4 sm:px-6 shadow-md flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+            <div class="flex items-center gap-3">
+              <span class="text-2xl">💖</span>
               <div>
-                <div class="text-sm font-black">Duty Roster Photo Scanned & Ready!</div>
-                <div class="text-xs text-emerald-50">Tap the button on the right to send your formatted table straight to WhatsApp.</div>
+                <div id="kayal-live-ist-greet" class="text-sm sm:text-base font-black tracking-tight">${{ks.ist.greet}}</div>
+                <div class="text-xs text-rose-200 font-semibold mt-0.5">
+                  <span id="kayal-live-ist-clock">🕒 ${{ks.ist.istDateStr}} • ${{ks.ist.istTimeStr}} IST</span>
+                  <span class="mx-1.5">•</span>
+                  <span class="text-amber-300 font-bold">${{todayShiftText}}</span>
+                </div>
               </div>
             </div>
-            <button onclick="shareKayalWhatsApp()" class="px-4 py-2 rounded-xl bg-white text-emerald-700 font-black text-xs shadow-sm hover:bg-emerald-50 cursor-pointer flex-shrink-0">
-              📲 Share on WhatsApp Now
+            <div class="flex items-center gap-1.5 bg-white/10 p-1 rounded-xl border border-white/15 no-print self-stretch sm:self-auto justify-center">
+              ${{Object.entries(KAYAL_THEMES).map(([k, v]) => `
+                <button onclick="setKayalTheme('${{k}}')" class="px-2.5 py-1 rounded-lg text-[10px] font-extrabold transition cursor-pointer ${{thKey === k ? 'bg-white text-slate-900 shadow-2xs' : 'text-white/80 hover:bg-white/10'}}">
+                  ${{v.name}}
+                </button>
+              `).join('')}}
+            </div>
+          </div>
+
+          ${{justUp ? `
+          <div class="bg-gradient-to-r from-emerald-600 to-teal-600 text-white rounded-2xl p-4 shadow-md flex flex-col sm:flex-row items-center justify-between gap-3">
+            <div class="flex items-center gap-2.5">
+              <span class="text-2xl">📸</span>
+              <div>
+                <div class="text-sm font-black">${{ks.ist.greet}} — Your Roster Photo is Ready!</div>
+                <div class="text-xs text-emerald-50">Loaded at ${{ks.ist.istTimeStr}} IST. Tap the button to share the table screenshot image on WhatsApp!</div>
+              </div>
+            </div>
+            <button onclick="shareKayalWhatsApp()" class="px-4 py-2.5 rounded-xl bg-white text-emerald-800 font-black text-xs shadow-sm hover:bg-emerald-50 cursor-pointer flex-shrink-0">
+              📲 Share Screenshot on WhatsApp
             </button>
           </div>
           ` : ''}}
 
-          <!-- ROMANTIC HEADER BANNER FOR DR. KAYALVIZHI -->
-          <div class="bg-gradient-to-br from-rose-50 via-pink-50/90 to-amber-50/70 rounded-3xl border-2 border-rose-200 shadow-sm p-6 sm:p-7">
+          <!-- ROMANTIC HERO CARD FOR DR CUTEUH PATTUH -->
+          <div class="bg-gradient-to-br ${{th.pageBg}} rounded-3xl border-2 ${{th.border}} shadow-sm p-6 sm:p-7">
             <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
               <div class="space-y-1.5">
-                <div class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-rose-500/15 border border-rose-300 text-rose-800 text-[11px] font-extrabold uppercase tracking-wider">
-                  <span>💖</span>
-                  <span>For My Forever Doctor</span>
+                <div class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full border ${{th.pillBg}} text-[11px] font-extrabold uppercase tracking-wider">
+                  <span>🩺💖</span>
+                  <span>Dr Cuteuh Pattuh • CHC Thirunallar</span>
                 </div>
-                <h2 class="text-2xl sm:text-3xl font-black text-rose-950 tracking-tight">
-                  Dr. Kayalvizhi's Duty Roster 🩺✨
+                <h2 class="text-2xl sm:text-3xl font-black ${{th.titleText}} tracking-tight">
+                  Dr Cuteuh Pattuh's Duty Roster ✨
                 </h2>
-                <p class="text-xs sm:text-sm font-semibold text-rose-800/90 leading-relaxed max-w-xl">
-                  ${{km.husband_note || "No matter how busy your OPD, Evening, or Night shifts get, you are my favorite hero in a white coat. Counting down to every off day with you! 💖"}}
+                <p class="text-xs sm:text-sm font-semibold ${{th.subText}} leading-relaxed max-w-xl">
+                  "${{ks.vault.loveNote}}"
                 </p>
               </div>
-              <div class="flex flex-col gap-2 w-full sm:w-auto flex-shrink-0">
-                <button onclick="shareKayalWhatsApp()" class="w-full sm:w-auto px-5 py-3 rounded-2xl bg-gradient-to-r from-rose-600 to-pink-600 hover:from-rose-500 hover:to-pink-500 text-white font-extrabold text-xs shadow-md shadow-rose-500/25 transition flex items-center justify-center gap-2 cursor-pointer">
+
+              <!-- 2 ACTION BUTTONS: 1) SHARE SCREENSHOT IMAGE ON WHATSAPP, 2) COPY TEXT WITH EMOJIS -->
+              <div class="flex flex-col gap-2 w-full sm:w-auto flex-shrink-0 no-print">
+                <button onclick="shareKayalWhatsApp()" class="w-full sm:w-auto px-5 py-3 rounded-2xl bg-gradient-to-r ${{th.btnGrad}} text-white font-extrabold text-xs shadow-md transition flex items-center justify-center gap-2 cursor-pointer active:scale-95">
                   <span>📲</span>
-                  <span>Share Table on WhatsApp</span>
+                  <span>Share Screenshot on WhatsApp</span>
                 </button>
-                <button onclick="copyKayalWhatsAppTable()" class="w-full sm:w-auto px-4 py-2 rounded-xl bg-white hover:bg-rose-50 text-rose-700 border border-rose-200 font-extrabold text-xs transition flex items-center justify-center gap-1.5 cursor-pointer">
-                  <span>📋</span>
-                  <span>Copy WhatsApp Table</span>
-                </button>
+                <div class="flex items-center gap-2">
+                  <button onclick="copyKayalWhatsAppTable()" class="flex-1 px-3.5 py-2 rounded-xl bg-white hover:bg-rose-50 text-rose-800 border border-rose-200 font-extrabold text-xs transition flex items-center justify-center gap-1.5 cursor-pointer">
+                    <span>📋</span>
+                    <span>Copy Text (With Emojis)</span>
+                  </button>
+                  <button onclick="downloadKayalTablePng()" class="px-3.5 py-2 rounded-xl bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 font-extrabold text-xs transition flex items-center justify-center gap-1 cursor-pointer" title="Download PNG Screenshot">
+                    <span>🖼️</span>
+                    <span>PNG</span>
+                  </button>
+                </div>
               </div>
             </div>
 
-            <!-- 3 ROMANTIC SUMMARY TILES -->
-            <div class="grid grid-cols-3 gap-3 mt-5">
-              <div class="bg-white/90 rounded-2xl border border-rose-200 p-3.5 text-center">
-                <div class="text-[10px] font-extrabold uppercase text-rose-600">🩺 Active Shifts</div>
-                <div class="text-2xl font-black text-rose-950 mt-0.5">${{ks.activeCount}}</div>
-                <div class="text-[10px] font-bold text-slate-500">☀️${{ks.opdCount}} • 🌆${{ks.eveCount}} • 🌙${{ks.nightCount}}</div>
+            <!-- 3 PERSONALIZED ROMANTIC TILES (INCLUDING NEXT OFF DAY COUNTDOWN) -->
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-5">
+              <div class="bg-white/90 rounded-2xl border border-rose-200 p-4">
+                <div class="text-[10px] font-extrabold uppercase text-rose-600">🩺 Active Duties (01–15 Nov)</div>
+                <div class="text-2xl font-black text-rose-950 mt-0.5">${{ks.activeCount}} Shifts</div>
+                <div class="text-xs font-bold text-slate-600 mt-0.5">☀️ ${{ks.opdCount}} OPD • 🌆 ${{ks.eveCount}} Eve • 🌙 ${{ks.nightCount}} Night</div>
               </div>
-              <div class="bg-white/90 rounded-2xl border border-emerald-200 p-3.5 text-center">
-                <div class="text-[10px] font-extrabold uppercase text-emerald-700">💞 Days Together</div>
-                <div class="text-2xl font-black text-emerald-700 mt-0.5">${{ks.offCount}}</div>
-                <div class="text-[10px] font-bold text-emerald-600">Off / Rest Days</div>
+              <div class="bg-white/90 rounded-2xl border border-emerald-200 p-4">
+                <div class="text-[10px] font-extrabold uppercase text-emerald-700">💑 Next Off Day Together</div>
+                <div class="text-lg font-black text-emerald-800 mt-1">${{nextOffText}}</div>
+                <div class="text-[11px] font-bold text-emerald-600 mt-0.5">All ${{ks.offCount}} Off Days: ${{ks.offDaysShort}}</div>
               </div>
-              <div class="bg-white/90 rounded-2xl border border-amber-200 p-3.5 text-center">
-                <div class="text-[10px] font-extrabold uppercase text-amber-800">🏥 Center</div>
-                <div class="text-sm font-black text-slate-900 mt-1.5">CHC Thirunallar</div>
-                <div class="text-[10px] font-bold text-amber-700">${{km.period || 'Nov 2026'}}</div>
+              <div class="bg-white/90 rounded-2xl border border-amber-200 p-4">
+                <div class="text-[10px] font-extrabold uppercase text-amber-800">💌 Signed With Love</div>
+                <div class="text-lg font-black text-rose-700 mt-1">With Love, Saro 💖</div>
+                <div class="text-[11px] font-bold text-amber-800 mt-0.5">CHC Thirunallar • Medical Officer</div>
               </div>
             </div>
           </div>
 
-          <!-- 15-DAY DUTY TABLE -->
+          <!-- 15-DAY INTERACTIVE DUTY TABLE -->
           <div class="bg-white rounded-3xl border border-rose-200/90 shadow-sm overflow-hidden">
-            <div class="px-6 py-4 bg-gradient-to-r from-rose-900 to-pink-900 text-white flex justify-between items-center">
-              <span class="text-sm font-extrabold">📅 Dr. Kayalvizhi — 15-Day Duty Schedule</span>
-              <span class="text-xs font-bold text-rose-200">Tap any pill to adjust</span>
+            <div class="px-6 py-4 bg-gradient-to-r ${{th.tblHeader}} text-white flex flex-col sm:flex-row justify-between items-start sm:items-center gap-1">
+              <span class="text-sm font-extrabold">📅 Dr Cuteuh Pattuh — 15-Day Duty Schedule</span>
+              <span class="text-xs font-bold text-rose-200">Tap any shift button on the right to edit</span>
             </div>
             <div>
               ${{rowsHtml}}
             </div>
           </div>
 
+          <!-- LIVE SCREENSHOT TABLE PREVIEW (SO SHE CAN SEE OR LONG-PRESS THE EXACT WHATSAPP IMAGE) -->
+          <div class="bg-white rounded-3xl border border-rose-200/90 shadow-sm p-5 space-y-3">
+            <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
+              <div>
+                <h3 class="text-sm font-extrabold text-slate-900">🖼️ WhatsApp Table Screenshot Preview</h3>
+                <p class="text-xs text-slate-500">This high-resolution table card is shared when you tap <b>📲 Share Screenshot on WhatsApp</b> (or long-press image on mobile).</p>
+              </div>
+              <button onclick="shareKayalWhatsApp()" class="px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-xs font-extrabold cursor-pointer">
+                📲 Send This Screenshot
+              </button>
+            </div>
+            <div class="rounded-2xl overflow-hidden border border-rose-200 bg-slate-50 flex justify-center p-2">
+              <img id="kayal-screenshot-preview-img" alt="Dr Cuteuh Pattuh Duty Roster Screenshot" class="max-w-full h-auto rounded-xl shadow-xs" />
+            </div>
+          </div>
+
+          <!-- EDITABLE BROWSER STORAGE SETTINGS (WHATSAPP NUMBER & LOVE NOTE) -->
+          <div class="bg-rose-50/70 rounded-3xl border border-rose-200 p-5 space-y-3 no-print">
+            <div class="text-xs font-extrabold uppercase tracking-wider text-rose-900">🔒 Browser-Saved Personalization (Editable Anytime)</div>
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <div>
+                <label class="block text-[11px] font-bold text-rose-800 mb-1">📱 Dr Cuteuh Pattuh's WhatsApp No.</label>
+                <input type="tel" id="kayal-wa-phone-inp" value="${{ks.vault.phone || ''}}" placeholder="e.g. 9876543210" class="w-full px-3 py-2 text-xs font-bold bg-white border border-rose-200 rounded-xl text-slate-900">
+              </div>
+              <div class="sm:col-span-2">
+                <label class="block text-[11px] font-bold text-rose-800 mb-1">💌 Saro's Love Note on Header & Screenshot</label>
+                <input type="text" id="kayal-love-note-inp" value="${{(ks.vault.loveNote || '').replace(/"/g, '&quot;')}}" class="w-full px-3 py-2 text-xs font-bold bg-white border border-rose-200 rounded-xl text-slate-900">
+              </div>
+            </div>
+            <div class="flex justify-end">
+              <button onclick="saveKayalPersonalSettings()" class="px-4 py-2 rounded-xl bg-rose-700 hover:bg-rose-600 text-white text-xs font-extrabold cursor-pointer">
+                💾 Save in Browser Storage
+              </button>
+            </div>
+          </div>
+
         </div>
       `;
+
+      // Render the live PNG screenshot preview image immediately
+      setTimeout(() => {{
+        try {{
+          const prevImg = document.getElementById('kayal-screenshot-preview-img');
+          if (prevImg) {{
+            const c = drawKayalDutyCanvas();
+            prevImg.src = c.toDataURL('image/png');
+          }}
+        }} catch (e) {{}}
+      }}, 30);
+
+      // Keep IST Clock & Greeting ticking live every second
+      if (window._kayalClockInterval) clearInterval(window._kayalClockInterval);
+      window._kayalClockInterval = setInterval(() => {{
+        const gEl = document.getElementById('kayal-live-ist-greet');
+        const cEl = document.getElementById('kayal-live-ist-clock');
+        if (!gEl && !cEl) return;
+        const cur = getISTGreetingAndTime();
+        if (gEl) gEl.textContent = cur.greet;
+        if (cEl) cEl.textContent = `🕒 ${{cur.istDateStr}} • ${{cur.istTimeStr}} IST`;
+      }}, 1000);
     }}
 
     function renderShafanaWorkspace(stmt) {{
