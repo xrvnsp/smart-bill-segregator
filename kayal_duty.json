@@ -1,0 +1,99 @@
+{
+  "doctor_name": "Dr. Kayalvizhi",
+  "center_name": "CHC Thirunallar",
+  "period": "01–15 Nov 2026",
+  "husband_note": "No matter how busy your OPD, Evening, or Night shifts get, you are my favorite hero in a white coat. Counting down to every off day with you! 💖",
+  "updated_at": "2026-11-11T11:45:00+05:30",
+  "entries": [
+    {
+      "date": "01-11-2026",
+      "day": "Sun",
+      "shift": "OFF",
+      "note": "Rest Day"
+    },
+    {
+      "date": "02-11-2026",
+      "day": "Mon",
+      "shift": "NIGHT",
+      "note": "Solo Night Duty"
+    },
+    {
+      "date": "03-11-2026",
+      "day": "Tue",
+      "shift": "OFF",
+      "note": "Post-Night Rest"
+    },
+    {
+      "date": "04-11-2026",
+      "day": "Wed",
+      "shift": "EVENING",
+      "note": "Solo Evening Duty"
+    },
+    {
+      "date": "05-11-2026",
+      "day": "Thu",
+      "shift": "NIGHT",
+      "note": "Solo Night Duty"
+    },
+    {
+      "date": "06-11-2026",
+      "day": "Fri",
+      "shift": "OFF",
+      "note": "Post-Night Rest"
+    },
+    {
+      "date": "07-11-2026",
+      "day": "Sat",
+      "shift": "OPD",
+      "note": "Solo OPD (Morning)"
+    },
+    {
+      "date": "08-11-2026",
+      "day": "Sun",
+      "shift": "OFF",
+      "note": "Sunday Off"
+    },
+    {
+      "date": "09-11-2026",
+      "day": "Mon",
+      "shift": "EVENING",
+      "note": "Solo Evening Duty"
+    },
+    {
+      "date": "10-11-2026",
+      "day": "Tue",
+      "shift": "OPD",
+      "note": "Solo OPD (Morning)"
+    },
+    {
+      "date": "11-11-2026",
+      "day": "Wed",
+      "shift": "OPD",
+      "note": "With Dr. Regha"
+    },
+    {
+      "date": "12-11-2026",
+      "day": "Thu",
+      "shift": "OFF",
+      "note": "Off (Dr. Sarath / Dr. Anand / PHC Kovilpathu)"
+    },
+    {
+      "date": "13-11-2026",
+      "day": "Fri",
+      "shift": "NIGHT",
+      "note": "Solo Night Duty"
+    },
+    {
+      "date": "14-11-2026",
+      "day": "Sat",
+      "shift": "OFF",
+      "note": "Post-Night Rest"
+    },
+    {
+      "date": "15-11-2026",
+      "day": "Sun",
+      "shift": "EVENING",
+      "note": "Solo Evening Duty"
+    }
+  ]
+}
