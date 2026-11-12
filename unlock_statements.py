@@ -4407,7 +4407,7 @@ def generate_modern_dashboard_html(results_list, output_dir=".", write_to_disk=T
     // Rich WhatsApp Text Builder OUTSIDE monospace ``` blocks so emojis NEVER turn into replacement diamonds!
     function buildKayalWhatsAppText() {{
       const ks = getKayalComputedTotals();
-      const EMJ_DOC = "\\uD83E\\uDE7A";
+      const EMJ_DOC = "\\u2764\\uFE0F";
       const EMJ_HEART = "\\uD83D\\uDC96";
       const EMJ_PIN = "\\uD83D\\uDCCD";
       const EMJ_SUN = "\\u2600\\uFE0F";
@@ -4419,7 +4419,7 @@ def generate_modern_dashboard_html(results_list, output_dir=".", write_to_disk=T
       const EMJ_CHART = "\\uD83D\\uDCCA";
 
       let lines = [
-        `${{EMJ_HEART}} *${{isKayalRomanticMode() ? "DR CUTEUH PATTUH (DR. KAYALVIZHI)" : "DR. KAYALVIZHI"}}* ${{EMJ_DOC}}`,
+        `${{EMJ_HEART}} *DR CUTEUH PATTUH (DR. KAYALVIZHI)* ${{EMJ_DOC}}`,
         `${{EMJ_PIN}} *CHC Thirunallar • Duty Roster (01–15 Nov 2026)*`,
         `_${{ks.ist.greet}} (${{ks.ist.istDateStr}}, ${{ks.ist.istTimeStr}} IST)_`,
         ""
@@ -4448,7 +4448,7 @@ def generate_modern_dashboard_html(results_list, output_dir=".", write_to_disk=T
 
       lines.push("");
       lines.push(`${{EMJ_CHART}} *Summary:* ${{ks.activeCount}} Shifts (${{EMJ_SUN}} ${{ks.opdCount}} OPD • ${{EMJ_EVE}} ${{ks.eveCount}} Eve • ${{EMJ_MOON}} ${{ks.nightCount}} Night) • ${{EMJ_COUPLE}} ${{ks.offCount}} Off Days`);
-      if (isKayalRomanticMode()) lines.push(`${{EMJ_SPARK}} _With Love, Saro_ ${{EMJ_HEART}}`);
+      lines.push(`${{EMJ_SPARK}} _With Love, Saro_ ${{EMJ_HEART}}`);
       return lines.join("\\n");
     }}
 
@@ -4685,7 +4685,7 @@ def generate_modern_dashboard_html(results_list, output_dir=".", write_to_disk=T
       ctx.fillText('Proud of you every single shift at CHC Thirunallar!', cardX + 20, curY + 48);
 
       // Sign-Off Pill cleanly on Bottom Row
-      const signText = isKayalRomanticMode() ? 'With Love, Saro 💖' : 'CHC Thirunallar 🩺';
+      const signText = 'With Love, Saro 💖';
       ctx.font = `800 13px ${{fontSans}}`;
       const sW = ctx.measureText(signText).width + 32;
       roundRect(cardX + cardW - 20 - sW, curY + 56, sW, 34, 12, th.canvasAccent, '#ffffff', 1.5);
@@ -4708,7 +4708,7 @@ def generate_modern_dashboard_html(results_list, output_dir=".", write_to_disk=T
         const blob = await canvasToPngBlobPromise(canvas);
         const fileName = "Dr_Cuteuh_Pattuh_Duty_Roster.png";
         const file = new File([blob], fileName, {{ type: "image/png" }});
-        const caption = isKayalRomanticMode() ? `💖 Dr Cuteuh Pattuh Duty Roster (01–15 Nov 2026) — With Love, Saro 💖` : `🩺 Dr. Kayalvizhi Duty Roster (01–15 Nov 2026) — CHC Thirunallar`;
+        const caption = `\\uD83D\\uDC96 Dr Cuteuh Pattuh (Dr. Kayalvizhi) Duty Roster (01–15 Nov 2026) \\u2728 With Love, Saro \\u2764\\uFE0F`;
 
         // 1. On Android S24 Ultra / Mobile: Native Web Share Sheet with the PNG Screenshot File!
         const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent || "");
@@ -4739,8 +4739,8 @@ def generate_modern_dashboard_html(results_list, output_dir=".", write_to_disk=T
         document.body.removeChild(link);
 
         const waUrl = cleanPhone
-          ? `https://wa.me/${{cleanPhone}}?text=${{encodeURIComponent(caption)}}`
-          : `https://wa.me/?text=${{encodeURIComponent(caption)}}`;
+          ? `https://api.whatsapp.com/send?phone=${{cleanPhone}}&text=${{encodeURIComponent(caption)}}`
+          : `https://api.whatsapp.com/send?text=${{encodeURIComponent(caption)}}`;
         window.open(waUrl, "_blank");
 
         if (copiedImg) {{
