@@ -4452,22 +4452,22 @@ def generate_modern_dashboard_html(results_list, output_dir=".", write_to_disk=T
       return lines.join("\\n");
     }}
 
-    // High-Resolution Retina PNG Table Screenshot Generator
+    // High-Resolution S24 Mobile Portrait PNG Table Screenshot Generator
     function drawKayalDutyCanvas() {{
       const ks = getKayalComputedTotals();
       const thKey = ks.vault.theme || "rose";
       const th = KAYAL_THEMES[thKey] || KAYAL_THEMES.rose;
       const entries = ks.entries;
       const scale = 2;
-      const width = 940;
+      const width = 540;
       const cardX = 6;
       const cardY = 6;
       const cardW = width - 12;
       const cardR = 22;
-      const headerH = 165;
-      const subBarH = 54;
-      const rowH = 56;
-      const footerH = 78;
+      const headerH = 178;
+      const subBarH = 68;
+      const rowH = 66;
+      const footerH = 104;
       const cardH = headerH + subBarH + (entries.length * rowH) + footerH;
       const height = cardH + 12;
 
@@ -4495,6 +4495,24 @@ def generate_modern_dashboard_html(results_list, output_dir=".", write_to_disk=T
         if (stroke) {{ ctx.strokeStyle = stroke; ctx.lineWidth = strokeW; ctx.stroke(); }}
       }}
 
+      function wrapText(text, maxW, maxLines = 2) {{
+        const words = String(text || '').split(/\s+/);
+        const lines = [];
+        let cur = '';
+        for (const w of words) {{
+          const test = cur ? (cur + ' ' + w) : w;
+          if (ctx.measureText(test).width > maxW && cur) {{
+            lines.push(cur);
+            cur = w;
+            if (lines.length >= maxLines) break;
+          }} else {{
+            cur = test;
+          }}
+        }}
+        if (cur && lines.length < maxLines) lines.push(cur);
+        return lines;
+      }}
+
       // Base Card Background
       roundRect(cardX, cardY, cardW, cardH, cardR, '#ffffff', null);
 
@@ -4516,39 +4534,41 @@ def generate_modern_dashboard_html(results_list, output_dir=".", write_to_disk=T
       ctx.fill();
       ctx.restore();
 
-      // Top Pill
-      roundRect(cardX + 26, cardY + 20, 260, 26, 13, 'rgba(255,255,255,0.18)', 'rgba(255,255,255,0.35)', 1);
-      ctx.font = `bold 11px ${{fontSans}}`;
+      // Top Pill (Left) & IST Time Pill (Right)
+      roundRect(cardX + 20, cardY + 18, 224, 24, 12, 'rgba(255,255,255,0.18)', 'rgba(255,255,255,0.35)', 1);
+      ctx.font = `bold 10.5px ${{fontSans}}`;
       ctx.fillStyle = '#ffffff';
       ctx.textAlign = 'left';
       ctx.textBaseline = 'middle';
-      ctx.fillText('🩺 FOR MY FOREVER DOCTOR 💖', cardX + 38, cardY + 33);
+      ctx.fillText('🩺 FOR MY FOREVER DOCTOR 💖', cardX + 30, cardY + 30);
 
-      // IST Greeting Pill on Top Right
       const istBadge = `🕒 ${{ks.ist.istDateStr}} • ${{ks.ist.istTimeStr}} IST`;
-      ctx.font = `bold 11px ${{fontSans}}`;
-      const istW = ctx.measureText(istBadge).width + 28;
-      roundRect(cardX + cardW - 26 - istW, cardY + 20, istW, 26, 13, 'rgba(0,0,0,0.25)', 'rgba(255,255,255,0.3)', 1);
+      ctx.font = `bold 10px ${{fontSans}}`;
+      const istW = Math.min(246, ctx.measureText(istBadge).width + 22);
+      roundRect(cardX + cardW - 20 - istW, cardY + 18, istW, 24, 12, 'rgba(0,0,0,0.25)', 'rgba(255,255,255,0.3)', 1);
       ctx.fillStyle = '#fde68a';
       ctx.textAlign = 'center';
-      ctx.fillText(istBadge, cardX + cardW - 26 - istW / 2, cardY + 33);
+      ctx.fillText(istBadge, cardX + cardW - 20 - istW / 2, cardY + 30);
 
       // Main Title
       ctx.textAlign = 'left';
-      ctx.font = `900 28px ${{fontSans}}`;
+      ctx.font = `900 22px ${{fontSans}}`;
       ctx.fillStyle = '#ffffff';
-      ctx.fillText(isKayalRomanticMode() ? 'Dr Cuteuh Pattuh (Dr. Kayalvizhi) 💖' : 'Dr. Kayalvizhi — Duty Roster 🩺', cardX + 26, cardY + 74);
+      ctx.fillText(isKayalRomanticMode() ? 'Dr Cuteuh Pattuh (Dr. Kayalvizhi) 💖' : 'Dr. Kayalvizhi — Duty Roster 🩺', cardX + 20, cardY + 68);
 
-      ctx.font = `600 13.5px ${{fontSans}}`;
-      ctx.fillStyle = 'rgba(255,255,255,0.92)';
-      ctx.fillText('📍 Community Health Center, Thirunallar • Duty Roster (01–15 Nov 2026)', cardX + 26, cardY + 104);
+      ctx.font = `600 12.5px ${{fontSans}}`;
+      ctx.fillStyle = 'rgba(255,255,255,0.94)';
+      ctx.fillText('📍 CHC Thirunallar • Duty Roster (01–15 Nov 2026)', cardX + 20, cardY + 95);
 
-      ctx.font = `italic 600 12.5px ${{fontSans}}`;
+      // Wrapped Love Note (2 clean lines, zero truncation!)
+      ctx.font = `italic 600 11.5px ${{fontSans}}`;
       ctx.fillStyle = '#fecdd3';
-      const noteShort = (ks.vault.loveNote || '').slice(0, 105);
-      ctx.fillText(`"${{noteShort}}"`, cardX + 26, cardY + 134);
+      const noteLines = wrapText(`"${{ks.vault.loveNote || ''}}"`, cardW - 40, 2);
+      noteLines.forEach((ln, li) => {{
+        ctx.fillText(ln, cardX + 20, cardY + 124 + (li * 18));
+      }});
 
-      // 2. Summary Sub-Bar
+      // 2. Two-Line Summary Sub-Bar (Zero Overlap!)
       let curY = cardY + headerH;
       ctx.fillStyle = '#fff1f2';
       ctx.fillRect(cardX, curY, cardW, subBarH);
@@ -4559,18 +4579,18 @@ def generate_modern_dashboard_html(results_list, output_dir=".", write_to_disk=T
       ctx.lineWidth = 1.5;
       ctx.stroke();
 
-      ctx.font = `800 13px ${{fontSans}}`;
-      ctx.fillStyle = '#881337';
       ctx.textAlign = 'left';
-      ctx.fillText(`🩺 Total Active Shifts: ${{ks.activeCount}}   (☀️ ${{ks.opdCount}} OPD  •  🌆 ${{ks.eveCount}} Evening  •  🌙 ${{ks.nightCount}} Night)`, cardX + 26, curY + 27);
+      ctx.font = `800 12.5px ${{fontSans}}`;
+      ctx.fillStyle = '#881337';
+      ctx.fillText(`🩺 Active Shifts: ${{ks.activeCount}}  (☀️ ${{ks.opdCount}} OPD  •  🌆 ${{ks.eveCount}} Evening  •  🌙 ${{ks.nightCount}} Night)`, cardX + 20, curY + 23);
 
-      ctx.textAlign = 'right';
+      ctx.font = `800 12px ${{fontSans}}`;
       ctx.fillStyle = '#047857';
-      ctx.fillText(`💞 ${{ks.offCount}} Off Days Together: ${{ks.offDaysShort}}`, cardX + cardW - 26, curY + 27);
+      ctx.fillText(`💞 ${{ks.offCount}} Off Days Together: ${{ks.offDaysShort}}`, cardX + 20, curY + 47);
 
       curY += subBarH;
 
-      // 3. 15-Day Table Rows
+      // 3. 15-Day Mobile-Fit 2-Line Rows (Zero Empty Space!)
       entries.forEach((ent, idx) => {{
         const sh = (ent.shift || 'OFF').toUpperCase();
         const isOff = sh === 'OFF';
@@ -4583,23 +4603,22 @@ def generate_modern_dashboard_html(results_list, output_dir=".", write_to_disk=T
         ctx.fillStyle = sh === 'OPD' ? '#f59e0b' : (sh === 'EVENING' ? '#ea580c' : (sh === 'NIGHT' ? '#4f46e5' : '#10b981'));
         ctx.fillRect(cardX, curY, 6, rowH);
 
-        // Bottom row line
+        // Bottom row divider
         ctx.beginPath();
         ctx.moveTo(cardX, curY + rowH);
         ctx.lineTo(cardX + cardW, curY + rowH);
-        ctx.strokeStyle = '#f1f5f9';
+        ctx.strokeStyle = '#e2e8f0';
         ctx.lineWidth = 1;
         ctx.stroke();
 
-        // Date & Day Badge
+        // Line 1: Date Badge + Shift Pill + Optional TODAY Badge
         const dShort = (ent.date || '').slice(0, 2) + ' Nov';
-        roundRect(cardX + 22, curY + 11, 118, 34, 10, isOff ? '#dcfce7' : '#ffe4e6', isOff ? '#86efac' : '#fda4af', 1);
-        ctx.font = `800 13px ${{fontSans}}`;
+        roundRect(cardX + 18, curY + 9, 108, 28, 8, isOff ? '#dcfce7' : '#ffe4e6', isOff ? '#86efac' : '#fda4af', 1);
+        ctx.font = `800 12px ${{fontSans}}`;
         ctx.fillStyle = isOff ? '#065f46' : '#881337';
         ctx.textAlign = 'center';
-        ctx.fillText(`${{dShort}} (${{ent.day || ''}})`, cardX + 81, curY + 28);
+        ctx.fillText(`${{dShort}} (${{ent.day || ''}})`, cardX + 72, curY + 23);
 
-        // Shift Pill
         let pillText = '💞 OFF / REST DAY';
         let pillBg = '#d1fae5';
         let pillFg = '#065f46';
@@ -4616,28 +4635,31 @@ def generate_modern_dashboard_html(results_list, output_dir=".", write_to_disk=T
           pillBg = '#e0e7ff';
           pillFg = '#3730a3';
         }}
-        roundRect(cardX + 156, curY + 11, 220, 34, 10, pillBg, null);
-        ctx.font = `800 12.5px ${{fontSans}}`;
+        roundRect(cardX + 136, curY + 9, 206, 28, 8, pillBg, null);
+        ctx.font = `800 11.5px ${{fontSans}}`;
         ctx.fillStyle = pillFg;
         ctx.textAlign = 'center';
-        ctx.fillText(pillText, cardX + 266, curY + 28);
+        ctx.fillText(pillText, cardX + 239, curY + 23);
 
-        // Right Care Note & Co-Doctor
-        ctx.textAlign = 'left';
-        ctx.font = `700 13px ${{fontSans}}`;
-        ctx.fillStyle = '#1e293b';
+        // Right Label on Line 1 (Shift / Co-Doctor + TODAY)
+        ctx.textAlign = 'right';
+        ctx.font = `700 11.5px ${{fontSans}}`;
+        ctx.fillStyle = isToday ? '#b45309' : '#334155';
         const mainNote = ent.note || (isOff ? 'Off Day' : sh);
-        ctx.fillText(mainNote + (isToday ? '  ⭐ TODAY' : ''), cardX + 394, curY + 21);
+        const rightTag = isToday ? `⭐ TODAY • ${{mainNote}}` : mainNote;
+        ctx.fillText(rightTag.slice(0, 24), cardX + cardW - 18, curY + 23);
 
-        ctx.font = `500 11.5px ${{fontSans}}`;
-        ctx.fillStyle = '#64748b';
+        // Line 2: Care Reminder across full width
+        ctx.textAlign = 'left';
+        ctx.font = `500 11px ${{fontSans}}`;
+        ctx.fillStyle = '#475569';
         const careMsg = getShiftCareReminder(sh, ent.note).split('•').pop().trim();
-        ctx.fillText(careMsg, cardX + 394, curY + 39);
+        ctx.fillText(`💌 ${{careMsg}}`, cardX + 20, curY + 50);
 
         curY += rowH;
       }});
 
-      // 4. Romantic Footer
+      // 4. Romantic Footer (Clean Mobile Fit)
       const footerBottom = cardY + cardH;
       ctx.save();
       ctx.beginPath();
@@ -4654,22 +4676,22 @@ def generate_modern_dashboard_html(results_list, output_dir=".", write_to_disk=T
       ctx.restore();
 
       ctx.textAlign = 'left';
-      ctx.font = `bold 14px ${{fontSans}}`;
+      ctx.font = `bold 13.5px ${{fontSans}}`;
       ctx.fillStyle = '#ffffff';
-      ctx.fillText(`💖 ${{ks.ist.greet}}`, cardX + 26, curY + 28);
+      ctx.fillText(`💖 ${{ks.ist.greet}}`, cardX + 20, curY + 26);
 
-      ctx.font = `500 12px ${{fontSans}}`;
+      ctx.font = `500 11px ${{fontSans}}`;
       ctx.fillStyle = '#fecdd3';
-      ctx.fillText('Proud of you every single shift — take care & shine bright at CHC Thirunallar!', cardX + 26, curY + 50);
+      ctx.fillText('Proud of you every single shift at CHC Thirunallar!', cardX + 20, curY + 48);
 
-      // Right Sign-Off Pill ("With Love, Saro 💖")
+      // Sign-Off Pill cleanly on Bottom Row
       const signText = isKayalRomanticMode() ? 'With Love, Saro 💖' : 'CHC Thirunallar 🩺';
-      ctx.font = `800 15px ${{fontSans}}`;
-      const sW = ctx.measureText(signText).width + 36;
-      roundRect(cardX + cardW - 26 - sW, curY + 19, sW, 40, 14, th.canvasAccent, '#ffffff', 1.5);
+      ctx.font = `800 13px ${{fontSans}}`;
+      const sW = ctx.measureText(signText).width + 32;
+      roundRect(cardX + cardW - 20 - sW, curY + 56, sW, 34, 12, th.canvasAccent, '#ffffff', 1.5);
       ctx.fillStyle = '#ffffff';
       ctx.textAlign = 'center';
-      ctx.fillText(signText, cardX + cardW - 26 - sW / 2, curY + 39);
+      ctx.fillText(signText, cardX + cardW - 20 - sW / 2, curY + 73);
 
       // Outer Card Border
       roundRect(cardX, cardY, cardW, cardH, cardR, null, th.canvasBorder, 2.5);
