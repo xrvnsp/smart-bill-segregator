@@ -91,7 +91,7 @@ st.set_page_config(
 # --- Responsive Stylesheet: Clean Typography Without Breaking Material Icons ---
 st.markdown("""
 <style>
-    @import url('https://fonts.googleapis.com/css2?family=Gloria+Hallelujah&family=Inter:wght@400;500;600;700;800&family=Plus+Jakarta+Sans:wght@500;600;700;800;900&display=swap');
+    @import url('https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&family=Inter:wght@400;500;600;700;800&family=Plus+Jakarta+Sans:wght@500;600;700;800;900&display=swap');
 
     /* Apply professional font ONLY to text/markdown elements — NEVER override Material Symbols icon spans! */
     .stMarkdown, .stText, h1, h2, h3, h4, h5, h6, [data-testid="stCaptionContainer"], [data-testid="stWidgetLabel"] p {
@@ -100,7 +100,8 @@ st.markdown("""
 
     /* Crazy comic font for tongue-in-cheek privacy disclaimer */
     .crazy-comic-font {
-        font-family: 'Gloria Hallelujah', cursive, sans-serif !important;
+        font-family: 'Fredoka', 'Comic Sans MS', cursive, sans-serif !important;
+        font-weight: 600 !important;
         letter-spacing: 0.02em !important;
     }
 
@@ -986,7 +987,7 @@ def get_card_shuffle_html():
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <link href="https://fonts.googleapis.com/css2?family=Gloria+Hallelujah&family=Inter:wght@400;500;600;700;800;900&family=Plus+Jakarta+Sans:wght@500;600;700;800;900&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&family=Inter:wght@400;500;600;700;800;900&family=Plus+Jakarta+Sans:wght@500;600;700;800;900&display=swap" rel="stylesheet">
   <style>
     * {{ box-sizing: border-box; margin: 0; padding: 0; font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }}
     body {{ background: transparent; display: flex; justify-content: center; align-items: flex-start; padding: 6px 4px 14px 4px; overflow-x: hidden; }}
@@ -1264,7 +1265,8 @@ def get_card_shuffle_html():
 
     /* Crazy Comic Font Disclaimer */
     .comic-disclaimer-box {{
-      font-family: 'Gloria Hallelujah', cursive, sans-serif !important;
+      font-family: 'Fredoka', 'Comic Sans MS', cursive, sans-serif !important;
+        font-weight: 600 !important;
       letter-spacing: 0.025em;
       font-size: 13.5px;
       display: inline-flex;
