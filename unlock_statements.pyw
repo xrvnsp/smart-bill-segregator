@@ -1783,9 +1783,21 @@ def process_statement_file(file_path, base_downloads_dir=None, custom_passwords=
         "all_txns": fin["all_txns"],
         "ongoing_emis": fin.get("ongoing_emis", []),
         "payslip_meta": fin.get("payslip_meta", {}),
+        "unlocked_pdf_b64": (fin.get("payslip_meta") or {}).get("unlocked_pdf_b64", ""),
         "was_encrypted": was_encrypted,
         "decryption_note": "Unlocked with saved password" if was_encrypted else "Already unencrypted (no password needed)",
     }
+    if not result_data.get("unlocked_pdf_b64"):
+      try:
+        import io as _io_u
+        _w_u = PdfWriter()
+        for _pg_u in reader.pages:
+          _w_u.add_page(_pg_u)
+        _bio_u = _io_u.BytesIO()
+        _w_u.write(_bio_u)
+        result_data["unlocked_pdf_b64"] = base64.b64encode(_bio_u.getvalue()).decode("utf-8")
+      except Exception:
+        pass
     return True, "Success", result_data
 
   except Exception as e:
