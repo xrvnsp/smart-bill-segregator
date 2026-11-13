@@ -896,6 +896,19 @@ if uploaded_files:
                 st.success(f"✅ Salary Payslip Loaded: {up_file.name} ({pm.get('pay_period')}) — Net Pay {pm.get('net_pay')} • Full 30-Day Rate: ₹{pm.get('full_month_gross', 0):,.2f}/mo (₹{pm.get('per_day_rate', 0):,.2f}/day)")
             else:
                 st.success(f"✅ Unlocked in memory: {up_file.name} ({rdata.get('bank_name')}) — {len(rdata.get('date_groups', {}))} date groups found")
+            if rdata.get("unlocked_pdf_b64"):
+                try:
+                    _pdf_raw = base64.b64decode(rdata["unlocked_pdf_b64"])
+                    st.download_button(
+                        label=f"🔓 Open / Download Unlocked PDF ({up_file.name})",
+                        data=_pdf_raw,
+                        file_name=f"Unlocked_{up_file.name}",
+                        mime="application/pdf",
+                        key=f"dl_unlocked_{slot_key}_{up_file.name}",
+                        use_container_width=True
+                    )
+                except Exception:
+                    pass
         else:
             st.error(f"⚠️ {up_file.name}: {msg}")
             if "password" in msg.lower():
@@ -1432,10 +1445,9 @@ def get_card_shuffle_html():
 
     </div>
 
-    <!-- Comic Disclaimer with Crazy Hand-Drawn Font -->
+    <!-- Privacy Disclaimer with Readable Funky Font -->
     <div class="comic-disclaimer-box">
-      <span>🔒</span>
-      <span>100% Zero-Disk Privacy: Statements are processed in RAM & never stored on the server — also I don't have money to buy a server 😜</span>
+      <span>🔒 100% Zero-Disk Privacy: Statements are processed in RAM & never stored on the server — also I don't have money to buy a server 😜</span>
     </div>
   </div>
 
@@ -1467,7 +1479,7 @@ def get_card_shuffle_html():
     function syncShowcaseHeight() {{
       const card = document.getElementById('main-showcase-card');
       if (!card) return;
-      const h = Math.ceil(card.getBoundingClientRect().height) + 26;
+      const h = Math.ceil(card.getBoundingClientRect().height) + 44;
       try {{
         if (window.frameElement) {{
           window.frameElement.style.height = h + 'px';
@@ -1503,7 +1515,7 @@ else:
 
 # --- Friendly Footer ---
 st.markdown("""
-<div style="text-align: center; margin-top: 24px; padding: 14px 12px; border-top: 1px solid rgba(226, 232, 240, 0.3); color: #64748b; font-size: 13px; font-weight: 600;">
+<div style="text-align: center; max-width: 720px; margin: 28px auto 0 auto; padding: 16px 18px 72px 18px; border-top: 1px solid rgba(226, 232, 240, 0.3); color: #94a3b8; font-size: 13px; font-weight: 600; line-height: 1.55;">
     Made with ❤️ for friends — because splitting EMIs shouldn't ruin friendships (or give you a migraine) 🍕💳
 </div>
 """, unsafe_allow_html=True)
