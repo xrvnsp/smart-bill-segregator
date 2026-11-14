@@ -625,7 +625,7 @@ with st.sidebar:
         st.markdown(f"""
         <div style="background: linear-gradient(135deg, #fff1f2 0%, #ffe4e6 100%); border: 1.5px solid #fb7185; border-radius: 12px; padding: 10px 12px; margin-bottom: 10px;">
             <div style="font-size: 11px; font-weight: 800; color: #9f1239; text-transform: uppercase;">🩺💖 My Forever Doctor</div>
-            <div style="font-size: 13.5px; font-weight: 900; color: #881337; margin-top: 3px;">Dr. Kayalvizhi ({shared_ky.get('period', '01–15 Nov 2026')})</div>
+            <div style="font-size: 13.5px; font-weight: 900; color: #881337; margin-top: 3px;">Dr. Kayalvizhi ({shared_ky.get('period', '01–22 Nov 2026')})</div>
             <div style="font-size: 11.5px; font-weight: 700; color: #be123c; margin-top: 2px;">🩺 {ky_active} Active Shifts • 💞 {ky_off} Days Together</div>
         </div>
         """, unsafe_allow_html=True)
