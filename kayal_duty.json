@@ -3,9 +3,9 @@
   "pet_name": "Dr Cuteuh Pattuh",
   "sign_off": "With Love, Saro 💖",
   "center_name": "CHC Thirunallar",
-  "period": "01–15 Nov 2026",
+  "period": "01–22 Nov 2026",
   "husband_note": "No matter how busy your OPD, Evening, or Night shifts get, you are my favorite hero in a white coat. Counting down to every off day with you! — With Love, Saro 💖",
-  "updated_at": "2026-11-11T12:14:00+05:30",
+  "updated_at": "2026-11-14T16:56:00+05:30",
   "entries": [
     {
       "date": "01-11-2026",
@@ -96,6 +96,233 @@
       "day": "Sun",
       "shift": "EVENING",
       "note": "Solo Evening Duty"
+    },
+    {
+      "date": "16-11-2026",
+      "day": "Mon",
+      "shift": "OFF",
+      "note": "Off (Dr. Sarath + Dr. Anand OPD / Dr. Arvind Eve-Night)"
+    },
+    {
+      "date": "17-11-2026",
+      "day": "Tue",
+      "shift": "OPD",
+      "note": "With Dr. Regha"
+    },
+    {
+      "date": "18-11-2026",
+      "day": "Wed",
+      "shift": "OPD",
+      "note": "Solo OPD (Morning)"
+    },
+    {
+      "date": "19-11-2026",
+      "day": "Thu",
+      "shift": "EVENING",
+      "note": "Solo Evening Duty"
+    },
+    {
+      "date": "20-11-2026",
+      "day": "Fri",
+      "shift": "OPD",
+      "note": "Solo OPD (Morning)"
+    },
+    {
+      "date": "21-11-2026",
+      "day": "Sat",
+      "shift": "OPD",
+      "note": "Solo OPD (Morning)"
+    },
+    {
+      "date": "22-11-2026",
+      "day": "Sun",
+      "shift": "EVENING",
+      "note": "Solo Evening Duty (Holiday)"
+    }
+  ],
+  "weekly_doctor_summary": [
+    {
+      "week": "Week 1 (01–08 Nov)",
+      "doctors": [
+        {
+          "name": "Dr. Regha",
+          "opd": 3,
+          "rel": 0,
+          "eve": 1,
+          "night": 2,
+          "total": 6
+        },
+        {
+          "name": "Dr. Anand",
+          "opd": 3,
+          "rel": 0,
+          "eve": 2,
+          "night": 1,
+          "total": 6
+        },
+        {
+          "name": "Dr. Sarath",
+          "opd": 1,
+          "rel": 0,
+          "eve": 2,
+          "night": 1,
+          "total": 4
+        },
+        {
+          "name": "Dr. Kayalvizhi",
+          "opd": 1,
+          "rel": 0,
+          "eve": 1,
+          "night": 2,
+          "total": 4
+        },
+        {
+          "name": "Dr. Divya",
+          "opd": 3,
+          "rel": 0,
+          "eve": 0,
+          "night": 0,
+          "total": 3
+        },
+        {
+          "name": "Dr. Sanjeevitha (PHC Varichikudi)",
+          "opd": 0,
+          "rel": 0,
+          "eve": 1,
+          "night": 1,
+          "total": 2
+        },
+        {
+          "name": "Dr. Jency (PHC Vizhithiur)",
+          "opd": 0,
+          "rel": 0,
+          "eve": 1,
+          "night": 1,
+          "total": 2
+        }
+      ]
+    },
+    {
+      "week": "Week 2 (09–15 Nov)",
+      "doctors": [
+        {
+          "name": "Dr. Sarath",
+          "opd": 4,
+          "rel": 0,
+          "eve": 1,
+          "night": 1,
+          "total": 6
+        },
+        {
+          "name": "Dr. Kayalvizhi",
+          "opd": 2,
+          "rel": 0,
+          "eve": 2,
+          "night": 1,
+          "total": 5
+        },
+        {
+          "name": "Dr. Regha",
+          "opd": 3,
+          "rel": 0,
+          "eve": 1,
+          "night": 1,
+          "total": 5
+        },
+        {
+          "name": "Dr. Anand",
+          "opd": 1,
+          "rel": 1,
+          "eve": 0,
+          "night": 2,
+          "total": 4
+        },
+        {
+          "name": "Dr. Sanjeevitha (PHC Varichikudi)",
+          "opd": 0,
+          "rel": 0,
+          "eve": 1,
+          "night": 1,
+          "total": 2
+        },
+        {
+          "name": "Dr. Kesavaraj (PHC Kovilpathu)",
+          "opd": 0,
+          "rel": 0,
+          "eve": 1,
+          "night": 1,
+          "total": 2
+        },
+        {
+          "name": "Dr. Vaikumathi (Neravy)",
+          "opd": 0,
+          "rel": 0,
+          "eve": 1,
+          "night": 0,
+          "total": 1
+        }
+      ]
+    },
+    {
+      "week": "Week 3 (16–22 Nov)",
+      "doctors": [
+        {
+          "name": "Dr. Kayalvizhi",
+          "opd": 4,
+          "rel": 0,
+          "eve": 2,
+          "night": 0,
+          "total": 6
+        },
+        {
+          "name": "Dr. Anand",
+          "opd": 2,
+          "rel": 0,
+          "eve": 2,
+          "night": 1,
+          "total": 5
+        },
+        {
+          "name": "Dr. Sarath",
+          "opd": 2,
+          "rel": 0,
+          "eve": 0,
+          "night": 2,
+          "total": 4
+        },
+        {
+          "name": "Dr. Regha",
+          "opd": 2,
+          "rel": 0,
+          "eve": 1,
+          "night": 1,
+          "total": 4
+        },
+        {
+          "name": "Dr. Arvind (PHC Ambagarathur)",
+          "opd": 0,
+          "rel": 0,
+          "eve": 1,
+          "night": 1,
+          "total": 2
+        },
+        {
+          "name": "Dr. Jency (PHC Vizhithiur)",
+          "opd": 0,
+          "rel": 0,
+          "eve": 1,
+          "night": 1,
+          "total": 2
+        },
+        {
+          "name": "Dr. Vaikumathi (Neravy)",
+          "opd": 0,
+          "rel": 0,
+          "eve": 0,
+          "night": 1,
+          "total": 1
+        }
+      ]
     }
   ]
 }
