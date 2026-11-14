@@ -187,7 +187,6 @@ if "show_kayal_roster" not in st.session_state:
 if "active_special_view" not in st.session_state:
     st.session_state.active_special_view = None
 
-@st.cache_resource
 def get_ist_kayal_greeting():
     """Returns time-of-day romantic greeting for Dr Cuteuh Pattuh in Indian Standard Time (IST)."""
     ist_tz = timezone(timedelta(hours=5, minutes=30))
@@ -203,9 +202,14 @@ def get_ist_kayal_greeting():
         g = "🌙 Good Night, Dr Cuteuh Pattuh! 💖"
     return g, now_ist.strftime("%d %b %Y, %I:%M %p IST")
 
-def get_shared_kayal_store():
-    """Cross-session shared store for Dr. Kayalvizhi's duty roster."""
+@st.cache_resource
+def _cached_kayal_store(_mtime):
+    """Cross-session shared store for Dr. Kayalvizhi's duty roster, auto-invalidated when kayal_duty.json updates."""
     return unlock_statements.load_kayal_web_roster()
+
+def get_shared_kayal_store():
+    mtime = os.path.getmtime(unlock_statements.KAYAL_WEB_FILE) if os.path.exists(unlock_statements.KAYAL_WEB_FILE) else 0
+    return _cached_kayal_store(mtime)
 
 def update_shared_kayal_store(new_roster, gh_token=""):
     """Updates the shared server store, writes kayal_duty.json, and optionally pushes to GitHub."""
