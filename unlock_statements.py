@@ -1035,25 +1035,327 @@ DEFAULT_KAYAL_DUTY = {
   "pet_name": "Dr Cuteuh Pattuh",
   "sign_off": "With Love, Saro 💖",
   "center_name": "CHC Thirunallar",
-  "period": "01–15 Nov 2026",
+  "period": "01–22 Nov 2026",
   "husband_note": "No matter how busy your OPD, Evening, or Night shifts get, you are my favorite hero in a white coat. Counting down to every off day with you! — With Love, Saro 💖",
-  "updated_at": "2026-11-11T11:45:00+05:30",
+  "updated_at": "2026-11-14T16:56:00+05:30",
   "entries": [
-    {"date": "01-11-2026", "day": "Sun", "shift": "OFF", "note": "Rest Day"},
-    {"date": "02-11-2026", "day": "Mon", "shift": "NIGHT", "note": "Solo Night Duty"},
-    {"date": "03-11-2026", "day": "Tue", "shift": "OFF", "note": "Post-Night Rest"},
-    {"date": "04-11-2026", "day": "Wed", "shift": "EVENING", "note": "Solo Evening Duty"},
-    {"date": "05-11-2026", "day": "Thu", "shift": "NIGHT", "note": "Solo Night Duty"},
-    {"date": "06-11-2026", "day": "Fri", "shift": "OFF", "note": "Post-Night Rest"},
-    {"date": "07-11-2026", "day": "Sat", "shift": "OPD", "note": "Solo OPD (Morning)"},
-    {"date": "08-11-2026", "day": "Sun", "shift": "OFF", "note": "Sunday Off"},
-    {"date": "09-11-2026", "day": "Mon", "shift": "EVENING", "note": "Solo Evening Duty"},
-    {"date": "10-11-2026", "day": "Tue", "shift": "OPD", "note": "Solo OPD (Morning)"},
-    {"date": "11-11-2026", "day": "Wed", "shift": "OPD", "note": "With Dr. Regha"},
-    {"date": "12-11-2026", "day": "Thu", "shift": "OFF", "note": "Off (Dr. Sarath / Dr. Anand / PHC Kovilpathu)"},
-    {"date": "13-11-2026", "day": "Fri", "shift": "NIGHT", "note": "Solo Night Duty"},
-    {"date": "14-11-2026", "day": "Sat", "shift": "OFF", "note": "Post-Night Rest"},
-    {"date": "15-11-2026", "day": "Sun", "shift": "EVENING", "note": "Solo Evening Duty"}
+    {
+      "date": "01-11-2026",
+      "day": "Sun",
+      "shift": "OFF",
+      "note": "Sunday Rest Day"
+    },
+    {
+      "date": "02-11-2026",
+      "day": "Mon",
+      "shift": "NIGHT",
+      "note": "Solo Night Duty"
+    },
+    {
+      "date": "03-11-2026",
+      "day": "Tue",
+      "shift": "OFF",
+      "note": "Post-Night Rest"
+    },
+    {
+      "date": "04-11-2026",
+      "day": "Wed",
+      "shift": "EVENING",
+      "note": "Solo Evening Duty"
+    },
+    {
+      "date": "05-11-2026",
+      "day": "Thu",
+      "shift": "NIGHT",
+      "note": "Solo Night Duty"
+    },
+    {
+      "date": "06-11-2026",
+      "day": "Fri",
+      "shift": "OFF",
+      "note": "Post-Night Rest"
+    },
+    {
+      "date": "07-11-2026",
+      "day": "Sat",
+      "shift": "OPD",
+      "note": "Solo OPD (Morning)"
+    },
+    {
+      "date": "08-11-2026",
+      "day": "Sun",
+      "shift": "OFF",
+      "note": "Sunday Off"
+    },
+    {
+      "date": "09-11-2026",
+      "day": "Mon",
+      "shift": "EVENING",
+      "note": "Solo Evening Duty"
+    },
+    {
+      "date": "10-11-2026",
+      "day": "Tue",
+      "shift": "OPD",
+      "note": "Solo OPD (Morning)"
+    },
+    {
+      "date": "11-11-2026",
+      "day": "Wed",
+      "shift": "OPD",
+      "note": "With Dr. Regha"
+    },
+    {
+      "date": "12-11-2026",
+      "day": "Thu",
+      "shift": "OFF",
+      "note": "Off Day Together"
+    },
+    {
+      "date": "13-11-2026",
+      "day": "Fri",
+      "shift": "NIGHT",
+      "note": "Solo Night Duty"
+    },
+    {
+      "date": "14-11-2026",
+      "day": "Sat",
+      "shift": "OFF",
+      "note": "Post-Night Rest"
+    },
+    {
+      "date": "15-11-2026",
+      "day": "Sun",
+      "shift": "EVENING",
+      "note": "Solo Evening Duty"
+    },
+    {
+      "date": "16-11-2026",
+      "day": "Mon",
+      "shift": "OFF",
+      "note": "Off (Dr. Sarath + Dr. Anand OPD / Dr. Arvind Eve-Night)"
+    },
+    {
+      "date": "17-11-2026",
+      "day": "Tue",
+      "shift": "OPD",
+      "note": "With Dr. Regha"
+    },
+    {
+      "date": "18-11-2026",
+      "day": "Wed",
+      "shift": "OPD",
+      "note": "Solo OPD (Morning)"
+    },
+    {
+      "date": "19-11-2026",
+      "day": "Thu",
+      "shift": "EVENING",
+      "note": "Solo Evening Duty"
+    },
+    {
+      "date": "20-11-2026",
+      "day": "Fri",
+      "shift": "OPD",
+      "note": "Solo OPD (Morning)"
+    },
+    {
+      "date": "21-11-2026",
+      "day": "Sat",
+      "shift": "OPD",
+      "note": "Solo OPD (Morning)"
+    },
+    {
+      "date": "22-11-2026",
+      "day": "Sun",
+      "shift": "EVENING",
+      "note": "Solo Evening Duty (Holiday)"
+    }
+  ],
+  "weekly_doctor_summary": [
+    {
+      "week": "Week 1 (01–08 Nov)",
+      "doctors": [
+        {
+          "name": "Dr. Regha",
+          "opd": 3,
+          "rel": 0,
+          "eve": 1,
+          "night": 2,
+          "total": 6
+        },
+        {
+          "name": "Dr. Anand",
+          "opd": 3,
+          "rel": 0,
+          "eve": 2,
+          "night": 1,
+          "total": 6
+        },
+        {
+          "name": "Dr. Sarath",
+          "opd": 1,
+          "rel": 0,
+          "eve": 2,
+          "night": 1,
+          "total": 4
+        },
+        {
+          "name": "Dr. Kayalvizhi",
+          "opd": 1,
+          "rel": 0,
+          "eve": 1,
+          "night": 2,
+          "total": 4
+        },
+        {
+          "name": "Dr. Divya",
+          "opd": 3,
+          "rel": 0,
+          "eve": 0,
+          "night": 0,
+          "total": 3
+        },
+        {
+          "name": "Dr. Sanjeevitha (PHC Varichikudi)",
+          "opd": 0,
+          "rel": 0,
+          "eve": 1,
+          "night": 1,
+          "total": 2
+        },
+        {
+          "name": "Dr. Jency (PHC Vizhithiur)",
+          "opd": 0,
+          "rel": 0,
+          "eve": 1,
+          "night": 1,
+          "total": 2
+        }
+      ]
+    },
+    {
+      "week": "Week 2 (09–15 Nov)",
+      "doctors": [
+        {
+          "name": "Dr. Sarath",
+          "opd": 4,
+          "rel": 0,
+          "eve": 1,
+          "night": 1,
+          "total": 6
+        },
+        {
+          "name": "Dr. Kayalvizhi",
+          "opd": 2,
+          "rel": 0,
+          "eve": 2,
+          "night": 1,
+          "total": 5
+        },
+        {
+          "name": "Dr. Regha",
+          "opd": 3,
+          "rel": 0,
+          "eve": 1,
+          "night": 1,
+          "total": 5
+        },
+        {
+          "name": "Dr. Anand",
+          "opd": 1,
+          "rel": 1,
+          "eve": 0,
+          "night": 2,
+          "total": 4
+        },
+        {
+          "name": "Dr. Sanjeevitha (PHC Varichikudi)",
+          "opd": 0,
+          "rel": 0,
+          "eve": 1,
+          "night": 1,
+          "total": 2
+        },
+        {
+          "name": "Dr. Kesavaraj (PHC Kovilpathu)",
+          "opd": 0,
+          "rel": 0,
+          "eve": 1,
+          "night": 1,
+          "total": 2
+        },
+        {
+          "name": "Dr. Vaikumathi (Neravy)",
+          "opd": 0,
+          "rel": 0,
+          "eve": 1,
+          "night": 0,
+          "total": 1
+        }
+      ]
+    },
+    {
+      "week": "Week 3 (16–22 Nov)",
+      "doctors": [
+        {
+          "name": "Dr. Kayalvizhi",
+          "opd": 4,
+          "rel": 0,
+          "eve": 2,
+          "night": 0,
+          "total": 6
+        },
+        {
+          "name": "Dr. Anand",
+          "opd": 2,
+          "rel": 0,
+          "eve": 2,
+          "night": 1,
+          "total": 5
+        },
+        {
+          "name": "Dr. Sarath",
+          "opd": 2,
+          "rel": 0,
+          "eve": 0,
+          "night": 2,
+          "total": 4
+        },
+        {
+          "name": "Dr. Regha",
+          "opd": 2,
+          "rel": 0,
+          "eve": 1,
+          "night": 1,
+          "total": 4
+        },
+        {
+          "name": "Dr. Arvind (PHC Ambagarathur)",
+          "opd": 0,
+          "rel": 0,
+          "eve": 1,
+          "night": 1,
+          "total": 2
+        },
+        {
+          "name": "Dr. Jency (PHC Vizhithiur)",
+          "opd": 0,
+          "rel": 0,
+          "eve": 1,
+          "night": 1,
+          "total": 2
+        },
+        {
+          "name": "Dr. Vaikumathi (Neravy)",
+          "opd": 0,
+          "rel": 0,
+          "eve": 0,
+          "night": 1,
+          "total": 1
+        }
+      ]
+    }
   ]
 }
 
@@ -1142,7 +1444,7 @@ def build_kayal_statement_from_roster(roster=None, screenshots=None, just_upload
       "is_kayal": True,
       "doctor_name": roster.get("doctor_name", "Dr. Kayalvizhi"),
       "center_name": roster.get("center_name", "CHC Thirunallar"),
-      "period": roster.get("period", "01–15 Nov 2026"),
+      "period": roster.get("period", "01–22 Nov 2026"),
       "husband_note": roster.get("husband_note", DEFAULT_KAYAL_DUTY["husband_note"]),
       "updated_at": roster.get("updated_at", ""),
       "entries": entries,
@@ -1153,6 +1455,7 @@ def build_kayal_statement_from_roster(roster=None, screenshots=None, just_upload
       "off_count": off_count,
       "screenshots": screenshots or [],
       "just_uploaded": just_uploaded,
+      "weekly_doctor_summary": roster.get("weekly_doctor_summary", DEFAULT_KAYAL_DUTY.get("weekly_doctor_summary", [])),
   }
 
   return {
@@ -1285,9 +1588,13 @@ def process_kayal_duty_roster(image_items):
         "b64": b64_img
     })
 
-  # Only overwrite roster entries if OCR cleanly extracted >= 5 valid dated rows; otherwise preserve verified schedule
-  if len(parsed_rows) >= 5:
-    roster["entries"] = parsed_rows
+  # Merge any newly OCR-detected dates into existing verified roster (preserving 01–22 Nov 2026)
+  if parsed_rows:
+    existing_map = {e.get("date"): e for e in roster.get("entries", []) if e.get("date")}
+    for pr in parsed_rows:
+      if pr.get("date") and pr["date"] not in existing_map:
+        existing_map[pr["date"]] = pr
+    roster["entries"] = sorted(existing_map.values(), key=lambda x: (x.get("date", "")[6:10], x.get("date", "")[3:5], x.get("date", "")[0:2]))
     save_kayal_web_roster(roster)
 
   result_data = build_kayal_statement_from_roster(roster, screenshots=screenshots_gallery, just_uploaded=True)
@@ -4372,7 +4679,7 @@ def generate_modern_dashboard_html(results_list, output_dir=".", write_to_disk=T
         pet_name: "Dr Cuteuh Pattuh",
         sign_off: "With Love, Saro 💖",
         center_name: "CHC Thirunallar",
-        period: "01–15 Nov 2026",
+        period: "01–22 Nov 2026",
         husband_note: vault.loveNote,
         updated_at: new Date().toISOString(),
         entries: vault.entries || []
@@ -4432,7 +4739,7 @@ def generate_modern_dashboard_html(results_list, output_dir=".", write_to_disk=T
 
       let lines = [
         `${{EMJ_HEART}} *DR CUTEUH PATTUH (DR. KAYALVIZHI)* ${{EMJ_DOC}}`,
-        `${{EMJ_PIN}} *CHC Thirunallar • Duty Roster (01–15 Nov 2026)*`,
+        `${{EMJ_PIN}} *CHC Thirunallar • Duty Roster (01–22 Nov 2026)*`,
         `_${{ks.ist.greet}} (${{ks.ist.istDateStr}}, ${{ks.ist.istTimeStr}} IST)_`,
         ""
       ];
@@ -4570,7 +4877,7 @@ def generate_modern_dashboard_html(results_list, output_dir=".", write_to_disk=T
 
       ctx.font = `600 12.5px ${{fontSans}}`;
       ctx.fillStyle = 'rgba(255,255,255,0.94)';
-      ctx.fillText('📍 CHC Thirunallar • Duty Roster (01–15 Nov 2026)', cardX + 20, cardY + 95);
+      ctx.fillText('📍 CHC Thirunallar • Duty Roster (01–22 Nov 2026)', cardX + 20, cardY + 95);
 
       // Wrapped Love Note (2 clean lines, zero truncation!)
       ctx.font = `italic 600 11.5px ${{fontSans}}`;
@@ -4720,7 +5027,7 @@ def generate_modern_dashboard_html(results_list, output_dir=".", write_to_disk=T
         const blob = await canvasToPngBlobPromise(canvas);
         const fileName = "Dr_Cuteuh_Pattuh_Duty_Roster.png";
         const file = new File([blob], fileName, {{ type: "image/png" }});
-        const caption = `\\uD83D\\uDC96 Dr Cuteuh Pattuh (Dr. Kayalvizhi) Duty Roster (01–15 Nov 2026) \\u2728 With Love, Saro \\u2764\\uFE0F`;
+        const caption = `\\uD83D\\uDC96 Dr Cuteuh Pattuh (Dr. Kayalvizhi) Duty Roster (01–22 Nov 2026) \\u2728 With Love, Saro \\u2764\\uFE0F`;
 
         // 1. On Android S24 Ultra / Mobile: Native Web Share Sheet with the PNG Screenshot File!
         const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent || "");
@@ -4829,6 +5136,255 @@ def generate_modern_dashboard_html(results_list, output_dir=".", write_to_disk=T
       }}
     }};
 
+    function getWeeklyDoctorReportData(stmt) {{
+      const s = stmt || getActiveStatement();
+      const km = (s && s.kayal_meta) ? s.kayal_meta : {{}};
+      const weeks = Array.isArray(km.weekly_doctor_summary) ? km.weekly_doctor_summary : [];
+      const grandMap = {{}};
+      weeks.forEach(wk => {{
+        (wk.doctors || []).forEach(dr => {{
+          if (!grandMap[dr.name]) grandMap[dr.name] = {{ name: dr.name, opd: 0, rel: 0, eve: 0, night: 0, total: 0 }};
+          grandMap[dr.name].opd += (dr.opd || 0);
+          grandMap[dr.name].rel += (dr.rel || 0);
+          grandMap[dr.name].eve += (dr.eve || 0);
+          grandMap[dr.name].night += (dr.night || 0);
+          grandMap[dr.name].total += (dr.total || 0);
+        }});
+      }});
+      const overall = Object.values(grandMap).sort((a, b) => b.total - a.total);
+      return {{ weeks, overall }};
+    }}
+
+    function buildWeeklyDoctorReportText() {{
+      const {{ weeks, overall }} = getWeeklyDoctorReportData();
+      const EMJ_CHART = "\\uD83D\\uDCCA";
+      const EMJ_HOSP = "\\uD83C\\uDFE5";
+      const EMJ_SUN = "\\u2600\\uFE0F";
+      const EMJ_REL = "\\uD83D\\uDD04";
+      const EMJ_EVE = "\\uD83C\\uDF06";
+      const EMJ_MOON = "\\uD83C\\uDF19";
+      const EMJ_STAR = "\\u2B50";
+
+      let lines = [
+        `${{EMJ_CHART}} *CHC THIRUNALLAR — DOCTOR DUTY REPORT* ${{EMJ_HOSP}}`,
+        `_*Session-Wise & Week-Wise Summary (01–22 Nov 2026)*_`,
+        ""
+      ];
+      weeks.forEach(wk => {{
+        lines.push(`*${{wk.week}}*`);
+        (wk.doctors || []).forEach(dr => {{
+          lines.push(`• *${{dr.name}}:* ${{EMJ_SUN}} ${{(dr.opd || 0)}} OPD | ${{EMJ_REL}} ${{(dr.rel || 0)}} Rel | ${{EMJ_EVE}} ${{(dr.eve || 0)}} Eve | ${{EMJ_MOON}} ${{(dr.night || 0)}} Night => *Total: ${{dr.total}}*`);
+        }});
+        lines.push("");
+      }});
+      lines.push(`${{EMJ_STAR}} *OVERALL GRAND TOTAL (01–22 Nov 2026)*`);
+      overall.forEach(dr => {{
+        lines.push(`• *${{dr.name}}:* ${{EMJ_SUN}} ${{dr.opd}} | ${{EMJ_REL}} ${{dr.rel}} | ${{EMJ_EVE}} ${{dr.eve}} | ${{EMJ_MOON}} ${{dr.night}} => *Grand Total: ${{dr.total}}*`);
+      }});
+      return lines.join("\\n");
+    }}
+
+    window.copyWeeklyDoctorReportText = async function() {{
+      const msg = buildWeeklyDoctorReportText();
+      try {{
+        await navigator.clipboard.writeText(msg);
+        showClipboardToast("Copied Weekly Doctor Report Text! Paste in WhatsApp 📊", true);
+      }} catch (e) {{
+        const ta = document.createElement("textarea");
+        ta.value = msg;
+        document.body.appendChild(ta);
+        ta.select();
+        document.execCommand("copy");
+        document.body.removeChild(ta);
+        showClipboardToast("Copied Weekly Doctor Report Text! Paste in WhatsApp 📊", true);
+      }}
+    }};
+
+    function drawWeeklyDoctorReportCanvas() {{
+      const {{ weeks, overall }} = getWeeklyDoctorReportData();
+      const allSections = [...weeks, {{ week: "⭐ OVERALL GRAND TOTAL (01–22 Nov 2026)", doctors: overall }}];
+      const scale = 2;
+      const width = 560;
+      const cardX = 6;
+      const cardY = 6;
+      const cardW = width - 12;
+      const cardR = 20;
+      const headerH = 104;
+      const secHeadH = 38;
+      const colHeadH = 28;
+      const rowH = 34;
+      const footerH = 54;
+
+      let totalBodyH = 0;
+      allSections.forEach(s => {{
+        totalBodyH += secHeadH + colHeadH + ((s.doctors || []).length * rowH) + 12;
+      }});
+      const cardH = headerH + totalBodyH + footerH;
+      const height = cardH + 12;
+
+      const canvas = document.createElement('canvas');
+      canvas.width = width * scale;
+      canvas.height = height * scale;
+      const ctx = canvas.getContext('2d');
+      ctx.scale(scale, scale);
+
+      const fontSans = "Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif";
+      function roundRect(x, y, w, h, r, fill, stroke, strokeW = 1) {{
+        ctx.beginPath();
+        ctx.moveTo(x + r, y);
+        ctx.lineTo(x + w - r, y);
+        ctx.arcTo(x + w, y, x + w, y + r, r);
+        ctx.lineTo(x + w, y + h - r);
+        ctx.arcTo(x + w, y + h, x + w - r, y + h, r);
+        ctx.lineTo(x + r, y + h);
+        ctx.arcTo(x, y + h, x, y + h - r, r);
+        ctx.lineTo(x, y + r);
+        ctx.arcTo(x, y, x + r, y, r);
+        ctx.closePath();
+        if (fill) {{ ctx.fillStyle = fill; ctx.fill(); }}
+        if (stroke) {{ ctx.strokeStyle = stroke; ctx.lineWidth = strokeW; ctx.stroke(); }}
+      }}
+
+      roundRect(cardX, cardY, cardW, cardH, cardR, '#ffffff', null);
+
+      // Header
+      ctx.save();
+      ctx.beginPath();
+      ctx.moveTo(cardX + cardR, cardY);
+      ctx.lineTo(cardX + cardW - cardR, cardY);
+      ctx.arcTo(cardX + cardW, cardY, cardX + cardW, cardY + cardR, cardR);
+      ctx.lineTo(cardX + cardW, cardY + headerH);
+      ctx.lineTo(cardX, cardY + headerH);
+      ctx.lineTo(cardX, cardY + cardR);
+      ctx.arcTo(cardX, cardY, cardX + cardR, cardY, cardR);
+      ctx.closePath();
+      const grad = ctx.createLinearGradient(cardX, cardY, cardX + cardW, cardY + headerH);
+      grad.addColorStop(0, '#0f172a');
+      grad.addColorStop(1, '#312e81');
+      ctx.fillStyle = grad;
+      ctx.fill();
+      ctx.restore();
+
+      ctx.textAlign = 'left';
+      ctx.textBaseline = 'middle';
+      ctx.font = `900 20px ${{fontSans}}`;
+      ctx.fillStyle = '#ffffff';
+      ctx.fillText('📊 CHC Thirunallar — Doctor Duty Report', cardX + 20, cardY + 36);
+
+      ctx.font = `600 12px ${{fontSans}}`;
+      ctx.fillStyle = '#cbd5e1';
+      ctx.fillText('Session-Wise & Week-Wise Grand Totals (01–22 Nov 2026)', cardX + 20, cardY + 64);
+
+      ctx.font = `700 11px ${{fontSans}}`;
+      ctx.fillStyle = '#fde68a';
+      ctx.fillText('☀️ OPD  •  🔄 Relieving  •  🌆 Evening  •  🌙 Night  •  Total Shifts', cardX + 20, cardY + 86);
+
+      let curY = cardY + headerH + 8;
+      allSections.forEach((sec, sIdx) => {{
+        const isOverall = sIdx === allSections.length - 1;
+        // Section Banner
+        ctx.fillStyle = isOverall ? '#fef3c7' : '#ffe4e6';
+        ctx.fillRect(cardX + 12, curY, cardW - 24, secHeadH);
+        ctx.font = `800 12.5px ${{fontSans}}`;
+        ctx.fillStyle = isOverall ? '#92400e' : '#881337';
+        ctx.textAlign = 'left';
+        ctx.fillText(sec.week, cardX + 22, curY + secHeadH / 2);
+        curY += secHeadH;
+
+        // Column Headers
+        ctx.fillStyle = '#f8fafc';
+        ctx.fillRect(cardX + 12, curY, cardW - 24, colHeadH);
+        ctx.font = `800 11px ${{fontSans}}`;
+        ctx.fillStyle = '#475569';
+        ctx.textAlign = 'left';
+        ctx.fillText('Doctor', cardX + 22, curY + colHeadH / 2);
+        ctx.textAlign = 'center';
+        ctx.fillText('OPD', cardX + 312, curY + colHeadH / 2);
+        ctx.fillText('Rel', cardX + 362, curY + colHeadH / 2);
+        ctx.fillText('Eve', cardX + 412, curY + colHeadH / 2);
+        ctx.fillText('Night', cardX + 462, curY + colHeadH / 2);
+        ctx.fillText('Total', cardX + 514, curY + colHeadH / 2);
+        curY += colHeadH;
+
+        (sec.doctors || []).forEach((dr, rIdx) => {{
+          const isKayalRow = (dr.name || '').includes('Kayalvizhi');
+          ctx.fillStyle = isKayalRow ? '#fff1f2' : (rIdx % 2 === 0 ? '#ffffff' : '#f8fafc');
+          ctx.fillRect(cardX + 12, curY, cardW - 24, rowH);
+          ctx.beginPath();
+          ctx.moveTo(cardX + 12, curY + rowH);
+          ctx.lineTo(cardX + cardW - 12, curY + rowH);
+          ctx.strokeStyle = '#e2e8f0';
+          ctx.lineWidth = 1;
+          ctx.stroke();
+
+          ctx.font = `${{isKayalRow ? '800' : '600'}} 12px ${{fontSans}}`;
+          ctx.fillStyle = isKayalRow ? '#881337' : '#1e293b';
+          ctx.textAlign = 'left';
+          ctx.fillText((dr.name || '').slice(0, 32), cardX + 22, curY + rowH / 2);
+
+          ctx.textAlign = 'center';
+          ctx.fillStyle = '#334155';
+          ctx.fillText(String(dr.opd || 0), cardX + 312, curY + rowH / 2);
+          ctx.fillText(String(dr.rel || 0), cardX + 362, curY + rowH / 2);
+          ctx.fillText(String(dr.eve || 0), cardX + 412, curY + rowH / 2);
+          ctx.fillText(String(dr.night || 0), cardX + 462, curY + rowH / 2);
+
+          ctx.font = `900 12.5px ${{fontSans}}`;
+          ctx.fillStyle = isKayalRow ? '#be123c' : '#0f172a';
+          ctx.fillText(String(dr.total || 0), cardX + 514, curY + rowH / 2);
+
+          curY += rowH;
+        }});
+        curY += 12;
+      }});
+
+      // Footer
+      ctx.fillStyle = '#0f172a';
+      ctx.fillRect(cardX, curY, cardW, footerH);
+      ctx.textAlign = 'center';
+      ctx.font = `700 11.5px ${{fontSans}}`;
+      ctx.fillStyle = '#e2e8f0';
+      ctx.fillText('CHC Thirunallar • Medical Officer Duty Audit (01–22 Nov 2026)', cardX + cardW / 2, curY + footerH / 2);
+
+      roundRect(cardX, cardY, cardW, cardH, cardR, null, '#cbd5e1', 2);
+      return canvas;
+    }}
+
+    window.shareWeeklyDoctorReportWhatsApp = async function() {{
+      const ks = getKayalComputedTotals();
+      let cleanPhone = (ks.vault.phone || "").replace(/\\D/g, "");
+      if (cleanPhone.length === 10) cleanPhone = "91" + cleanPhone;
+      const caption = `\\uD83D\\uDCCA CHC Thirunallar — Weekly Doctor Duty Report (01–22 Nov 2026)`;
+      try {{
+        const canvas = drawWeeklyDoctorReportCanvas();
+        const blob = await canvasToPngBlobPromise(canvas);
+        const fileName = "CHC_Thirunallar_Weekly_Doctor_Report.png";
+        const file = new File([blob], fileName, {{ type: "image/png" }});
+        const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent || "");
+        if (isMobile && navigator.canShare && navigator.canShare({{ files: [file] }})) {{
+          await navigator.share({{ files: [file], title: "Weekly Doctor Duty Report", text: caption }});
+          showClipboardToast("Shared Weekly Doctor Report Screenshot! 📊", true);
+          return;
+        }}
+        if (navigator.clipboard && window.ClipboardItem) {{
+          try {{ await navigator.clipboard.write([new ClipboardItem({{ "image/png": blob }})]); }} catch (e) {{}}
+        }}
+        const link = document.createElement("a");
+        link.download = fileName;
+        link.href = URL.createObjectURL(blob);
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        const waUrl = cleanPhone
+          ? `https://api.whatsapp.com/send?phone=${{cleanPhone}}&text=${{encodeURIComponent(caption)}}`
+          : `https://api.whatsapp.com/send?text=${{encodeURIComponent(caption)}}`;
+        window.open(waUrl, "_blank");
+        showClipboardToast("Report Screenshot Copied & Downloaded! Attach in WhatsApp 📊", true);
+      }} catch (e) {{
+        window.copyWeeklyDoctorReportText();
+      }}
+    }};
+
     function renderKayalWorkspace(stmt) {{
       const container = document.getElementById('date-breakdown-container');
       const ks = getKayalComputedTotals(stmt);
@@ -4839,7 +5395,7 @@ def generate_modern_dashboard_html(results_list, output_dir=".", write_to_disk=T
 
       const todayShiftText = ks.todayEntry
         ? `Today (${{ks.todayEntry.date.slice(0, 5)}}): ${{ks.todayEntry.shift}} — ${{ks.todayEntry.note || ''}}`
-        : `01–15 Nov 2026 Schedule Active`;
+        : `01–22 Nov 2026 Schedule Active`;
       const nextOffText = ks.nextOff
         ? `${{ks.nextOff.date.slice(0, 2)}} Nov (${{ks.nextOff.day}}) — ${{ks.nextOff.note || 'Off Day'}}`
         : `6 Off Days`;
@@ -4970,7 +5526,7 @@ def generate_modern_dashboard_html(results_list, output_dir=".", write_to_disk=T
             <!-- 3 PERSONALIZED ROMANTIC TILES (INCLUDING NEXT OFF DAY COUNTDOWN) -->
             <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-5">
               <div class="bg-white/90 rounded-2xl border border-rose-200 p-4">
-                <div class="text-[10px] font-extrabold uppercase text-rose-600">🩺 Active Duties (01–15 Nov)</div>
+                <div class="text-[10px] font-extrabold uppercase text-rose-600">🩺 Active Duties (01–22 Nov)</div>
                 <div class="text-2xl font-black text-rose-950 mt-0.5">${{ks.activeCount}} Shifts</div>
                 <div class="text-xs font-bold text-slate-600 mt-0.5">☀️ ${{ks.opdCount}} OPD • 🌆 ${{ks.eveCount}} Eve • 🌙 ${{ks.nightCount}} Night</div>
               </div>
@@ -4990,11 +5546,93 @@ def generate_modern_dashboard_html(results_list, output_dir=".", write_to_disk=T
           <!-- 15-DAY INTERACTIVE DUTY TABLE -->
           <div class="bg-white rounded-3xl border border-rose-200/90 shadow-sm overflow-hidden">
             <div class="px-6 py-4 bg-gradient-to-r ${{th.tblHeader}} text-white flex flex-col sm:flex-row justify-between items-start sm:items-center gap-1">
-              <span class="text-sm font-extrabold">📅 ${{justUp ? "Dr Cuteuh Pattuh" : "Dr. Kayalvizhi"}} — 15-Day Duty Schedule</span>
+              <span class="text-sm font-extrabold">📅 ${{justUp ? "Dr Cuteuh Pattuh" : "Dr. Kayalvizhi"}} — Nov 2026 Duty Schedule</span>
               <span class="text-xs font-bold text-rose-200">Tap any shift button on the right to edit</span>
             </div>
             <div>
               ${{rowsHtml}}
+            </div>
+          </div>
+
+          <!-- WEEKLY PER-DOCTOR SESSION & GRAND TOTAL SUMMARY WITH SHARE -->
+          <div class="bg-white rounded-3xl border border-rose-200/90 shadow-sm overflow-hidden">
+            <div class="px-6 py-4 bg-slate-900 text-white flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+              <div>
+                <div class="text-sm font-extrabold">📊 Weekly Doctor Duty Summary (Session-Wise & Grand Total)</div>
+                <div class="text-xs font-bold text-amber-300 mt-0.5">CHC Thirunallar • Nov 1–22, 2026</div>
+              </div>
+              <div class="flex items-center gap-2 flex-wrap no-print">
+                <button onclick="shareWeeklyDoctorReportWhatsApp()" class="px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-extrabold cursor-pointer transition">
+                  📲 Share Report Screenshot
+                </button>
+                <button onclick="copyWeeklyDoctorReportText()" class="px-3.5 py-2 rounded-xl bg-white/15 hover:bg-white/25 text-white border border-white/25 text-xs font-extrabold cursor-pointer transition">
+                  📋 Copy Report Text
+                </button>
+              </div>
+            </div>
+            <div class="p-4 sm:p-5 space-y-4">
+              ${{(km.weekly_doctor_summary || []).map(wk => `
+                <div class="rounded-2xl border border-slate-200 overflow-hidden">
+                  <div class="px-4 py-2.5 bg-rose-50 border-b border-rose-200 text-xs font-black text-rose-900">${{wk.week}}</div>
+                  <div class="overflow-x-auto">
+                    <table class="w-full text-left text-xs">
+                      <thead class="bg-slate-50 text-slate-600 font-extrabold border-b border-slate-200">
+                        <tr>
+                          <th class="px-3 py-2">Doctor</th>
+                          <th class="px-2 py-2 text-center">☀️ OPD</th>
+                          <th class="px-2 py-2 text-center">🔄 Rel</th>
+                          <th class="px-2 py-2 text-center">🌆 Eve</th>
+                          <th class="px-2 py-2 text-center">🌙 Night</th>
+                          <th class="px-3 py-2 text-center">Total</th>
+                        </tr>
+                      </thead>
+                      <tbody class="divide-y divide-slate-100">
+                        ${{(wk.doctors || []).map(dr => `
+                          <tr class="${{dr.name.includes('Kayalvizhi') ? 'bg-rose-50/70 font-extrabold text-rose-950' : 'text-slate-700'}}">
+                            <td class="px-3 py-2">${{dr.name}}</td>
+                            <td class="px-2 py-2 text-center">${{dr.opd}}</td>
+                            <td class="px-2 py-2 text-center">${{dr.rel}}</td>
+                            <td class="px-2 py-2 text-center">${{dr.eve}}</td>
+                            <td class="px-2 py-2 text-center">${{dr.night}}</td>
+                            <td class="px-3 py-2 text-center font-black">${{dr.total}}</td>
+                          </tr>
+                        `).join('')}}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              `).join('')}}
+
+              <!-- OVERALL GRAND TOTAL TABLE (01–22 NOV 2026) -->
+              <div class="rounded-2xl border-2 border-amber-300 overflow-hidden">
+                <div class="px-4 py-2.5 bg-amber-50 border-b border-amber-200 text-xs font-black text-amber-950">⭐ Overall Grand Total (01–22 Nov 2026)</div>
+                <div class="overflow-x-auto">
+                  <table class="w-full text-left text-xs">
+                    <thead class="bg-slate-50 text-slate-600 font-extrabold border-b border-slate-200">
+                      <tr>
+                        <th class="px-3 py-2">Doctor</th>
+                        <th class="px-2 py-2 text-center">☀️ OPD</th>
+                        <th class="px-2 py-2 text-center">🔄 Rel</th>
+                        <th class="px-2 py-2 text-center">🌆 Eve</th>
+                        <th class="px-2 py-2 text-center">🌙 Night</th>
+                        <th class="px-3 py-2 text-center">Grand Total</th>
+                      </tr>
+                    </thead>
+                    <tbody class="divide-y divide-slate-100">
+                      ${{getWeeklyDoctorReportData(stmt).overall.map(dr => `
+                        <tr class="${{dr.name.includes('Kayalvizhi') ? 'bg-rose-50/70 font-extrabold text-rose-950' : 'text-slate-800'}}">
+                          <td class="px-3 py-2">${{dr.name}}</td>
+                          <td class="px-2 py-2 text-center">${{dr.opd}}</td>
+                          <td class="px-2 py-2 text-center">${{dr.rel}}</td>
+                          <td class="px-2 py-2 text-center">${{dr.eve}}</td>
+                          <td class="px-2 py-2 text-center">${{dr.night}}</td>
+                          <td class="px-3 py-2 text-center font-black">${{dr.total}}</td>
+                        </tr>
+                      `).join('')}}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
             </div>
           </div>
 
