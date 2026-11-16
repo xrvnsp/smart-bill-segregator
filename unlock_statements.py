@@ -6821,19 +6821,68 @@ def generate_modern_dashboard_html(results_list, output_dir=".", write_to_disk=T
 
       document.getElementById('record-count').innerText = `${{matchedTxnCount}} transactions shown`;
 
-      // Update Hero Reimbursement Totals
+      // Calculate Paid vs. Remaining to Pay across ALL date-wise & EMI cards
       let collectedTotal = 0;
       let pendingTotal = 0;
+      let allPaidTotal = 0;
+      let allRemainingTotal = 0;
+      let paidCardCount = 0;
+      let pendingCardCount = 0;
+
       cardsList.forEach(c => {{
         if (c.type === 'named_emi') {{
           const pStatus = getPaymentStatus(c.loanKey, c.emiName);
           if (pStatus.isPaid) {{
             collectedTotal += c.combinedTotal;
+            allPaidTotal += c.combinedTotal;
+            paidCardCount++;
           }} else {{
             pendingTotal += c.combinedTotal;
+            allRemainingTotal += c.combinedTotal;
+            pendingCardCount++;
+          }}
+        }} else {{
+          const dKey = `date_${{stmt.bank_short}}_${{stmt.statement_month}}_${{c.dateStr}}`.replace(/[^a-zA-Z0-9_]/g, '_');
+          const dStatus = getPaymentStatus(dKey, '');
+          const amt = (c.group && typeof c.group.total === 'number') ? c.group.total : 0;
+          if (dStatus.isPaid) {{
+            allPaidTotal += amt;
+            paidCardCount++;
+          }} else {{
+            allRemainingTotal += amt;
+            pendingCardCount++;
           }}
         }}
       }});
+
+      const grandTotalAll = allPaidTotal + allRemainingTotal;
+      if (grandTotalAll > 0) {{
+        const pctPaid = Math.min(100, Math.round((allPaidTotal / grandTotalAll) * 100));
+        const progressBanner = document.createElement('div');
+        progressBanner.className = 'bg-white rounded-2xl border border-slate-200/90 shadow-sm p-5 flex flex-col gap-3';
+        progressBanner.innerHTML = `
+          <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+            <div>
+              <div class="text-xs font-extrabold uppercase tracking-wider text-slate-500">💳 Date-Wise Payment Tracker</div>
+              <div class="text-sm font-bold text-slate-700 mt-0.5">${{paidCardCount}} of ${{paidCardCount + pendingCardCount}} date cards marked paid (${{pctPaid}}%)</div>
+            </div>
+            <div class="flex items-center gap-4 flex-wrap">
+              <div class="px-3.5 py-2 rounded-xl bg-emerald-50 border border-emerald-200">
+                <div class="text-[10px] font-extrabold uppercase text-emerald-700">✅ Paid So Far</div>
+                <div class="text-base font-black text-emerald-800">₹${{allPaidTotal.toLocaleString('en-IN', {{minimumFractionDigits: 2, maximumFractionDigits: 2}})}}</div>
+              </div>
+              <div class="px-3.5 py-2 rounded-xl bg-amber-50 border border-amber-300">
+                <div class="text-[10px] font-extrabold uppercase text-amber-800">⏳ Remaining to Pay</div>
+                <div class="text-base font-black text-amber-950">₹${{allRemainingTotal.toLocaleString('en-IN', {{minimumFractionDigits: 2, maximumFractionDigits: 2}})}}</div>
+              </div>
+            </div>
+          </div>
+          <div class="w-full h-2.5 bg-slate-100 rounded-full overflow-hidden">
+            <div class="h-full bg-emerald-500 transition-all duration-300" style="width: ${{pctPaid}}%;"></div>
+          </div>
+        `;
+        container.prepend(progressBanner);
+      }}
       const hCollected = document.getElementById('hero-collected-amt');
       const hPending = document.getElementById('hero-pending-amt');
       const hBadge = document.getElementById('hero-settle-badge');
