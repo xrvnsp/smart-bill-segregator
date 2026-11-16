@@ -2114,11 +2114,30 @@ def process_statement_file(file_path, base_downloads_dir=None, custom_passwords=
     return False, f"Error: {err_str}", None
 
 
+BILL_NAMES_WEB_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "bill_names.json")
+
+def load_bill_names_web():
+  """Loads non-sensitive custom card/date bill names & paid statuses from bill_names.json."""
+  if os.path.exists(BILL_NAMES_WEB_FILE):
+    try:
+      with open(BILL_NAMES_WEB_FILE, "r", encoding="utf-8") as f:
+        data = json.load(f)
+      if isinstance(data, dict):
+        return {
+            "bill_names": data.get("bill_names", {}) if isinstance(data.get("bill_names"), dict) else {},
+            "paid_cards": data.get("paid_cards", {}) if isinstance(data.get("paid_cards"), dict) else {},
+            "updated_at": data.get("updated_at", "")
+        }
+    except Exception:
+      pass
+  return {"bill_names": {}, "paid_cards": {}, "updated_at": ""}
+
 def generate_modern_dashboard_html(results_list, output_dir=".", write_to_disk=True):
   """Generates a high-quality modern interactive HTML dashboard with EMI receipt highlighting."""
   import base64
   html_path = os.path.join(output_dir, "Statement_Dashboard.html")
   data_json = json.dumps(results_list)
+  web_bill_names_json = json.dumps(load_bill_names_web())
 
   swiggy_card_b64 = ""
   amazon_card_b64 = ""
@@ -2494,6 +2513,7 @@ def generate_modern_dashboard_html(results_list, output_dir=".", write_to_disk=T
   <script>
     const CARD_IMAGES = {{ swiggy: "{swiggy_card_b64}", amazon: "{amazon_card_b64}", sbi: "{sbi_card_b64}", scapia_orange: "{scapia_orange_b64}", scapia_green: "{scapia_green_b64}" }};
     const statements = {data_json};
+    const WEB_BILL_NAMES = {web_bill_names_json};
     let activeIndex = 0;
 
     function getVaultStores() {{
@@ -2594,9 +2614,71 @@ def generate_modern_dashboard_html(results_list, output_dir=".", write_to_disk=T
       return defaultName || "";
     }}
 
+    function loadSyncedBillMeta() {{
+      const raw = vaultGetItem("smartbill_synced_bill_meta");
+      let meta = {{ bill_names: {{}}, paid_cards: {{}}, updated_at: "" }};
+      if (raw) {{
+        try {{
+          const p = JSON.parse(raw);
+          if (p && typeof p === "object") {{
+            meta.bill_names = p.bill_names || {{}};
+            meta.paid_cards = p.paid_cards || {{}};
+            meta.updated_at = p.updated_at || "";
+          }}
+        }} catch (e) {{}}
+      }}
+      if (typeof WEB_BILL_NAMES === "object" && WEB_BILL_NAMES) {{
+        Object.assign(meta.bill_names, Object.assign({{}}, WEB_BILL_NAMES.bill_names || {{}}, meta.bill_names));
+        Object.assign(meta.paid_cards, Object.assign({{}}, WEB_BILL_NAMES.paid_cards || {{}}, meta.paid_cards));
+        if (WEB_BILL_NAMES.updated_at && (!meta.updated_at || WEB_BILL_NAMES.updated_at > meta.updated_at)) {{
+          Object.assign(meta.bill_names, WEB_BILL_NAMES.bill_names || {{}});
+          Object.assign(meta.paid_cards, WEB_BILL_NAMES.paid_cards || {{}});
+          meta.updated_at = WEB_BILL_NAMES.updated_at;
+        }}
+      }}
+      return meta;
+    }}
+
+    async function syncBillNamesToWeb(meta) {{
+      const ghToken = vaultGetItem("s24_github_pat") || "";
+      if (!ghToken || ghToken.trim().length < 10) return;
+      try {{
+        const apiUrl = "https://api.github.com/repos/xrvnsp/smart-bill-segregator/contents/bill_names.json";
+        const getRes = await fetch(apiUrl + "?ref=main&_t=" + Date.now(), {{
+          headers: {{ "Authorization": `Bearer ${{ghToken}}`, "Accept": "application/vnd.github+json" }},
+          cache: "no-store"
+        }});
+        let sha = undefined;
+        if (getRes.ok) {{
+          const gj = await getRes.json();
+          sha = gj.sha;
+        }}
+        const payload = {{
+          bill_names: meta.bill_names || {{}},
+          paid_cards: meta.paid_cards || {{}},
+          updated_at: new Date().toISOString()
+        }};
+        const b64Content = btoa(unescape(encodeURIComponent(JSON.stringify(payload, null, 2))));
+        const body = {{ message: "Sync custom card/bill names & paid status across devices", content: b64Content, branch: "main" }};
+        if (sha) body.sha = sha;
+        await fetch(apiUrl, {{
+          method: "PUT",
+          headers: {{ "Authorization": `Bearer ${{ghToken}}`, "Accept": "application/vnd.github+json", "Content-Type": "application/json" }},
+          body: JSON.stringify(body)
+        }});
+      }} catch (e) {{}}
+    }}
+
+    function saveSyncedBillMeta(meta) {{
+      meta.updated_at = new Date().toISOString();
+      vaultSetItem("smartbill_synced_bill_meta", JSON.stringify(meta));
+      syncBillNamesToWeb(meta);
+    }}
+
     function getPaymentStatus(key, fallbackKey) {{
-      const k1 = key ? vaultGetItem("paid_status_" + key) : "";
-      const k2 = (!k1 && fallbackKey) ? vaultGetItem("paid_status_" + fallbackKey) : "";
+      const meta = loadSyncedBillMeta();
+      const k1 = key ? (vaultGetItem("paid_status_" + key) || (meta.paid_cards[key] ? JSON.stringify(meta.paid_cards[key]) : "")) : "";
+      const k2 = (!k1 && fallbackKey) ? (vaultGetItem("paid_status_" + fallbackKey) || (meta.paid_cards[fallbackKey] ? JSON.stringify(meta.paid_cards[fallbackKey]) : "")) : "";
       const val = k1 || k2;
       if (!val) return {{ isPaid: false, paidDate: "" }};
       try {{ return JSON.parse(val); }} catch(e) {{ return {{ isPaid: val === "true", paidDate: "" }}; }}
@@ -2605,34 +2687,48 @@ def generate_modern_dashboard_html(results_list, output_dir=".", write_to_disk=T
     function togglePaymentStatus(key, amountStr, fallbackKey) {{
       if (!key) return;
       const cur = getPaymentStatus(key, fallbackKey);
+      const meta = loadSyncedBillMeta();
       if (cur.isPaid) {{
         vaultRemoveItem("paid_status_" + key);
         if (fallbackKey) vaultRemoveItem("paid_status_" + fallbackKey);
+        delete meta.paid_cards[key];
+        if (fallbackKey) delete meta.paid_cards[fallbackKey];
       }} else {{
         const today = new Date().toLocaleDateString('en-US', {{ month: 'short', day: 'numeric' }});
-        const payload = JSON.stringify({{ isPaid: true, paidDate: today, amount: amountStr }});
+        const obj = {{ isPaid: true, paidDate: today, amount: amountStr }};
+        const payload = JSON.stringify(obj);
         vaultSetItem("paid_status_" + key, payload);
         if (fallbackKey) vaultSetItem("paid_status_" + fallbackKey, payload);
+        meta.paid_cards[key] = obj;
+        if (fallbackKey) meta.paid_cards[fallbackKey] = obj;
       }}
+      saveSyncedBillMeta(meta);
       renderDashboard();
     }}
 
     function getBillCardCustomName(billKey) {{
       if (!billKey) return "";
-      return vaultGetItem("bill_name_" + billKey) || "";
+      const localVal = vaultGetItem("bill_name_" + billKey);
+      if (localVal) return localVal;
+      const meta = loadSyncedBillMeta();
+      return (meta.bill_names && meta.bill_names[billKey]) ? meta.bill_names[billKey] : "";
     }}
 
     window.saveBillCardCustomName = function(billKey, inputId) {{
       const inp = document.getElementById(inputId);
       if (!inp || !billKey) return;
       const val = inp.value.trim();
+      const meta = loadSyncedBillMeta();
       if (val) {{
         vaultSetItem("bill_name_" + billKey, val);
-        showVaultToast("Saved Bill Name", `Labeled as "${{val}}" in browser storage`);
+        meta.bill_names[billKey] = val;
+        showVaultToast("Saved & Synced Bill Name", `Labeled as "${{val}}" across devices`);
       }} else {{
         vaultRemoveItem("bill_name_" + billKey);
+        delete meta.bill_names[billKey];
         showVaultToast("Cleared Bill Name", "Restored default bill label");
       }}
+      saveSyncedBillMeta(meta);
       renderDashboard();
     }};
 
