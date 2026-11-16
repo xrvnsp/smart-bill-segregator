@@ -6855,25 +6855,28 @@ def generate_modern_dashboard_html(results_list, output_dir=".", write_to_disk=T
         }}
       }});
 
-      const grandTotalAll = allPaidTotal + allRemainingTotal;
-      if (grandTotalAll > 0) {{
-        const pctPaid = Math.min(100, Math.round((allPaidTotal / grandTotalAll) * 100));
+      // Use actual Statement Total Due (net of EMI conversion credits & refunds) instead of raw gross debits!
+      const stmtTotalDueNum = parseFloat(String(stmt.total_due || '0').replace(/[^0-9.]/g, '')) || 0;
+      const effectiveBillDue = stmtTotalDueNum > 0 ? stmtTotalDueNum : (allPaidTotal + allRemainingTotal);
+      const trueRemainingToPay = Math.max(0, effectiveBillDue - allPaidTotal);
+      if (effectiveBillDue > 0) {{
+        const pctPaid = Math.min(100, Math.round((allPaidTotal / effectiveBillDue) * 100));
         const progressBanner = document.createElement('div');
         progressBanner.className = 'bg-white rounded-2xl border border-slate-200/90 shadow-sm p-5 flex flex-col gap-3';
         progressBanner.innerHTML = `
           <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
             <div>
               <div class="text-xs font-extrabold uppercase tracking-wider text-slate-500">💳 Date-Wise Payment Tracker</div>
-              <div class="text-sm font-bold text-slate-700 mt-0.5">${{paidCardCount}} of ${{paidCardCount + pendingCardCount}} date cards marked paid (${{pctPaid}}%)</div>
+              <div class="text-sm font-bold text-slate-700 mt-0.5">${{paidCardCount}} of ${{paidCardCount + pendingCardCount}} date cards marked paid (${{pctPaid}}%) • Bill Due: <b>₹${{effectiveBillDue.toLocaleString('en-IN', {{minimumFractionDigits: 2, maximumFractionDigits: 2}})}}</b></div>
             </div>
-            <div class="flex items-center gap-4 flex-wrap">
+            <div class="flex items-center gap-3 flex-wrap">
               <div class="px-3.5 py-2 rounded-xl bg-emerald-50 border border-emerald-200">
                 <div class="text-[10px] font-extrabold uppercase text-emerald-700">✅ Paid So Far</div>
                 <div class="text-base font-black text-emerald-800">₹${{allPaidTotal.toLocaleString('en-IN', {{minimumFractionDigits: 2, maximumFractionDigits: 2}})}}</div>
               </div>
-              <div class="px-3.5 py-2 rounded-xl bg-amber-50 border border-amber-300">
-                <div class="text-[10px] font-extrabold uppercase text-amber-800">⏳ Remaining to Pay</div>
-                <div class="text-base font-black text-amber-950">₹${{allRemainingTotal.toLocaleString('en-IN', {{minimumFractionDigits: 2, maximumFractionDigits: 2}})}}</div>
+              <div class="px-3.5 py-2 rounded-xl ${{trueRemainingToPay === 0 ? 'bg-emerald-50 border-emerald-300' : 'bg-amber-50 border-amber-300'}} border">
+                <div class="text-[10px] font-extrabold uppercase ${{trueRemainingToPay === 0 ? 'text-emerald-800' : 'text-amber-800'}}">${{trueRemainingToPay === 0 ? '🎉 All Paid!' : '⏳ Remaining to Pay'}}</div>
+                <div class="text-base font-black ${{trueRemainingToPay === 0 ? 'text-emerald-900' : 'text-amber-950'}}">₹${{trueRemainingToPay.toLocaleString('en-IN', {{minimumFractionDigits: 2, maximumFractionDigits: 2}})}}</div>
               </div>
             </div>
           </div>
