@@ -2617,6 +2617,25 @@ def generate_modern_dashboard_html(results_list, output_dir=".", write_to_disk=T
       renderDashboard();
     }}
 
+    function getBillCardCustomName(billKey) {{
+      if (!billKey) return "";
+      return vaultGetItem("bill_name_" + billKey) || "";
+    }}
+
+    window.saveBillCardCustomName = function(billKey, inputId) {{
+      const inp = document.getElementById(inputId);
+      if (!inp || !billKey) return;
+      const val = inp.value.trim();
+      if (val) {{
+        vaultSetItem("bill_name_" + billKey, val);
+        showVaultToast("Saved Bill Name", `Labeled as "${{val}}" in browser storage`);
+      }} else {{
+        vaultRemoveItem("bill_name_" + billKey);
+        showVaultToast("Cleared Bill Name", "Restored default bill label");
+      }}
+      renderDashboard();
+    }};
+
     function cleanIndianPhone(raw) {{
       if (!raw) return "";
       let digits = String(raw).replace(/[^0-9]/g, "");
@@ -3406,7 +3425,7 @@ def generate_modern_dashboard_html(results_list, output_dir=".", write_to_disk=T
             ? 'bg-white text-slate-900 shadow-sm border border-slate-200/90 font-extrabold' 
             : 'text-slate-600 hover:text-slate-900 hover:bg-white/60'
         }}`;
-        btn.innerHTML = `<span class="w-2 h-2 rounded-full ${{isActive ? dotColor + ' animate-pulse' : 'bg-slate-300'}}"></span><span>${{icon}} ${{stmt.bank_short}} (${{stmt.statement_month}})</span>`;
+        btn.innerHTML = `<span class="w-2 h-2 rounded-full ${{isActive ? dotColor + ' animate-pulse' : 'bg-slate-300'}}"></span><span>${{icon}} ${{getBillCardCustomName('stmt_' + stmt.bank_short + '_' + stmt.statement_month) || (stmt.bank_short + ' (' + stmt.statement_month + ')')}}</span>`;
         btn.onclick = () => {{ activeIndex = idx; renderDashboard(); }};
         tabsContainer.appendChild(btn);
       }});
@@ -3802,8 +3821,14 @@ def generate_modern_dashboard_html(results_list, output_dir=".", write_to_disk=T
               <!-- Metadata Grid -->
               <div class="grid grid-cols-2 sm:grid-cols-3 gap-3 mt-6 pt-5 border-t border-slate-200/60 text-xs">
                 <div>
-                  <div class="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider">${{isPayslip ? 'Designation / Emp ID' : 'Account / Card'}}</div>
-                  <div class="font-extrabold text-slate-800 text-sm mt-0.5 truncate" title="${{isPayslip ? (pm.designation + ' (#' + pm.employee_id + ')') : stmt.bank_short}}">${{isPayslip ? ((pm.designation || 'Employee') + ' (#' + (pm.employee_id || '') + ')') : stmt.bank_short}}</div>
+                  <div class="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider">${{isPayslip ? 'Designation / Emp ID' : 'Account / Custom Bill Name'}}</div>
+                  <div class="font-extrabold text-slate-800 text-sm mt-0.5 truncate" title="${{isPayslip ? (pm.designation + ' (#' + pm.employee_id + ')') : stmt.bank_short}}">${{isPayslip ? ((pm.designation || 'Employee') + ' (#' + (pm.employee_id || '') + ')') : (getBillCardCustomName('stmt_' + stmt.bank_short + '_' + stmt.statement_month) || stmt.bank_short)}}</div>
+                  ${{(!isPayslip && !isAll) ? `
+                  <div class="mt-1.5 flex items-center gap-1 no-print">
+                    <input type="text" id="hero-stmt-name-inp" value="${{(getBillCardCustomName('stmt_' + stmt.bank_short + '_' + stmt.statement_month) || '').replace(/"/g, '&quot;')}}" placeholder="Name this bill..." class="w-32 px-2 py-1 text-[11px] font-bold bg-white border border-slate-300 rounded-lg text-slate-800">
+                    <button onclick="saveBillCardCustomName('stmt_${{stmt.bank_short}}_${{stmt.statement_month}}', 'hero-stmt-name-inp')" class="px-2 py-1 rounded-lg bg-slate-900 hover:bg-slate-800 text-white text-[10px] font-extrabold cursor-pointer">💾</button>
+                  </div>
+                  ` : ''}}
                 </div>
                 <div>
                   <div class="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider">${{isPayslip ? 'Pay Period & Attendance' : 'Billing Cycle'}}</div>
@@ -6583,13 +6608,32 @@ def generate_modern_dashboard_html(results_list, output_dir=".", write_to_disk=T
           container.appendChild(dateCard);
 
         }} else {{
-          // Regular date card
+          // Regular date card (with custom Bill Name + Mark as Paid checkbox)
           const isEmiGroup = card.isEmiGroup;
+          const dateBillKey = `date_${{stmt.bank_short}}_${{stmt.statement_month}}_${{card.dateStr}}`.replace(/[^a-zA-Z0-9_]/g, '_');
+          const customDateName = getBillCardCustomName(dateBillKey);
+          const dPaidStatus = getPaymentStatus(dateBillKey, '');
+          const dPaidBtnHtml = `
+            <button onclick="togglePaymentStatus('${{dateBillKey}}', '₹${{card.group.total.toLocaleString('en-IN', {{minimumFractionDigits: 2, maximumFractionDigits: 2}})}}', '')" class="no-print px-3 py-1.5 rounded-xl border text-xs font-extrabold transition flex items-center gap-1.5 cursor-pointer ${{dPaidStatus.isPaid ? 'bg-emerald-100 border-emerald-400 text-emerald-900 hover:bg-emerald-200' : 'bg-white border-slate-300 text-slate-700 hover:bg-amber-50 hover:border-amber-300'}}">
+              <span>${{dPaidStatus.isPaid ? '✅' : '☑️'}}</span>
+              <span>${{dPaidStatus.isPaid ? ('Paid' + (dPaidStatus.paidDate ? ' (' + dPaidStatus.paidDate + ')' : '')) : 'Mark as Paid'}}</span>
+            </button>
+          `;
+          const dNameBarHtml = `
+            <div class="no-print w-full mt-2.5 pt-2.5 border-t border-slate-200/70 flex items-center gap-2 flex-wrap">
+              <span class="text-[11px] font-extrabold text-slate-500">🏷️ Bill Name:</span>
+              <input type="text" id="date-name-inp-${{cardIdx}}" value="${{customDateName.replace(/"/g, '&quot;')}}" placeholder="Name this bill (e.g. Swiggy, Fuel, Groceries)..." class="flex-1 min-w-[170px] px-2.5 py-1 text-xs font-semibold bg-white border border-slate-300 rounded-lg text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500">
+              <button onclick="saveBillCardCustomName('${{dateBillKey}}', 'date-name-inp-${{cardIdx}}')" class="px-3 py-1 rounded-lg bg-slate-900 hover:bg-slate-800 text-white text-[11px] font-extrabold cursor-pointer">
+                💾 Save
+              </button>
+            </div>
+          `;
+
           const dateCard = document.createElement('div');
           if (isEmiGroup) {{
-            dateCard.className = 'bg-white rounded-2xl border-2 border-purple-400 shadow-md emi-card-glow emi-receipt-card overflow-hidden transition';
+            dateCard.className = `bg-white rounded-2xl border-2 ${{dPaidStatus.isPaid ? 'border-emerald-400' : 'border-purple-400'}} shadow-md emi-card-glow emi-receipt-card overflow-hidden transition`;
           }} else {{
-            dateCard.className = 'bg-white rounded-2xl border border-slate-200/90 shadow-sm overflow-hidden transition';
+            dateCard.className = `bg-white rounded-2xl border ${{dPaidStatus.isPaid ? 'border-2 border-emerald-400 bg-emerald-50/10' : 'border-slate-200/90'}} shadow-sm overflow-hidden transition`;
           }}
 
           const header = document.createElement('div');
@@ -6599,32 +6643,39 @@ def generate_modern_dashboard_html(results_list, output_dir=".", write_to_disk=T
               <div class="flex items-center gap-3">
                 <span class="w-9 h-9 rounded-xl bg-purple-600 emi-icon-box text-white flex items-center justify-center font-bold text-sm shadow-sm" style="-webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; background-color: #9333ea !important; color: #fff !important;">💳</span>
                 <div>
-                  <div class="flex items-center gap-2">
-                    <span class="font-bold text-slate-900 text-base">${{card.dateStr}}</span>
+                  <div class="flex items-center gap-2 flex-wrap">
+                    <span class="font-bold text-slate-900 text-base">${{customDateName ? ('🏷️ ' + customDateName + ' • ' + card.dateStr) : card.dateStr}}</span>
                     <span class="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-purple-600 emi-badge text-white shadow-sm" style="-webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; background-color: #9333ea !important; color: #fff !important; letter-spacing: 0px !important; text-transform: none !important; display: inline-block;">EMI INSTALLMENT RECEIPT</span>
                   </div>
                   <div class="text-xs text-purple-700 font-medium">${{card.items.length}} item(s) on this date</div>
                 </div>
               </div>
-              <div class="flex items-center gap-2">
+              <div class="flex items-center gap-2 flex-wrap">
+                ${{dPaidBtnHtml}}
                 <span class="text-xs font-bold text-purple-900 uppercase tracking-wider">EMI Total:</span>
                 <span class="px-3.5 py-1.5 rounded-xl bg-purple-600 emi-total-pill text-white font-extrabold text-sm shadow-md shadow-purple-500/30" style="-webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; background-color: #9333ea !important; color: #fff !important;">₹${{card.group.total.toLocaleString('en-IN', {{minimumFractionDigits: 2, maximumFractionDigits: 2}})}}</span>
               </div>
+              ${{dNameBarHtml}}
             `;
           }} else {{
-            header.className = 'px-6 py-4 bg-slate-50/80 border-b border-slate-200/80 flex flex-wrap justify-between items-center gap-3';
+            header.className = `px-6 py-4 ${{dPaidStatus.isPaid ? 'bg-emerald-50/70 border-b border-emerald-200' : 'bg-slate-50/80 border-b border-slate-200/80'}} flex flex-wrap justify-between items-center gap-3`;
             header.innerHTML = `
               <div class="flex items-center gap-3">
-                <span class="w-8 h-8 rounded-lg bg-blue-100 text-blue-700 flex items-center justify-center font-bold text-sm">📅</span>
+                <span class="w-8 h-8 rounded-lg ${{dPaidStatus.isPaid ? 'bg-emerald-100 text-emerald-700' : 'bg-blue-100 text-blue-700'}} flex items-center justify-center font-bold text-sm">${{dPaidStatus.isPaid ? '✅' : '📅'}}</span>
                 <div>
-                  <div class="font-bold text-slate-900 text-base">${{card.dateStr}}</div>
+                  <div class="font-bold text-slate-900 text-base flex items-center gap-2 flex-wrap">
+                    <span>${{card.dateStr}}</span>
+                    ${{customDateName ? `<span class="px-2.5 py-0.5 rounded-full text-[11px] font-extrabold bg-indigo-100 text-indigo-900 border border-indigo-200">🏷️ ${{customDateName}}</span>` : ''}}
+                  </div>
                   <div class="text-xs text-slate-500">${{card.items.length}} item(s) on this date</div>
                 </div>
               </div>
-              <div class="flex items-center gap-2">
+              <div class="flex items-center gap-2 flex-wrap">
+                ${{dPaidBtnHtml}}
                 <span class="text-xs font-bold text-slate-400 uppercase tracking-wider">Same-Date Subtotal:</span>
-                <span class="px-3 py-1 rounded-xl bg-blue-600 text-white font-extrabold text-sm shadow-sm shadow-blue-500/20">₹${{card.group.total.toLocaleString('en-IN', {{minimumFractionDigits: 2, maximumFractionDigits: 2}})}}</span>
+                <span class="px-3 py-1 rounded-xl ${{dPaidStatus.isPaid ? 'bg-emerald-600' : 'bg-blue-600'}} text-white font-extrabold text-sm shadow-sm">₹${{card.group.total.toLocaleString('en-IN', {{minimumFractionDigits: 2, maximumFractionDigits: 2}})}}</span>
               </div>
+              ${{dNameBarHtml}}
             `;
           }}
           dateCard.appendChild(header);
