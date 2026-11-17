@@ -911,12 +911,49 @@ if uploaded_files:
 
         if success and rdata:
             slot_key = f"{rdata['bank_short']}_{rdata.get('statement_month', up_file.name)}"
-            st.session_state.statements_data[slot_key] = rdata
-            if rdata.get("payslip_meta", {}).get("is_payslip"):
-                pm = rdata["payslip_meta"]
-                st.success(f"✅ Salary Payslip Loaded: {up_file.name} ({pm.get('pay_period')}) — Net Pay {pm.get('net_pay')} • Full 30-Day Rate: ₹{pm.get('full_month_gross', 0):,.2f}/mo (₹{pm.get('per_day_rate', 0):,.2f}/day)")
+            if rdata.get("bank_short") == "EMI Amortization":
+                am = rdata.get("emi_amort_meta", {})
+                lid = am.get("loan_id", "")
+                pname = am.get("plan_name", up_file.name)
+                st.success(
+                    f"💾 Saved SmartEMI Amortization Plan for Future Splits (Not Opened as a Current Bill): "
+                    f"Loan #{lid} ({pname}) • ₹{am.get('amount', 0):,.2f} • "
+                    f"{am.get('tenure_months', 0)} Months ({am.get('interest_rate', '')}) • "
+                    f"Fee ₹{am.get('processing_fee', 0):,.0f}"
+                )
+                with st.form(key=f"rename_amort_{lid}_{up_file.name}"):
+                    rn_col1, rn_col2 = st.columns([3, 1])
+                    with rn_col1:
+                        new_loan_name = st.text_input(
+                            "🏷️ Name this EMI Loan for future monthly statements:",
+                            value=st.session_state.emi_nicknames.get(lid, pname),
+                            placeholder="e.g. Galaxy watch 8 classic Saravana",
+                            key=f"inp_amort_name_{lid}_{up_file.name}"
+                        )
+                    with rn_col2:
+                        st.markdown("<div style='height:26px;'></div>", unsafe_allow_html=True)
+                        if st.form_submit_button("💾 Save Loan Name", use_container_width=True):
+                            if new_loan_name.strip() and lid:
+                                clean_n = new_loan_name.strip()
+                                st.session_state.emi_nicknames[lid] = clean_n
+                                meta_bn = unlock_statements.load_bill_names_web()
+                                meta_bn.setdefault("bill_names", {})[lid] = clean_n
+                                for ep in meta_bn.get("emi_plans", []):
+                                    if ep.get("loan_id") == lid:
+                                        ep["plan_name"] = clean_n
+                                unlock_statements.save_bill_names_web(meta_bn)
+                                st.session_state["pending_save_emi_vault"] = {
+                                    "names": dict(st.session_state.emi_nicknames),
+                                    "phones": dict(st.session_state.emi_phones)
+                                }
+                                st.success(f"🏷️ Saved Loan #{lid} as '{clean_n}' for future splits!")
             else:
-                st.success(f"✅ Unlocked in memory: {up_file.name} ({rdata.get('bank_name')}) — {len(rdata.get('date_groups', {}))} date groups found")
+                st.session_state.statements_data[slot_key] = rdata
+                if rdata.get("payslip_meta", {}).get("is_payslip"):
+                    pm = rdata["payslip_meta"]
+                    st.success(f"✅ Salary Payslip Loaded: {up_file.name} ({pm.get('pay_period')}) — Net Pay {pm.get('net_pay')} • Full 30-Day Rate: ₹{pm.get('full_month_gross', 0):,.2f}/mo (₹{pm.get('per_day_rate', 0):,.2f}/day)")
+                else:
+                    st.success(f"✅ Unlocked in memory: {up_file.name} ({rdata.get('bank_name')}) — {len(rdata.get('date_groups', {}))} date groups found")
             if rdata.get("unlocked_pdf_b64"):
                 try:
                     _pdf_raw = base64.b64decode(rdata["unlocked_pdf_b64"])
