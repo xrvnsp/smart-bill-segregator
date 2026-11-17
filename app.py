@@ -900,7 +900,7 @@ if uploaded_files:
         )
         if success and rdata:
             if (
-                rdata.get("bank_short") not in ("Scapia Axis", "SBI SimplyCLICK", "ICICI Amazon", "HDFC", "Salary Payslip")
+                rdata.get("bank_short") not in ("Scapia Axis", "SBI SimplyCLICK", "ICICI Amazon", "HDFC", "Salary Payslip", "EMI Amortization")
                 or rdata.get("bank_name") == "Bank Statement"
                 or not rdata.get("date_groups")
                 or not rdata.get("all_txns")
@@ -944,12 +944,15 @@ if uploaded_files:
                     st.markdown(f"**Unlock `{up_file.name}`:**")
                     selected_bank = st.radio(
                         "Statement / Payslip Format:",
-                        ["Axis Bank (Scapia)", "HDFC Bank (Swiggy)", "ICICI Bank (Amazon Pay)", "SBI Card (SimplyCLICK)", "Salary Payslip (Skillveri)"],
+                        ["Axis Bank (Scapia)", "HDFC Bank (Swiggy)", "ICICI Bank (Amazon Pay)", "SBI Card (SimplyCLICK)", "Salary Payslip (Skillveri)", "EMI Amortization (SmartEMI)"],
                         index=def_idx,
                         horizontal=True,
                         key=f"bank_choice_{up_file.name}"
                     )
-                    if "Payslip" in selected_bank or "Skillveri" in selected_bank:
+                    if "Amortization" in selected_bank or "SmartEMI" in selected_bank:
+                        hint_desc = "First 4 letters of Name in CAPITAL + Last 4 digits of Card (e.g. SARA8844)"
+                        bank_key = "emi_amort"
+                    elif "Payslip" in selected_bank or "Skillveri" in selected_bank:
                         hint_desc = "Employee No + PAN [last 4 digits] (e.g. 115000A or 1234000A)"
                         bank_key = "payslip"
                     elif "Scapia" in selected_bank or "Axis" in selected_bank:

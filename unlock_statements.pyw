@@ -91,6 +91,13 @@ GOOGLE_SHEET_VIEW_URL = "https://docs.google.com/spreadsheets/d/1j2xafoAYKAp_fnf
 
 KNOWN_BANKS = [
     {
+        "name": "HDFC SmartEMI Amortization Schedule",
+        "key": "emi_amort",
+        "short_name": "EMI Amortization",
+        "hints": ["smartemi", "amort", "galaxy", "emi"],
+        "passwords": ["SARA8844"],
+    },
+    {
         "name": "ICICI Bank (Amazon Pay)",
         "key": "icici",
         "short_name": "ICICI Amazon",
@@ -256,6 +263,8 @@ def save_emi_names_to_disk(names_dict, folder="."):
 
 
 def identify_bank(file_path, text, unlocked_bank_key=None):
+  if "SMARTEMI LOAN" in (text or "").upper() or "AMORTIZATION SCHEDULE" in (text or "").upper():
+    return "HDFC SmartEMI Amortization Schedule", "EMI Amortization"
   text_upper = text.upper() if text else ""
   fname_lower = os.path.basename(str(file_path)).lower()
 
@@ -1644,6 +1653,107 @@ def process_kayal_duty_roster(image_items):
   result_data = build_kayal_statement_from_roster(roster, screenshots=screenshots_gallery, just_uploaded=True)
   return True, "Success", result_data
 
+def parse_emi_amortization_pdf(reader, file_path):
+  """Parses an HDFC SmartEMI / Credit Card EMI Amortization Schedule PDF and saves it to bill_names.json['emi_plans']
+  so future monthly statements automatically match and split this loan.
+  """
+  from datetime import datetime, timezone, timedelta
+  full_text = "\n".join((p.extract_text() or "") for p in reader.pages)
+  m_loan = re.search(r"Loan\s*no\.?\s*[:\-]?\s*(\d{6,25})", full_text, re.IGNORECASE)
+  loan_no_full = m_loan.group(1).strip() if m_loan else ""
+  loan_id = loan_no_full.lstrip("0") or loan_no_full or os.path.splitext(os.path.basename(str(file_path)))[0]
+
+  m_card = re.search(r"Card\s*Number\s*[:\-]?\s*([0-9Xx\*]+)", full_text, re.IGNORECASE)
+  card_masked = m_card.group(1).strip() if m_card else "HDFC Card"
+
+  m_amt = re.search(r"Amount\s*Rs\.?\s*([\d,]+(?:\.\d{1,2})?)", full_text, re.IGNORECASE)
+  loan_amt = float(m_amt.group(1).replace(",", "")) if m_amt else 0.0
+
+  m_rate = re.search(r"Fixed\s+Interest\s+Rate\s*([^\n]+)", full_text, re.IGNORECASE)
+  rate_str = m_rate.group(1).strip() if m_rate else ""
+
+  m_ten = re.search(r"Tenure\s*(\d+)\s*Months?", full_text, re.IGNORECASE)
+  tenure = int(m_ten.group(1)) if m_ten else 0
+
+  m_fee = re.search(r"Processing\s+Fee\s*Rs\.?\s*([\d,]+(?:\.\d{1,2})?)", full_text, re.IGNORECASE)
+  proc_fee = float(m_fee.group(1).replace(",", "")) if m_fee else 0.0
+
+  plan_name = os.path.splitext(os.path.basename(str(file_path)))[0].replace("_", " ").strip()
+
+  norm_txt = re.sub(r"\s+", " ", full_text)
+  norm_txt = re.sub(r"(\d{2}-\d{2}-)\s+(\d{4})", r"\1\2", norm_txt)
+  schedule = []
+  for m_row in re.finditer(r"\b(\d{1,2})\s+(\d{2}-\d{2}-\d{4})\s+([\d,]+\.\d{2})\s+([\d,]+\.\d{2})\s+([\d,]+\.\d{2})\s+([\d,]+\.\d{2})\b", norm_txt):
+    schedule.append({
+        "inst": int(m_row.group(1)),
+        "date": m_row.group(2),
+        "outstanding": float(m_row.group(3).replace(",", "")),
+        "principal": float(m_row.group(4).replace(",", "")),
+        "interest": float(m_row.group(5).replace(",", "")),
+        "instalment": float(m_row.group(6).replace(",", "")),
+    })
+
+  ist_tz = timezone(timedelta(hours=5, minutes=30))
+  plan_obj = {
+      "loan_id": loan_id,
+      "loan_no_full": loan_no_full,
+      "plan_name": plan_name,
+      "bank": "HDFC",
+      "card_masked": card_masked,
+      "amount": loan_amt,
+      "interest_rate": rate_str,
+      "tenure_months": tenure or len(schedule),
+      "processing_fee": proc_fee,
+      "source_file": os.path.basename(str(file_path)),
+      "saved_at": datetime.now(tz=ist_tz).isoformat(timespec="seconds"),
+      "schedule": schedule,
+  }
+
+  meta = load_bill_names_web()
+  plans = [p for p in meta.get("emi_plans", []) if p.get("loan_id") != loan_id]
+  plans.insert(0, plan_obj)
+  meta["emi_plans"] = plans
+  if loan_id:
+    meta.setdefault("bill_names", {})[loan_id] = plan_name
+  save_bill_names_web(meta)
+
+  date_groups = defaultdict(lambda: {"total": 0.0, "items": [], "has_emi": True})
+  all_txns = []
+  for row in schedule:
+    gst_amt = round(row["interest"] * 0.18, 2)
+    tot_with_gst = round(row["instalment"] + gst_amt, 2)
+    t_obj = {
+        "date": row["date"],
+        "description": f"Inst #{row['inst']}/{plan_obj['tenure_months']} • Principal ₹{row['principal']:,.2f} + Interest ₹{row['interest']:,.2f} (+18% GST ₹{gst_amt:,.2f})",
+        "amount": tot_with_gst,
+        "is_credit": False,
+        "is_emi": True,
+        "amount_str": f"₹{tot_with_gst:,.2f}",
+    }
+    all_txns.append(t_obj)
+    date_groups[row["date"]]["items"].append(t_obj)
+    date_groups[row["date"]]["total"] += tot_with_gst
+
+  return {
+      "total_due": f"₹{loan_amt:,.2f}",
+      "due_date": f"{plan_obj['tenure_months']} Months ({rate_str})",
+      "statement_month": f"Loan #{loan_id}",
+      "cardholder_name": plan_name,
+      "reward_points": f"Fee ₹{proc_fee:,.0f}",
+      "date_groups": dict(date_groups),
+      "all_txns": all_txns,
+      "ongoing_emis": [{
+          "type": "SmartEMI",
+          "booked_date": schedule[0]["date"] if schedule else "",
+          "loan_id": loan_id,
+          "custom_name": plan_name,
+          "total_amount": f"₹{loan_amt:,.2f}",
+          "balance_principal": f"₹{loan_amt:,.2f}",
+          "balance_tenure": f"{plan_obj['tenure_months']} Months",
+      }],
+      "emi_amort_meta": plan_obj,
+  }
+
 def parse_payslip_statement(reader, file_path, saved_names):
   """Dedicated parser for Salary Payslips (Skillveri / Zoho Payroll) and TDS Summary PDFs.
   Password format: Employee No + PAN [last 4 digits] (e.g. 1234000A / 115000A).
@@ -2006,7 +2116,9 @@ def process_statement_file(file_path, base_downloads_dir=None, custom_passwords=
     except Exception:
       pass
 
-    if "payslip" in fname_lower or "skillveri" in fname_lower or "salary" in fname_lower or "tds" in fname_lower or "payslip" in meta_clues or "skillveri" in meta_clues:
+    if "amort" in fname_lower or "smartemi" in fname_lower or "galaxy" in fname_lower:
+      ordered_banks = [b for b in KNOWN_BANKS if b["key"] in ("emi_amort", "hdfc")]
+    elif "payslip" in fname_lower or "skillveri" in fname_lower or "salary" in fname_lower or "tds" in fname_lower or "payslip" in meta_clues or "skillveri" in meta_clues:
       ordered_banks = [b for b in KNOWN_BANKS if b["key"] == "payslip"]
     elif "scapia" in fname_lower or "axis" in fname_lower or "federal" in fname_lower or "axis" in meta_clues or "scapia" in meta_clues:
       ordered_banks = [b for b in KNOWN_BANKS if b["key"] == "scapia"]
@@ -2022,6 +2134,7 @@ def process_statement_file(file_path, base_downloads_dir=None, custom_passwords=
     parent_folder = base_downloads_dir or os.path.dirname(str(file_path)) or "."
     if custom_passwords is not None:
       stored_pwds = {
+          "emi_amort": str(custom_passwords.get("emi_amort", "")).strip(),
           "payslip": str(custom_passwords.get("payslip", "")).strip(),
           "scapia": str(custom_passwords.get("scapia", "")).strip(),
           "hdfc": str(custom_passwords.get("hdfc", "")).strip(),
@@ -2069,6 +2182,9 @@ def process_statement_file(file_path, base_downloads_dir=None, custom_passwords=
         return False, f"Password not accepted for {bank_name_hint} ({os.path.basename(file_path)}).\n\nThe configured password in '🔑 Configure Passwords' was rejected by this statement. Please verify and update your password.", None
 
     saved_emi_names = load_saved_emi_names(parent_folder)
+    for _bk, _bv in (load_bill_names_web().get("bill_names") or {}).items():
+      if _bk and _bv and _bk not in saved_emi_names:
+        saved_emi_names[str(_bk)] = str(_bv)
     if custom_emi_names and isinstance(custom_emi_names, dict):
       for k, v in custom_emi_names.items():
         if k and v and str(v).strip():
@@ -2077,10 +2193,12 @@ def process_statement_file(file_path, base_downloads_dir=None, custom_passwords=
     p1_text = "\n".join((p.extract_text() or "") for p in reader.pages[:2])
     bank_full_name, bank_short = identify_bank(file_path, p1_text, unlocked_bank_key)
 
-    if bank_short not in ("Scapia Axis", "SBI SimplyCLICK", "ICICI Amazon", "HDFC", "Salary Payslip"):
+    if bank_short not in ("Scapia Axis", "SBI SimplyCLICK", "ICICI Amazon", "HDFC", "Salary Payslip", "EMI Amortization"):
       return False, f"Non-Bill PDF Detected ({os.path.basename(file_path)}): This file is not a valid credit card bill or salary payslip. Only Axis Bank (Scapia), HDFC Bank (Swiggy), ICICI Bank (Amazon Pay), SBI Card (SimplyCLICK), and Salary Payslips are supported.", None
 
-    if bank_short == "Salary Payslip":
+    if bank_short == "EMI Amortization":
+      fin = parse_emi_amortization_pdf(reader, file_path)
+    elif bank_short == "Salary Payslip":
       fin = parse_payslip_statement(reader, file_path, saved_emi_names)
     elif bank_short == "Scapia Axis":
       fin = parse_scapia_statement(reader, file_path, saved_emi_names)
@@ -2171,11 +2289,12 @@ def load_bill_names_web():
             "bill_names": data.get("bill_names", {}) if isinstance(data.get("bill_names"), dict) else {},
             "paid_cards": data.get("paid_cards", {}) if isinstance(data.get("paid_cards"), dict) else {},
             "fold_tags": data.get("fold_tags", []) if isinstance(data.get("fold_tags"), list) else [],
+            "emi_plans": data.get("emi_plans", []) if isinstance(data.get("emi_plans"), list) else [],
             "updated_at": data.get("updated_at", "")
         }
     except Exception:
       pass
-  return {"bill_names": {}, "paid_cards": {}, "fold_tags": [], "updated_at": ""}
+  return {"bill_names": {}, "paid_cards": {}, "fold_tags": [], "emi_plans": [], "updated_at": ""}
 
 def save_bill_names_web(meta):
   """Saves custom bill names, paid statuses, and Fold transaction tags to bill_names.json."""
@@ -2796,6 +2915,13 @@ def generate_modern_dashboard_html(results_list, output_dir=".", write_to_disk=T
       if (direct) return direct;
       const vault = readEmiVaultDict();
       if (vault.names && vault.names[loanId]) return vault.names[loanId];
+      if (typeof WEB_BILL_NAMES === "object" && WEB_BILL_NAMES) {{
+        if (WEB_BILL_NAMES.bill_names && WEB_BILL_NAMES.bill_names[loanId]) return WEB_BILL_NAMES.bill_names[loanId];
+        if (Array.isArray(WEB_BILL_NAMES.emi_plans)) {{
+          const ep = WEB_BILL_NAMES.emi_plans.find(p => p.loan_id === loanId || p.loan_no_full === loanId);
+          if (ep && ep.plan_name) return ep.plan_name;
+        }}
+      }}
       return defaultName || "";
     }}
 

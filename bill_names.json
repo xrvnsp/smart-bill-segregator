@@ -1,7 +1,8 @@
 {
-  "bill_names": {},
+  "bill_names": {
+    "148456196": "Galaxy watch 8 classic Saravana"
+  },
   "paid_cards": {},
-  "updated_at": "2026-11-17T12:42:00+05:30",
   "fold_tags": [
     {
       "id": "fold_0004_17_Nov_2026_904",
@@ -14,5 +15,71 @@
       "source_file": "Screenshot_20261117_122751_Fold.png",
       "created_at": "2026-11-17T12:42:00+05:30"
     }
-  ]
+  ],
+  "emi_plans": [
+    {
+      "loan_id": "148456196",
+      "loan_no_full": "0000000000148456196",
+      "plan_name": "Galaxy watch 8 classic Saravana",
+      "bank": "HDFC",
+      "card_masked": "526873XXXXXX8844",
+      "amount": 21282.0,
+      "interest_rate": "1.42% p.m.",
+      "tenure_months": 6,
+      "processing_fee": 299.0,
+      "source_file": "Galaxy watch 8 classic Saravana.pdf",
+      "saved_at": "2026-11-17T15:05:45+05:30",
+      "schedule": [
+        {
+          "inst": 1,
+          "date": "19-11-2026",
+          "outstanding": 17858.0,
+          "principal": 3424.0,
+          "interest": 231.0,
+          "instalment": 3655.0
+        },
+        {
+          "inst": 2,
+          "date": "19-12-2026",
+          "outstanding": 14386.0,
+          "principal": 3472.0,
+          "interest": 253.0,
+          "instalment": 3725.0
+        },
+        {
+          "inst": 3,
+          "date": "19-01-2027",
+          "outstanding": 10865.0,
+          "principal": 3521.0,
+          "interest": 204.0,
+          "instalment": 3725.0
+        },
+        {
+          "inst": 4,
+          "date": "19-02-2027",
+          "outstanding": 7294.0,
+          "principal": 3571.0,
+          "interest": 154.0,
+          "instalment": 3725.0
+        },
+        {
+          "inst": 5,
+          "date": "19-03-2027",
+          "outstanding": 3672.0,
+          "principal": 3622.0,
+          "interest": 103.0,
+          "instalment": 3725.0
+        },
+        {
+          "inst": 6,
+          "date": "19-04-2027",
+          "outstanding": 0.0,
+          "principal": 3672.0,
+          "interest": 52.0,
+          "instalment": 3724.0
+        }
+      ]
+    }
+  ],
+  "updated_at": "2026-11-17T15:05:45+05:30"
 }
