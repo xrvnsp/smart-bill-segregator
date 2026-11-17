@@ -1043,6 +1043,7 @@ if st.session_state.statements_data:
             else:
                 import urllib.request
                 bills, reimbursements = [], []
+                seen_loan_ids = set()
                 for k_st, rdata in st.session_state.statements_data.items():
                     if (rdata.get("shafana_meta") or {}).get("is_shafana") or (rdata.get("kayal_meta") or {}).get("is_kayal"):
                         continue
@@ -1057,6 +1058,8 @@ if st.session_state.statements_data:
                     })
                     for emi in emis:
                         lid = str(emi.get("loan_id", ""))
+                        if lid:
+                            seen_loan_ids.add(lid)
                         ename = st.session_state.emi_nicknames.get(lid) or emi.get("custom_name") or lid
                         reimbursements.append({
                             "month": rdata.get("statement_month", ""),
@@ -1066,6 +1069,23 @@ if st.session_state.statements_data:
                             "amount": emi.get("total_amount", ""),
                             "remaining": emi.get("balance_tenure", "-"),
                             "status": "Pending"
+                        })
+                # Also include saved SmartEMI Amortization Plans from bill_names.json['emi_plans']
+                for ep in (unlock_statements.load_bill_names_web().get("emi_plans") or []):
+                    lid = str(ep.get("loan_id", ""))
+                    if lid and lid not in seen_loan_ids:
+                        seen_loan_ids.add(lid)
+                        pname = st.session_state.emi_nicknames.get(lid) or ep.get("plan_name") or lid
+                        sched = ep.get("schedule") or []
+                        start_dt = sched[0].get("date", "Upcoming") if sched else "Upcoming"
+                        reimbursements.append({
+                            "month": start_dt,
+                            "bank": ep.get("bank", "HDFC"),
+                            "loan_id": lid,
+                            "friend_name": pname,
+                            "amount": f"₹{float(ep.get('amount', 0)):,.2f}",
+                            "remaining": f"{ep.get('tenure_months', len(sched))} Months",
+                            "status": "Saved Plan"
                         })
                 try:
                     req = urllib.request.Request(
