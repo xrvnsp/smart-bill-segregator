@@ -1028,7 +1028,7 @@ if (st.session_state.show_shafana_tracker or has_icici_loaded) and "Shafana_Cash
 
 # --- Active Statements Controls & Clear State ---
 if st.session_state.statements_data:
-    status_cols = st.columns([3, 1, 1])
+    status_cols = st.columns([3, 1.2, 1, 1])
     with status_cols[0]:
         badge_html = " ".join([
             f'<span style="background-color: rgba(241, 245, 249, 0.15); color: inherit; padding: 4px 12px; border-radius: 12px; font-size: 12px; font-weight: 800; border: 1px solid rgba(203, 213, 225, 0.3); margin-right: 8px;">🏛️ {s.get("bank_name", k)} ({len(s.get("date_groups", {}))} date groups)</span>'
@@ -1036,9 +1036,51 @@ if st.session_state.statements_data:
         ])
         st.markdown(f"<div style='margin-bottom: 12px; display: flex; align-items: center; flex-wrap: wrap; gap: 6px;'><span style='font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em;'>Active Session Statements:</span> {badge_html}</div>", unsafe_allow_html=True)
     with status_cols[1]:
+        if st.button("☁️ Push to Sheets", use_container_width=True, type="primary", help="Sync loaded bills & friend EMIs to your Google Sheets Web App URL"):
+            webhook_url = st.session_state.session_passwords.get("sheets_webhook_url", "").strip()
+            if not webhook_url:
+                st.warning("Paste your Google Sheets Web App URL in the Sidebar (🔑 Device Stored Passwords) first!")
+            else:
+                import urllib.request
+                bills, reimbursements = [], []
+                for k_st, rdata in st.session_state.statements_data.items():
+                    if (rdata.get("shafana_meta") or {}).get("is_shafana") or (rdata.get("kayal_meta") or {}).get("is_kayal"):
+                        continue
+                    emis = rdata.get("ongoing_emis", [])
+                    bills.append({
+                        "month": rdata.get("statement_month", ""),
+                        "bank": rdata.get("bank_short", ""),
+                        "total_due": rdata.get("total_due", ""),
+                        "due_date": rdata.get("due_date", ""),
+                        "cashback_summary": rdata.get("reward_points", ""),
+                        "notes": f"{len(emis)} ongoing EMI(s) tracked"
+                    })
+                    for emi in emis:
+                        lid = str(emi.get("loan_id", ""))
+                        ename = st.session_state.emi_nicknames.get(lid) or emi.get("custom_name") or lid
+                        reimbursements.append({
+                            "month": rdata.get("statement_month", ""),
+                            "bank": rdata.get("bank_short", ""),
+                            "loan_id": lid,
+                            "friend_name": ename,
+                            "amount": emi.get("total_amount", ""),
+                            "remaining": emi.get("balance_tenure", "-"),
+                            "status": "Pending"
+                        })
+                try:
+                    req = urllib.request.Request(
+                        webhook_url,
+                        data=json.dumps({"bills": bills, "reimbursements": reimbursements}).encode("utf-8"),
+                        headers={"Content-Type": "application/json", "User-Agent": "SmartBillSegregator/1.0"}
+                    )
+                    with urllib.request.urlopen(req, timeout=12) as resp:
+                        st.success(f"✅ Pushed {len(bills)} bill(s) & {len(reimbursements)} EMI(s) to Google Sheets!")
+                except Exception as ex_sh:
+                    st.error(f"Google Sheets sync failed: {ex_sh}")
+    with status_cols[2]:
         if st.button("🔄 Refresh View", use_container_width=True):
             st.rerun()
-    with status_cols[2]:
+    with status_cols[3]:
         if st.button("🗑️ Clear Session", use_container_width=True, help="Wipe loaded statements from memory"):
             st.session_state.statements_data = {}
             st.session_state.show_shafana_tracker = False

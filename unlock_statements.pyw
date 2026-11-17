@@ -4245,14 +4245,8 @@ def generate_modern_dashboard_html(results_list, output_dir=".", write_to_disk=T
               <!-- Metadata Grid -->
               <div class="grid grid-cols-2 sm:grid-cols-3 gap-3 mt-6 pt-5 border-t border-slate-200/60 text-xs">
                 <div>
-                  <div class="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider">${{isPayslip ? 'Designation / Emp ID' : 'Account / Custom Bill Name'}}</div>
-                  <div class="font-extrabold text-slate-800 text-sm mt-0.5 truncate" title="${{isPayslip ? (pm.designation + ' (#' + pm.employee_id + ')') : stmt.bank_short}}">${{isPayslip ? ((pm.designation || 'Employee') + ' (#' + (pm.employee_id || '') + ')') : (getBillCardCustomName('stmt_' + stmt.bank_short + '_' + stmt.statement_month) || stmt.bank_short)}}</div>
-                  ${{(!isPayslip && !isAll) ? `
-                  <div class="mt-1.5 flex items-center gap-1 no-print">
-                    <input type="text" id="hero-stmt-name-inp" value="${{(getBillCardCustomName('stmt_' + stmt.bank_short + '_' + stmt.statement_month) || '').replace(/"/g, '&quot;')}}" placeholder="Name this bill..." class="w-32 px-2 py-1 text-[11px] font-bold bg-white border border-slate-300 rounded-lg text-slate-800">
-                    <button onclick="saveBillCardCustomName('stmt_${{stmt.bank_short}}_${{stmt.statement_month}}', 'hero-stmt-name-inp')" class="px-2 py-1 rounded-lg bg-slate-900 hover:bg-slate-800 text-white text-[10px] font-extrabold cursor-pointer">💾</button>
-                  </div>
-                  ` : ''}}
+                  <div class="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider">${{isPayslip ? 'Designation / Emp ID' : 'Account / Card'}}</div>
+                  <div class="font-extrabold text-slate-800 text-sm mt-0.5 truncate" title="${{isPayslip ? (pm.designation + ' (#' + pm.employee_id + ')') : stmt.bank_short}}">${{isPayslip ? ((pm.designation || 'Employee') + ' (#' + (pm.employee_id || '') + ')') : stmt.bank_short}}</div>
                 </div>
                 <div>
                   <div class="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider">${{isPayslip ? 'Pay Period & Attendance' : 'Billing Cycle'}}</div>
