@@ -1,5 +1,18 @@
 {
   "bill_names": {},
   "paid_cards": {},
-  "updated_at": "2026-11-16T12:27:00+05:30"
+  "updated_at": "2026-11-17T12:42:00+05:30",
+  "fold_tags": [
+    {
+      "id": "fold_0004_17_Nov_2026_904",
+      "card_last4": "0004",
+      "bank_short": "ICICI Amazon",
+      "amount": 904.0,
+      "date": "17 Nov 2026",
+      "paid_to": "Amazon",
+      "note": "shafana 17 nov 860",
+      "source_file": "Screenshot_20261117_122751_Fold.png",
+      "created_at": "2026-11-17T12:42:00+05:30"
+    }
+  ]
 }

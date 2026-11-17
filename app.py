@@ -835,13 +835,30 @@ if uploaded_files:
 
     if img_files:
         roster_imgs = []
+        fold_imgs = []
         shafana_imgs = []
         for f in img_files:
             raw_b = f.getvalue()
             if st.session_state.show_kayal_roster or unlock_statements.is_duty_roster_image(raw_b, f.name):
                 roster_imgs.append({"name": f.name, "bytes": raw_b})
+            elif unlock_statements.is_fold_screenshot(raw_b, f.name):
+                fold_imgs.append({"name": f.name, "bytes": raw_b})
             else:
                 shafana_imgs.append({"name": f.name, "bytes": raw_b})
+
+        if fold_imgs:
+            fl_ok, fl_msg, fl_res = unlock_statements.process_fold_screenshots(fold_imgs)
+            if fl_ok and fl_res:
+                ext_list = fl_res.get("extracted", [])
+                for ex in ext_list:
+                    st.success(
+                        f"🏷️ Fold Tag Saved for Next Statement: Card **{ex.get('card_last4') or 'Card'} • "
+                        f"₹{ex.get('amount', 0):,.0f} • {ex.get('date')} • Paid To: {ex.get('paid_to')} • "
+                        f"Auto-Name: '{ex.get('note')}'"
+                    )
+                if fl_res.get("shafana_data"):
+                    update_shared_shafana_store(unlock_statements.load_shafana_web_ledger())
+                    st.session_state.statements_data["Shafana_Cashback"] = fl_res["shafana_data"]
 
         if roster_imgs:
             ky_ok, ky_msg, ky_data = unlock_statements.process_kayal_duty_roster(roster_imgs)

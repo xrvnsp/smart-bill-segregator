@@ -6,8 +6,21 @@
   "openingCb": 0.0,
   "manualCbUsed": 0.0,
   "billPaid": false,
-  "updated_at": "2026-11-06T00:45:00+05:30",
+  "updated_at": "2026-11-17T12:40:00+05:30",
   "entries": [
+    {
+      "id": "fold_17_Nov_2026_860.00_Amazon_Pay_Credit_Card",
+      "method": "Amazon Pay Credit Card (**0004)",
+      "description": "Amazon Order (Fold **0004 Swipe ₹904 • Shafana ₹860)",
+      "amount": 860.0,
+      "cashback_earned": 43.0,
+      "date_time": "17 Nov 2026",
+      "role": "shafana_order",
+      "recipient": "Raja Mohamed",
+      "address": "8 Puduthurai Main Road, Karaikal 609602",
+      "arriving_by": "",
+      "source_file": "Screenshot_20261117_122751_Fold.png"
+    },
     {
       "id": "apay_05_Nov_2026_08:21_PM_670.00_Amazon_Pay_Credit_Card",
       "method": "Amazon Pay Credit Card",

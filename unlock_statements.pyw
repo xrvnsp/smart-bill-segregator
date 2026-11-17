@@ -735,13 +735,26 @@ SHAFANA_WEB_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "sha
 DEFAULT_SHAFANA_LEDGER = {
   "friend_name": "Shafana",
   "husband_name": "Raja Mohamed",
-  "delivery_address": "8 Puduthurai Main Road, Karaikal 609602",
+  "delivery_address": "Raja mohamed, 8 puduthurai main road, Karaikal, PUDUCHERRY, 609602, India",
   "card_used": "Amazon Pay ICICI Bank Credit Card (Visa ••0004)",
   "openingCb": 0.0,
   "manualCbUsed": 0.0,
   "billPaid": False,
-  "updated_at": "2026-11-06T00:45:00+05:30",
+  "updated_at": "2026-11-17T12:40:00+05:30",
   "entries": [
+    {
+      "id": "fold_17_Nov_2026_860.00_Amazon_Pay_Credit_Card",
+      "method": "Amazon Pay Credit Card (**0004)",
+      "description": "Amazon Order (Fold **0004 Swipe ₹904 • Shafana ₹860)",
+      "amount": 860.0,
+      "cashback_earned": 43.0,
+      "date_time": "17 Nov 2026",
+      "role": "shafana_order",
+      "recipient": "Raja Mohamed",
+      "address": "8 Puduthurai Main Road, Karaikal 609602",
+      "arriving_by": "",
+      "source_file": "Screenshot_20261117_122751_Fold.png"
+    },
     {
       "id": "apay_05_Nov_2026_08:21_PM_670.00_Amazon_Pay_Credit_Card",
       "method": "Amazon Pay Credit Card",
@@ -896,6 +909,37 @@ def process_shafana_screenshots(image_items):
 
     lines = [l.strip() for l in txt.splitlines() if l.strip()]
     full_txt = "\n".join(lines)
+
+    # Check Type 0: Fold App Transaction Screenshot ("PAID TO Amazon", "**0004", "NOTES shafana ...")
+    if ("paid to" in full_txt.lower() and "amazon" in full_txt.lower()) or ("notes" in full_txt.lower() and "shafana" in full_txt.lower()):
+      m_fold_amt = re.search(r"[-–]?\s*[₹Rs\.]?\s*(\d{2,6}(?:,\d{3})*(?:\.\d{1,2})?)", full_txt)
+      m_fold_dt = re.search(r"(?:Mon|Tue|Wed|Thu|Fri|Sat|Sun)?,?\s*([A-Za-z]{3}\.?\s+\d{1,2}\s*[`'’]?\d{2,4})", full_txt, re.IGNORECASE)
+      m_note_amt = re.search(r"shafana[^\n]*?(\d{2,6})\s*$", full_txt, re.IGNORECASE | re.MULTILINE)
+      swipe_amt = float(m_fold_amt.group(1).replace(",", "")) if m_fold_amt else 0.0
+      use_amt = float(m_note_amt.group(1)) if m_note_amt else swipe_amt
+      if use_amt > 0:
+        dt_clean = m_fold_dt.group(1).replace(".", "").replace("'", "20").replace("’", "20") if m_fold_dt else "17 Nov 2026"
+        cb_5 = float(_math.floor(use_amt * 0.05))
+        txn_entries.append({
+            "id": f"fold_{dt_clean}_{use_amt:.2f}_Amazon_Pay_Credit_Card".replace(" ", "_"),
+            "method": "Amazon Pay Credit Card (**0004)",
+            "description": f"Amazon Order (Fold Swipe ₹{swipe_amt:,.0f} • Shafana ₹{use_amt:,.0f})" if swipe_amt != use_amt else "Amazon Order (Fold **0004)",
+            "amount": use_amt,
+            "cashback_earned": cb_5,
+            "date_time": dt_clean,
+            "role": "shafana_order",
+            "recipient": "Raja Mohamed",
+            "address": "8 Puduthurai Main Road, Karaikal 609602",
+            "arriving_by": "",
+            "source_file": fname
+        })
+        screenshots_gallery.append({
+            "file_name": fname,
+            "screen_type": "Fold App Transaction (**0004)",
+            "summary": f"₹{use_amt:,.0f} Order • +₹{cb_5:,.0f} Cashback",
+            "b64": b64_img
+        })
+        continue
 
     # Check Type A: Amazon Checkout Screenshot ("Cashback on your order" / "Delivering to Raja mohamed")
     m_cb = re.search(r"[₹%7Rs\.]?\s*(\d+\.\d{2})\s*Cashback\s+on\s+your\s+order", full_txt, re.IGNORECASE)
@@ -2117,7 +2161,7 @@ def process_statement_file(file_path, base_downloads_dir=None, custom_passwords=
 BILL_NAMES_WEB_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "bill_names.json")
 
 def load_bill_names_web():
-  """Loads non-sensitive custom card/date bill names & paid statuses from bill_names.json."""
+  """Loads non-sensitive custom card/date bill names, paid statuses, and Fold transaction tags from bill_names.json."""
   if os.path.exists(BILL_NAMES_WEB_FILE):
     try:
       with open(BILL_NAMES_WEB_FILE, "r", encoding="utf-8") as f:
@@ -2126,11 +2170,152 @@ def load_bill_names_web():
         return {
             "bill_names": data.get("bill_names", {}) if isinstance(data.get("bill_names"), dict) else {},
             "paid_cards": data.get("paid_cards", {}) if isinstance(data.get("paid_cards"), dict) else {},
+            "fold_tags": data.get("fold_tags", []) if isinstance(data.get("fold_tags"), list) else [],
             "updated_at": data.get("updated_at", "")
         }
     except Exception:
       pass
-  return {"bill_names": {}, "paid_cards": {}, "updated_at": ""}
+  return {"bill_names": {}, "paid_cards": {}, "fold_tags": [], "updated_at": ""}
+
+def save_bill_names_web(meta):
+  """Saves custom bill names, paid statuses, and Fold transaction tags to bill_names.json."""
+  from datetime import datetime, timezone, timedelta
+  ist_tz = timezone(timedelta(hours=5, minutes=30))
+  meta["updated_at"] = datetime.now(tz=ist_tz).isoformat(timespec="seconds")
+  try:
+    with open(BILL_NAMES_WEB_FILE, "w", encoding="utf-8") as f:
+      json.dump(meta, f, indent=2, ensure_ascii=False)
+  except Exception:
+    pass
+  return meta
+
+def _map_card_last4_to_bank(last4):
+  l4 = str(last4 or "").strip()
+  if l4 in ("0004", "4315"): return "ICICI Amazon"
+  if l4 in ("5268", "44"): return "HDFC"
+  if l4 in ("9826",): return "SBI SimplyCLICK"
+  return ""
+
+def is_fold_screenshot(raw_bytes, filename=""):
+  """Detects whether an uploaded image is a Fold app transaction screenshot."""
+  fn_low = (filename or "").lower()
+  if "fold" in fn_low:
+    return True
+  try:
+    import io as _io
+    import pytesseract
+    from PIL import Image, ImageOps
+    for win_path in [r"C:\Program Files\Tesseract-OCR\tesseract.exe", r"C:\Users\AppData\Local\Tesseract-OCR\tesseract.exe"]:
+      if os.path.exists(win_path):
+        pytesseract.pytesseract.tesseract_cmd = win_path
+        break
+    txt = pytesseract.image_to_string(ImageOps.exif_transpose(Image.open(_io.BytesIO(raw_bytes)))) or ""
+    tl = txt.lower()
+    if ("refund center" in tl or "add transaction to group" in tl or "account in" in tl) and ("paid to" in tl or "from" in tl):
+      return True
+  except Exception:
+    pass
+  return False
+
+def process_fold_screenshots(image_items):
+  """Extracts card last-4, amount, date, merchant (Paid To), and Notes from Fold app screenshots
+  and saves them into bill_names.json['fold_tags'] so future statements auto-match and auto-name them!
+  """
+  import io as _io
+  import math as _math
+  from datetime import datetime, timezone, timedelta
+
+  ocr_available = False
+  try:
+    import pytesseract
+    from PIL import Image, ImageOps
+    for win_path in [r"C:\Program Files\Tesseract-OCR\tesseract.exe", r"C:\Users\AppData\Local\Tesseract-OCR\tesseract.exe"]:
+      if os.path.exists(win_path):
+        pytesseract.pytesseract.tesseract_cmd = win_path
+        break
+    ocr_available = True
+  except Exception:
+    pass
+
+  meta = load_bill_names_web()
+  fold_tags = meta.get("fold_tags", [])
+  extracted = []
+  shafana_items = []
+
+  for item in image_items:
+    fname = item["name"] if isinstance(item, dict) else item[0]
+    raw_bytes = item["bytes"] if isinstance(item, dict) else item[1]
+    txt = ""
+    if ocr_available:
+      try:
+        img_obj = ImageOps.exif_transpose(Image.open(_io.BytesIO(raw_bytes)))
+        txt = pytesseract.image_to_string(img_obj) or ""
+      except Exception:
+        txt = ""
+
+    lines = [l.strip() for l in txt.splitlines() if l.strip()]
+    full_txt = "\n".join(lines)
+
+    # Extract amount (skip status bar time like 12:27 by looking for lines without ':' or near top before FROM/TAG)
+    amt_val = 0.0
+    for ln in lines[:10]:
+      if ":" in ln:
+        continue
+      m_a = re.search(r"[-–]?\s*[₹Rs\.]?\s*(\d{1,3}(?:,\d{3})*(?:\.\d{1,2})?|\d{2,6}(?:\.\d{1,2})?)", ln)
+      if m_a:
+        try:
+          cand = float(m_a.group(1).replace(",", ""))
+          if cand > 0:
+            amt_val = cand
+            break
+        except Exception:
+          pass
+
+    m_card = re.search(r"\*{2,4}\s*(\d{4})", full_txt)
+    last4 = m_card.group(1) if m_card else ""
+    bank_short = _map_card_last4_to_bank(last4)
+
+    m_dt = re.search(r"(?:Mon|Tue|Wed|Thu|Fri|Sat|Sun)?,?\s*([A-Za-z]{3}\.?\s+\d{1,2}\s*[`'’]?\d{2,4})", full_txt, re.IGNORECASE)
+    dt_str = m_dt.group(1).replace(".", "").replace("'", "20").replace("’", "20").strip() if m_dt else ""
+
+    paid_to = ""
+    m_pt = re.search(r"PAID\s+TO\s*\n+([^\n]+)", full_txt, re.IGNORECASE)
+    if m_pt:
+      paid_to = re.sub(r"^[^A-Za-z0-9]+", "", m_pt.group(1)).strip()
+
+    note_txt = ""
+    m_note = re.search(r"NOTES(?:\s+ADD\s+RECEIPT)?\s*\n+([^\n]+)", full_txt, re.IGNORECASE)
+    if m_note:
+      note_txt = m_note.group(1).strip()
+
+    if amt_val > 0:
+      tag_id = f"fold_{last4 or 'card'}_{dt_str or 'dt'}_{int(round(amt_val))}".replace(" ", "_")
+      tag_obj = {
+          "id": tag_id,
+          "card_last4": last4,
+          "bank_short": bank_short,
+          "amount": amt_val,
+          "date": dt_str or "Nov 2026",
+          "paid_to": paid_to or "Merchant",
+          "note": note_txt or paid_to or "Fold Tagged Spend",
+          "source_file": fname,
+          "created_at": datetime.now(tz=timezone(timedelta(hours=5, minutes=30))).isoformat(timespec="seconds")
+      }
+      fold_tags = [ft for ft in fold_tags if ft.get("id") != tag_id]
+      fold_tags.insert(0, tag_obj)
+      extracted.append(tag_obj)
+
+      if "shafana" in note_txt.lower():
+        shafana_items.append(item)
+
+  meta["fold_tags"] = fold_tags
+  save_bill_names_web(meta)
+
+  shafana_data = None
+  if shafana_items:
+    _, _, shafana_data = process_shafana_screenshots(shafana_items)
+
+  return True, "Success", {"extracted": extracted, "shafana_data": shafana_data}
 
 def generate_modern_dashboard_html(results_list, output_dir=".", write_to_disk=True):
   """Generates a high-quality modern interactive HTML dashboard with EMI receipt highlighting."""
@@ -2704,6 +2889,23 @@ def generate_modern_dashboard_html(results_list, output_dir=".", write_to_disk=T
       }}
       saveSyncedBillMeta(meta);
       renderDashboard();
+    }}
+
+    function getFoldMatchForItem(item, stmt) {{
+      const meta = loadSyncedBillMeta();
+      const fTags = (typeof WEB_BILL_NAMES === "object" && WEB_BILL_NAMES && Array.isArray(WEB_BILL_NAMES.fold_tags))
+        ? WEB_BILL_NAMES.fold_tags
+        : (Array.isArray(meta.fold_tags) ? meta.fold_tags : []);
+      if (!fTags.length || !item || item.is_credit) return null;
+      const stmtBank = (stmt && stmt.bank_short) ? String(stmt.bank_short).toLowerCase() : "";
+      for (const ft of fTags) {{
+        const amtDiff = Math.abs((parseFloat(item.amount) || 0) - (parseFloat(ft.amount) || 0));
+        if (amtDiff < 1.0) {{
+          if (ft.bank_short && stmtBank && !stmtBank.includes(ft.bank_short.toLowerCase().split(" ")[0])) continue;
+          return ft;
+        }}
+      }}
+      return null;
     }}
 
     function getBillCardCustomName(billKey) {{
@@ -6649,6 +6851,10 @@ def generate_modern_dashboard_html(results_list, output_dir=".", write_to_disk=T
                       <span class="item-desc-text">${{item.description}}</span>
                       ${{emiBadge}}
                       ${{creditBadge}}
+                    ${{(() => {{
+                      const fm = getFoldMatchForItem(item, stmt);
+                      return fm ? `<span class="ml-1 px-2.5 py-0.5 rounded-full text-[10px] font-extrabold bg-amber-100 text-amber-900 border border-amber-300">🏷️ Fold Match: ${{fm.note}}</span>` : '';
+                    }})()}}
                       ${{themeBadge}}
                     </div>
                     
@@ -6707,7 +6913,16 @@ def generate_modern_dashboard_html(results_list, output_dir=".", write_to_disk=T
           // Regular date card (with custom Bill Name + Mark as Paid checkbox)
           const isEmiGroup = card.isEmiGroup;
           const dateBillKey = `date_${{stmt.bank_short}}_${{stmt.statement_month}}_${{card.dateStr}}`.replace(/[^a-zA-Z0-9_]/g, '_');
-          const customDateName = getBillCardCustomName(dateBillKey);
+          let customDateName = getBillCardCustomName(dateBillKey);
+          if (!customDateName && Array.isArray(card.items)) {{
+            for (const _it of card.items) {{
+              const _fm = getFoldMatchForItem(_it, stmt);
+              if (_fm && _fm.note) {{
+                customDateName = _fm.note;
+                break;
+              }}
+            }}
+          }}
           const dPaidStatus = getPaymentStatus(dateBillKey, '');
           const dPaidBtnHtml = `
             <button onclick="togglePaymentStatus('${{dateBillKey}}', '₹${{card.group.total.toLocaleString('en-IN', {{minimumFractionDigits: 2, maximumFractionDigits: 2}})}}', '')" class="no-print px-3 py-1.5 rounded-xl border text-xs font-extrabold transition flex items-center gap-1.5 cursor-pointer ${{dPaidStatus.isPaid ? 'bg-emerald-100 border-emerald-400 text-emerald-900 hover:bg-emerald-200' : 'bg-white border-slate-300 text-slate-700 hover:bg-amber-50 hover:border-amber-300'}}">
