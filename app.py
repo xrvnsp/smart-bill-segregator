@@ -957,6 +957,7 @@ def _build_compact_ai_context():
     )
 
 def _ask_gemini_api(user_prompt, api_key):
+    import re
     import urllib.request
     import urllib.error
     sys_ctx = (
@@ -968,29 +969,92 @@ def _ask_gemini_api(user_prompt, api_key):
     payload = {
         "system_instruction": {"parts": [{"text": sys_ctx}]},
         "contents": [{"role": "user", "parts": [{"text": user_prompt}]}],
-        "generationConfig": {"temperature": 0.2, "maxOutputTokens": 500}
+        "generationConfig": {"temperature": 0.2, "maxOutputTokens": 1024}
     }
-    last_err = ""
-    for model_name in ("gemini-2.5-flash", "gemini-2.5-flash-lite"):
-        url = f"https://generativelanguage.googleapis.com/v1beta/models/{model_name}:generateContent?key={api_key}"
+
+    def _try_model(m_name):
+        clean_m = m_name.replace("models/", "").strip()
+        url = f"https://generativelanguage.googleapis.com/v1beta/models/{clean_m}:generateContent?key={api_key}"
         req = urllib.request.Request(
             url,
             data=json.dumps(payload).encode("utf-8"),
             headers={"Content-Type": "application/json"}
         )
-        try:
-            with urllib.request.urlopen(req, timeout=15) as resp:
-                res_json = json.loads(resp.read().decode("utf-8"))
-            cands = res_json.get("candidates") or []
-            if cands:
-                parts = (cands[0].get("content") or {}).get("parts") or []
+        with urllib.request.urlopen(req, timeout=20) as resp:
+            res_json = json.loads(resp.read().decode("utf-8"))
+        cands = res_json.get("candidates") or []
+        if cands:
+            parts = (cands[0].get("content") or {}).get("parts") or []
+            ans = "".join(p.get("text", "") for p in parts if not p.get("thought")).strip()
+            if not ans:
                 ans = "".join(p.get("text", "") for p in parts).strip()
-                if ans:
-                    return True, ans
+            if ans:
+                st.session_state["working_gemini_model"] = clean_m
+                return ans
+        return None
+
+    candidates = []
+    cached_m = st.session_state.get("working_gemini_model")
+    if cached_m:
+        candidates.append(cached_m)
+    for m in (
+        "gemini-3.5-flash-lite",
+        "gemini-3.5-flash",
+        "gemini-flash-latest",
+        "gemini-flash-lite-latest",
+        "gemini-3-flash-preview",
+        "gemini-2.5-flash",
+    ):
+        if m not in candidates:
+            candidates.append(m)
+
+    tried = set()
+    last_err = ""
+    idx = 0
+    while idx < len(candidates):
+        model_name = candidates[idx]
+        idx += 1
+        if not model_name or model_name in tried:
+            continue
+        tried.add(model_name)
+        try:
+            ans = _try_model(model_name)
+            if ans:
+                return True, ans
         except urllib.error.HTTPError as he:
-            last_err = f"HTTP {he.code}: {he.read().decode('utf-8', errors='ignore')[:180]}"
+            err_body = he.read().decode("utf-8", errors="ignore")
+            last_err = f"HTTP {he.code}: {err_body[:220]}"
+            # If the API error suggests a specific replacement model (e.g. "use models/gemini-3.5-flash-lite"), try it next
+            suggested = re.findall(r"use\s+models/([a-zA-Z0-9._-]+)", err_body)
+            for s_mod in suggested:
+                if s_mod not in tried and s_mod not in candidates:
+                    candidates.insert(idx, s_mod)
         except Exception as ex:
             last_err = str(ex)
+
+    # Dynamic fallback: query /v1beta/models for any available generateContent model on this API key
+    try:
+        list_url = f"https://generativelanguage.googleapis.com/v1beta/models?key={api_key}"
+        with urllib.request.urlopen(list_url, timeout=10) as lresp:
+            m_list = json.loads(lresp.read().decode("utf-8")).get("models") or []
+        avail = []
+        for m_obj in m_list:
+            m_id = (m_obj.get("name") or "").replace("models/", "").strip()
+            methods = m_obj.get("supportedGenerationMethods") or []
+            if "generateContent" in methods and m_id and m_id not in tried:
+                if not any(x in m_id for x in ("tts", "image", "embedding", "imagen", "veo", "aqa", "audio", "robotics", "computer-use")):
+                    avail.append(m_id)
+        avail.sort(key=lambda x: (0 if "flash" in x else 1, 0 if "3.5" in x or "3" in x else 1, x))
+        for m_id in avail[:4]:
+            try:
+                ans = _try_model(m_id)
+                if ans:
+                    return True, ans
+            except Exception as ex2:
+                last_err = str(ex2)
+    except Exception:
+        pass
+
     return False, last_err or "No response from Gemini API."
 
 with st.expander("🤖 Ask Gemini AI Assistant (Duty Roster, Bills, EMIs & Cashback)", expanded=bool(st.session_state.show_ai_chat or st.session_state.ai_chat_history)):
