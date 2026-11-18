@@ -1545,17 +1545,21 @@ elif st.session_state.active_nav == "expenses":
                         "month": e.get("date_time", ""),
                         "bank": f"{e.get('app_name', 'UPI')} ({e.get('category', 'Expense')})",
                         "loan_id": e.get("transaction_id") or e.get("id", ""),
-                        "friend_name": f"{e.get('paid_to', '')} (Notes: {e.get('notes', 'UPI')})",
+                        "friend_name": e.get("paid_to", ""),
+                        "notes": e.get("notes", "UPI"),
                         "amount": f"₹{float(e.get('amount', 0)):,.2f}",
-                        "remaining": e.get("payee_upi") or e.get("notes", "-"),
-                        "status": "Paid Expense"
+                        "amount_num": float(e.get("amount", 0)),
+                        "remaining": e.get("payee_upi") or "-",
+                        "status": "Paid Expense",
+                        "source_file": e.get("source_file", "receipt.webp"),
+                        "thumb_b64": e.get("thumb_b64", "")
                     }
                     for e in entries_list
                 ]
                 try:
                     req = urllib.request.Request(
                         webhook_url,
-                        data=json.dumps({"bills": [], "reimbursements": exp_rows}).encode("utf-8"),
+                        data=json.dumps({"bills": [], "reimbursements": [], "expenses": exp_rows}).encode("utf-8"),
                         headers={"Content-Type": "application/json", "User-Agent": "SmartBillSegregator/1.0"}
                     )
                     with urllib.request.urlopen(req, timeout=12) as resp:
@@ -1955,11 +1959,13 @@ def get_card_shuffle_html(dark_mode=True):
       margin-top: 4px;
     }}
     @media (max-width: 859px) {{
-      .dual-grid {{ display: flex; flex-direction: column; gap: 14px; }}
-      .travel-stage {{ height: 220px; }}
-      .card-p {{ width: 138px; height: 214px; }}
-      .rewards-stage {{ height: 170px; }}
-      .card-l {{ width: 215px; height: 135px; }}
+      .showcase-card {{ padding: 16px 12px 18px 12px; }}
+      .dual-grid {{ display: flex; flex-direction: column; gap: 12px; margin-bottom: 10px; }}
+      .deck-section {{ padding: 12px 10px; }}
+      .travel-stage {{ height: 205px; }}
+      .card-p {{ width: 130px; height: 200px; }}
+      .rewards-stage {{ height: 155px; }}
+      .card-l {{ width: 205px; height: 128px; }}
     }}
   </style>
 </head>
@@ -2037,7 +2043,7 @@ if st.session_state.active_nav in ("statements", "kayal", "shafana"):
         )
         components.html(dashboard_html, height=1450, scrolling=True)
     else:
-        components.html(get_card_shuffle_html(dark_mode=is_dark), height=770 if is_dark else 771, scrolling=False)
+        components.html(get_card_shuffle_html(dark_mode=is_dark), height=990 if is_dark else 991, scrolling=True)
 
 # --- Friendly Footer ---
 st.markdown(f"""
