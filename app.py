@@ -175,11 +175,13 @@ st.markdown("""
 
 # --- Initialize Private Session Passwords & Browser-Persisted EMI Nicknames ---
 if "session_passwords" not in st.session_state:
-    st.session_state.session_passwords = {"icici": "", "hdfc": "", "sbi": "", "scapia": "", "payslip": "", "sheets_webhook_url": ""}
+    st.session_state.session_passwords = {"icici": "", "hdfc": "", "sbi": "", "scapia": "", "payslip": "", "sheets_webhook_url": "", "gemini_api_key": ""}
 if "emi_nicknames" not in st.session_state:
     st.session_state.emi_nicknames = {}
 if "emi_phones" not in st.session_state:
     st.session_state.emi_phones = {}
+if "ai_chat_history" not in st.session_state:
+    st.session_state.ai_chat_history = []
 if "show_shafana_tracker" not in st.session_state:
     st.session_state.show_shafana_tracker = False
 if "show_kayal_roster" not in st.session_state:
@@ -334,6 +336,8 @@ if client_vault and isinstance(client_vault, dict):
                 restored_keys.append(b_name)
         if not st.session_state.session_passwords.get("sheets_webhook_url") and client_vault.get("sheets_webhook_url"):
             st.session_state.session_passwords["sheets_webhook_url"] = str(client_vault["sheets_webhook_url"]).strip()
+        if not st.session_state.session_passwords.get("gemini_api_key") and client_vault.get("gemini_api_key"):
+            st.session_state.session_passwords["gemini_api_key"] = str(client_vault["gemini_api_key"]).strip()
 
     if not is_clearing_emi:
         vault_emi_names = client_vault.get("emi_names")
@@ -419,6 +423,13 @@ with st.sidebar:
             value=st.session_state.session_passwords.get("sheets_webhook_url", ""),
             key="input_webhook_url"
         )
+        gemini_key_val = st.text_input(
+            "Gemini API Key (Free Tier)",
+            value=st.session_state.session_passwords.get("gemini_api_key", ""),
+            type="password",
+            help="Free key from aistudio.google.com (or set GEMINI_API_KEY in Streamlit Secrets)",
+            key="input_gemini_api_key"
+        )
 
         # Stacked full-width buttons so text is 100% readable without truncation!
         if st.button("💾 Save Passwords on This Device", use_container_width=True, type="primary"):
@@ -428,13 +439,15 @@ with st.sidebar:
             st.session_state.session_passwords["sbi"] = sbi_val.strip()
             st.session_state.session_passwords["payslip"] = payslip_val.strip()
             st.session_state.session_passwords["sheets_webhook_url"] = webhook_val.strip()
+            st.session_state.session_passwords["gemini_api_key"] = gemini_key_val.strip()
             st.session_state["pending_save_vault"] = {
                 "scapia": scapia_val.strip(),
                 "icici": icici_val.strip(),
                 "hdfc": hdfc_val.strip(),
                 "sbi": sbi_val.strip(),
                 "payslip": payslip_val.strip(),
-                "sheets_webhook_url": webhook_val.strip()
+                "sheets_webhook_url": webhook_val.strip(),
+                "gemini_api_key": gemini_key_val.strip()
             }
             st.session_state["sidebar_toast_until"] = time.time() + 5.0
             st.session_state["sidebar_toast_notice"] = {
@@ -1635,6 +1648,146 @@ if st.session_state.statements_data:
 else:
     # Initial height 920 + JS auto-resizer ensures zero clipping on Mobile and tight fit on Desktop
     components.html(get_card_shuffle_html(), height=920, scrolling=False)
+
+# --- Gemini Developer API Assistant (Free Tier, Token-Compact Context) ---
+def _get_gemini_api_key():
+    try:
+        if "GEMINI_API_KEY" in st.secrets and str(st.secrets["GEMINI_API_KEY"]).strip():
+            return str(st.secrets["GEMINI_API_KEY"]).strip()
+    except Exception:
+        pass
+    env_k = os.environ.get("GEMINI_API_KEY", "").strip()
+    if env_k:
+        return env_k
+    return st.session_state.session_passwords.get("gemini_api_key", "").strip()
+
+def _build_compact_ai_context():
+    ist_tz = timezone(timedelta(hours=5, minutes=30))
+    now_ist = datetime.now(tz=ist_tz).strftime("%d %b %Y, %I:%M %p IST (%A)")
+
+    # 1. Dr. Kayalvizhi Duty Roster
+    ky = get_shared_kayal_store()
+    ky_lines = [f"- {e.get('date')} ({e.get('day')}): {e.get('shift')} — {e.get('note', '')}" for e in ky.get("entries", [])]
+    wk_lines = []
+    for wk in ky.get("weekly_doctor_summary", []):
+        drs = ", ".join(f"{d['name']}: {d['total']} (OPD {d['opd']}, Rel {d['rel']}, Eve {d['eve']}, Night {d['night']})" for d in wk.get("doctors", []))
+        wk_lines.append(f"  * {wk.get('week')}: {drs}")
+
+    # 2. Shafana Cashback
+    sf = get_shared_shafana_store()
+    sf_orders = [e for e in sf.get("entries", []) if e.get("role") == "shafana_order"]
+    sf_bill = sum(float(e.get("amount", 0)) for e in sf_orders)
+    sf_earned = float(sf.get("openingCb", 0) or 0) + sum(float(e.get("cashback_earned", 0)) for e in sf_orders)
+    sf_used = float(sf.get("manualCbUsed", 0) or 0)
+    sf_left = sf_earned - sf_used
+
+    # 3. Saved SmartEMI Plans & Fold Tags
+    bn = unlock_statements.load_bill_names_web()
+    emi_plan_lines = [
+        f"- Loan #{p.get('loan_id')} ({p.get('plan_name')}): ₹{p.get('amount', 0):,.2f}, {p.get('tenure_months')} mos, fee ₹{p.get('processing_fee', 0):,.0f}"
+        for p in bn.get("emi_plans", [])
+    ]
+    fold_lines = [
+        f"- {ft.get('date')}: Card **{ft.get('card_last4')} ₹{ft.get('amount', 0):,.0f} ({ft.get('paid_to')}) -> Note: {ft.get('note')}"
+        for ft in bn.get("fold_tags", [])[:15]
+    ]
+
+    # 4. Loaded Session Statements (in RAM)
+    stmt_lines = []
+    for k_st, rdata in st.session_state.statements_data.items():
+        if (rdata.get("shafana_meta") or {}).get("is_shafana") or (rdata.get("kayal_meta") or {}).get("is_kayal"):
+            continue
+        emis = rdata.get("ongoing_emis", [])
+        emi_str = "; ".join(f"{st.session_state.emi_nicknames.get(str(e.get('loan_id', '')), e.get('custom_name') or e.get('loan_id'))}: {e.get('total_amount')} ({e.get('balance_tenure')})" for e in emis)
+        top_dates = list((rdata.get("date_groups") or {}).items())[:25]
+        dg_str = "; ".join(f"{d}: ₹{g.get('total', 0):,.2f} ({len(g.get('items', []))} items)" for d, g in top_dates)
+        stmt_lines.append(
+            f"* {rdata.get('bank_short')} ({rdata.get('statement_month')}): Total Due {rdata.get('total_due')}, Due Date {rdata.get('due_date')}, Rewards {rdata.get('reward_points', '')}"
+            + (f" | EMIs: {emi_str}" if emi_str else "")
+            + (f" | Date Groups: {dg_str}" if dg_str else "")
+        )
+
+    return (
+        f"Current IST Time: {now_ist}\n\n"
+        f"[DR. KAYALVIZHI DUTY ROSTER ({ky.get('center_name', 'CHC Thirunallar')}, {ky.get('period', '')})]\n"
+        + "\n".join(ky_lines) + "\n"
+        + ("Weekly Doctor Totals:\n" + "\n".join(wk_lines) + "\n" if wk_lines else "")
+        + f"\n[SHAFANA CASHBACK]\nBill Due: ₹{sf_bill:,.2f}, Earned: ₹{sf_earned:,.2f}, Used: ₹{sf_used:,.2f}, Left: ₹{sf_left:,.2f}\n"
+        + ("\n[SAVED SMARTEMI PLANS]\n" + "\n".join(emi_plan_lines) + "\n" if emi_plan_lines else "")
+        + ("\n[SAVED FOLD TAGS]\n" + "\n".join(fold_lines) + "\n" if fold_lines else "")
+        + ("\n[LOADED STATEMENTS IN CURRENT SESSION]\n" + "\n".join(stmt_lines) if stmt_lines else "\n[LOADED STATEMENTS]\nNone uploaded in current session yet.")
+    )
+
+def _ask_gemini_api(user_prompt, api_key):
+    import urllib.request
+    import urllib.error
+    sys_ctx = (
+        "You are a concise, helpful personal assistant inside Saravana's Smart Bill Segregator app. "
+        "Answer accurately using ONLY the provided context about Dr. Kayalvizhi's duty roster, Saravana's credit card bills/EMIs, "
+        "Shafana's cashback, and saved SmartEMI plans. Keep answers short, clear, and in ₹ for currency.\n\n"
+        + _build_compact_ai_context()
+    )
+    payload = {
+        "system_instruction": {"parts": [{"text": sys_ctx}]},
+        "contents": [{"role": "user", "parts": [{"text": user_prompt}]}],
+        "generationConfig": {"temperature": 0.2, "maxOutputTokens": 500}
+    }
+    last_err = ""
+    for model_name in ("gemini-2.5-flash", "gemini-2.5-flash-lite"):
+        url = f"https://generativelanguage.googleapis.com/v1beta/models/{model_name}:generateContent?key={api_key}"
+        req = urllib.request.Request(
+            url,
+            data=json.dumps(payload).encode("utf-8"),
+            headers={"Content-Type": "application/json"}
+        )
+        try:
+            with urllib.request.urlopen(req, timeout=15) as resp:
+                res_json = json.loads(resp.read().decode("utf-8"))
+            cands = res_json.get("candidates") or []
+            if cands:
+                parts = (cands[0].get("content") or {}).get("parts") or []
+                ans = "".join(p.get("text", "") for p in parts).strip()
+                if ans:
+                    return True, ans
+        except urllib.error.HTTPError as he:
+            last_err = f"HTTP {he.code}: {he.read().decode('utf-8', errors='ignore')[:180]}"
+        except Exception as ex:
+            last_err = str(ex)
+    return False, last_err or "No response from Gemini API."
+
+with st.expander("🤖 Ask Gemini AI Assistant (Duty Roster, Bills, EMIs & Cashback)", expanded=bool(st.session_state.ai_chat_history)):
+    gemini_key = _get_gemini_api_key()
+    if not gemini_key:
+        st.info(
+            "🔑 Add your free **Gemini API Key** from [Google AI Studio](https://aistudio.google.com/docs/api-key) "
+            "either in **Streamlit Cloud Secrets (`GEMINI_API_KEY`)** or in the sidebar under **🔑 Device Stored Passwords**."
+        )
+    else:
+        q_cols = st.columns([1, 1, 1, 0.7])
+        quick_prompt = None
+        if q_cols[0].button("🩺 Kayalvizhi's next off day?", use_container_width=True, key="ai_q1"):
+            quick_prompt = "When is Dr. Kayalvizhi's next off day and what is her schedule this week?"
+        if q_cols[1].button("💳 Summarize my bills & EMIs", use_container_width=True, key="ai_q2"):
+            quick_prompt = "Summarize my loaded credit card bills, EMIs, and saved SmartEMI plans."
+        if q_cols[2].button("🎁 Shafana cashback balance", use_container_width=True, key="ai_q3"):
+            quick_prompt = "What is Shafana's total bill due and cashback balance left?"
+        if q_cols[3].button("🗑️ Clear Chat", use_container_width=True, key="ai_clr"):
+            st.session_state.ai_chat_history = []
+            st.rerun()
+
+        for msg in st.session_state.ai_chat_history:
+            with st.chat_message(msg["role"]):
+                st.markdown(msg["content"])
+
+        typed_prompt = st.chat_input("Ask about Kayalvizhi's duty, your bills, EMIs, or Shafana's cashback...", key="gemini_chat_inp")
+        final_prompt = quick_prompt or typed_prompt
+        if final_prompt:
+            st.session_state.ai_chat_history.append({"role": "user", "content": final_prompt})
+            with st.spinner("Asking Gemini..."):
+                ok_ai, ans_ai = _ask_gemini_api(final_prompt, gemini_key)
+            reply_txt = ans_ai if ok_ai else f"⚠️ Gemini API Error: {ans_ai}"
+            st.session_state.ai_chat_history.append({"role": "assistant", "content": reply_txt})
+            st.rerun()
 
 # --- Friendly Footer ---
 st.markdown("""
