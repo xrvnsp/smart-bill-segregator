@@ -108,7 +108,7 @@ if "active_special_view" not in st.session_state:
 if "active_nav" not in st.session_state:
     st.session_state.active_nav = "statements"
 if "ui_theme" not in st.session_state:
-    st.session_state.ui_theme = "light"
+    st.session_state.ui_theme = "dark"
 if "statements_data" not in st.session_state:
     st.session_state.statements_data = {}
 
@@ -286,6 +286,25 @@ st.markdown(f"""
             padding-top: 0.6rem !important;
             padding-left: 0.65rem !important;
             padding-right: 0.65rem !important;
+        }}
+    }}
+    @media (max-width: 768px) {{
+        [data-testid="stHorizontalBlock"]:has([class*="st-key-top_seg_nav_"]) {{
+            display: grid !important;
+            grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+            gap: 8px !important;
+        }}
+        [data-testid="stHorizontalBlock"]:has([class*="st-key-top_seg_nav_"]) > [data-testid="stColumn"] {{
+            width: 100% !important;
+            min-width: 0 !important;
+            flex: unset !important;
+        }}
+        [data-testid="stHorizontalBlock"]:has([class*="st-key-top_seg_nav_"]) .stButton > button {{
+            padding: 0.48rem 0.4rem !important;
+            font-size: 12px !important;
+            white-space: nowrap !important;
+            overflow: hidden !important;
+            text-overflow: ellipsis !important;
         }}
     }}
 </style>

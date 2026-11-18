@@ -2304,15 +2304,16 @@ def save_expenses_web_ledger(ledger):
     pass
   return ledger
 
-def _is_rupee_glyph_misread(pil_gray_img, bbox):
-  """Detects when Tesseract misreads the Indian Rupee symbol '₹' as a leading '2' or '7'."""
+def _is_rupee_glyph_misread(pil_gray_light_bg, bbox):
+  """Detects when Tesseract misreads the Indian Rupee symbol '₹' as a leading '2' or '7'.
+  Trims vertical padding first so it works even when '₹' is shorter than the digits beside it."""
   try:
     import numpy as np
     left, top, w, h = bbox
     if w <= 0 or h <= 0:
       return False
-    crop = pil_gray_img.crop((left, top, left + w, top + h)).convert("L")
-    arr = np.array(crop) < 95
+    crop = pil_gray_light_bg.crop((left, top, left + w, top + h)).convert("L")
+    arr = np.array(crop) < 125
     col_has_ink = arr.sum(axis=0) > 0
     segs = []
     in_seg, start = False, 0
@@ -2328,18 +2329,20 @@ def _is_rupee_glyph_misread(pil_gray_img, bbox):
       return False
     s0, e0 = segs[0]
     first_char = arr[:, s0:e0]
+    row_has_ink = first_char.sum(axis=1) > 0
+    if not row_has_ink.any():
+      return False
+    first_char = first_char[row_has_ink, :]
     ch_h, ch_w = first_char.shape
     if ch_h < 10 or ch_w < 5:
       return False
     row_ink = first_char.sum(axis=1) / float(ch_w)
-    top_band = row_ink[:max(1, int(ch_h * 0.15))].max()
-    mid_top_band = row_ink[int(ch_h * 0.20):max(int(ch_h * 0.20) + 1, int(ch_h * 0.42))].max()
-    bot_band = row_ink[int(ch_h * 0.82):].max()
-    if top_band > 0.72 and mid_top_band > 0.72 and bot_band < 0.55:
-      return True
+    top_band = row_ink[:max(1, int(ch_h * 0.18))].max()
+    mid_top_band = row_ink[int(ch_h * 0.18):max(int(ch_h * 0.18) + 1, int(ch_h * 0.48))].max()
+    bot_band = row_ink[int(ch_h * 0.80):].max()
+    return bool(top_band > 0.65 and mid_top_band > 0.65 and bot_band < 0.58)
   except Exception:
-    pass
-  return False
+    return False
 
 def is_upi_expense_screenshot(img_bytes, filename=""):
   """Returns True if an uploaded image is a UPI / Samsung Wallet / GPay / PhonePe / Paytm payment receipt."""
@@ -2349,10 +2352,14 @@ def is_upi_expense_screenshot(img_bytes, filename=""):
       return True
   try:
     import pytesseract
+    import numpy as np
     from PIL import Image, ImageOps
     im = Image.open(io.BytesIO(img_bytes))
-    txt = pytesseract.image_to_string(ImageOps.grayscale(im)).lower()
-    if any(k in txt for k in ("samsung wallet", "transaction id", "sent from:", "paid to", "upi", "google pay", "phonepe", "utr")):
+    gray = ImageOps.grayscale(im)
+    if np.array(gray).mean() < 120:
+      gray = ImageOps.invert(gray)
+    txt = pytesseract.image_to_string(gray).lower()
+    if any(k in txt for k in ("samsung wallet", "transaction id", "sent from:", "paid to", "upi", "google pay", "phonepe", "utr", "was debited", "pay again")):
       if "paid using" not in txt and "tagged as" not in txt and "delivering to raja mohamed" not in txt:
         return True
   except Exception:
@@ -2387,7 +2394,7 @@ def _extract_receipt_row_value(data, label_pattern):
   return ""
 
 def parse_expense_screenshot(img_bytes, filename="receipt.jpg"):
-  """Parses a UPI / payment receipt screenshot for Amount, Date & Time, Recipient, Notes, UPI IDs, App Name, Transaction ID, and creates a compact WebP thumbnail."""
+  """Parses a UPI / payment receipt screenshot (light or dark mode) for Amount, Date & Time, Recipient, Notes, UPI IDs, App Name, Transaction ID, and creates a compact WebP thumbnail."""
   import base64
   from datetime import datetime, timezone, timedelta
   ist_tz = timezone(timedelta(hours=5, minutes=30))
@@ -2406,6 +2413,7 @@ def parse_expense_screenshot(img_bytes, filename="receipt.jpg"):
 
   try:
     import pytesseract
+    import numpy as np
     from PIL import Image, ImageOps
     im = Image.open(io.BytesIO(img_bytes))
     thumb_im = im.convert("RGB")
@@ -2415,28 +2423,79 @@ def parse_expense_screenshot(img_bytes, filename="receipt.jpg"):
     thumb_b64 = "data:image/webp;base64," + base64.b64encode(buf.getvalue()).decode("ascii")
 
     gray = ImageOps.grayscale(im)
+    if np.array(gray).mean() < 120:
+      gray = ImageOps.invert(gray)
+    img_w, img_h = gray.size
     txt = pytesseract.image_to_string(gray)
     data = pytesseract.image_to_data(gray, output_type=pytesseract.Output.DICT)
 
-    # 1. Extract amount with Rupee symbol correction
-    for i, word in enumerate(data.get("text", [])):
-      w_clean = word.strip().replace(",", "")
-      m_amt = re.match(r"^[₹27]?(\d+(?:\.\d{1,2})?)$", w_clean)
-      if m_amt and data["height"][i] >= 22:
-        bbox = (data["left"][i], data["top"][i], data["width"][i], data["height"][i])
-        if w_clean[0] in ("2", "7") and len(w_clean.split(".")[0]) >= 3 and _is_rupee_glyph_misread(gray, bbox):
-          amount = float(w_clean[1:])
-        else:
-          amount = float(w_clean.lstrip("₹"))
-        if amount > 0:
-          break
+    # 1. Extract Hero Amount (ranked by bounding-box height, skipping status bar, dates, times, phones & txn IDs)
+    cands = []
+    n_words = len(data.get("text", []))
+    for i in range(n_words):
+      w_raw = (data["text"][i] or "").strip()
+      if not w_raw:
+        continue
+      top = data["top"][i]
+      h = data["height"][i]
+      if top < img_h * 0.07:
+        continue
+      w_clean = w_raw.replace(",", "")
+      m = re.match(r"^[₹27zZ]?(\d+(?:\.\d{1,2})?)$", w_clean)
+      if not m:
+        continue
+      if re.match(r"^20\d{2}$", w_clean) and h < img_h * 0.03:
+        continue
+      y_mid = top + h / 2.0
+      same_line = " ".join(
+        (data["text"][j] or "").strip()
+        for j in range(n_words)
+        if abs((data["top"][j] + data["height"][j] / 2.0) - y_mid) <= max(14, h * 0.8)
+      ).lower()
+      if re.search(r"\b(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec|am|pm)\b", same_line):
+        continue
+      if any(k in same_line for k in ("transaction id", "utr", "+91", "sent from", "mahindra bank", "hdfc bank", "icici bank", "sbi", "axis bank")):
+        continue
 
+      bbox = (data["left"][i], top, data["width"][i], h)
+      val = None
+      if w_clean[0] in ("₹", "z", "Z"):
+        val = float(w_clean[1:])
+      elif w_clean[0] in ("2", "7") and len(w_clean.split(".")[0]) >= 2 and _is_rupee_glyph_misread(gray, bbox):
+        val = float(w_clean[1:])
+      elif i > 0 and (data["text"][i - 1] or "").strip() in ("₹", "Rs", "Rs.", "INR"):
+        val = float(w_clean)
+      else:
+        left_x = data["left"][i]
+        has_left_rupee = False
+        for j in range(n_words):
+          if j == i:
+            continue
+          tj = (data["text"][j] or "").strip()
+          if tj in ("₹", "2", "7", "z", "Z", "F") and abs((data["top"][j] + data["height"][j] / 2.0) - y_mid) <= max(16, h * 0.8):
+            if 0 < (left_x - (data["left"][j] + data["width"][j])) < h * 1.2:
+              has_left_rupee = True
+              break
+        if has_left_rupee or h >= img_h * 0.035:
+          val = float(w_clean)
+
+      if val is not None and 0 < val < 1000000:
+        cands.append((h, val))
+
+    if cands:
+      cands.sort(key=lambda x: -x[0])
+      amount = cands[0][1]
+
+    if amount <= 0:
+      m_gp = re.search(r"(?:₹|Rs\.?|INR|[27])?(\d+(?:\.\d{1,2})?)\s+(?:was debited|sent to)", txt, flags=re.IGNORECASE)
+      if m_gp:
+        amount = float(m_gp.group(1))
     if amount <= 0:
       m_fallback = re.search(r"(?:₹|Rs\.?|INR)\s*([0-9,]+(?:\.[0-9]{1,2})?)", txt, flags=re.IGNORECASE)
       if m_fallback:
         amount = float(m_fallback.group(1).replace(",", ""))
 
-    # 2. Extract Date & Time (e.g. "18 NOV 2026, 12:22 PM" or "18/11/2026 12:22 PM")
+    # 2. Extract Date & Time (e.g. "18 NOV 2026, 12:22 PM" or "18 Nov 2026, 11:00am")
     m_dt = re.search(
       r"(\d{1,2}\s+(?:JAN|FEB|MAR|APR|MAY|JUN|JUL|AUG|SEP|SEPT|OCT|NOV|DEC)[A-Z]*\s+\d{4}(?:[,\s]+\d{1,2}:\d{2}\s*(?:AM|PM))?)",
       txt,
@@ -2455,11 +2514,12 @@ def parse_expense_screenshot(img_bytes, filename="receipt.jpg"):
 
     # 3. Detect Payment App
     low = txt.lower()
+    fn_l = (filename or "").lower()
     if "samsung wallet" in low:
       app_name = "Samsung Wallet"
-    elif "google pay" in low or "gpay" in low:
+    elif "google pay" in low or "gpay" in low or "gpay" in fn_l or ("pay again" in low and ("was debited" in low or "sent to" in low)):
       app_name = "Google Pay"
-    elif "phonepe" in low:
+    elif "phonepe" in low or "phonepe" in fn_l:
       app_name = "PhonePe"
     elif "paytm" in low and "paid from" not in low:
       app_name = "Paytm"
@@ -2468,7 +2528,7 @@ def parse_expense_screenshot(img_bytes, filename="receipt.jpg"):
     elif "fold" in low:
       app_name = "Fold"
 
-    # 4. Transaction ID / UTR (bounding box row alignment + regex fallback)
+    # 4. Transaction ID / UTR
     txn_id = _extract_receipt_row_value(data, r"^(?:Transaction|ID:|UTR:?)$")
     if not txn_id:
       m_tx = re.search(r"Transaction\s*ID[:\s]*([A-Za-z0-9]+)", txt, flags=re.IGNORECASE)
@@ -2477,7 +2537,7 @@ def parse_expense_screenshot(img_bytes, filename="receipt.jpg"):
       if m_tx:
         txn_id = m_tx.group(1).strip()
 
-    # 5. Notes / Remarks (bounding box row alignment + regex fallback)
+    # 5. Notes / Remarks
     notes = _extract_receipt_row_value(data, r"^(?:Notes?|Remarks?|Message|Description)[:\-]?$")
     if not notes:
       m_notes = re.search(r"(?:Notes?|Remarks?|Message)[:\-]\s*([^\n\r]+)", txt, flags=re.IGNORECASE)
@@ -2507,9 +2567,14 @@ def parse_expense_screenshot(img_bytes, filename="receipt.jpg"):
           break
 
     if not paid_to:
-      m_to = re.search(r"(?:Paid\s+to|To)[:\s]+([A-Za-z0-9 .&-]{2,40})", txt, flags=re.IGNORECASE)
+      m_to = re.search(r"(?:Paid\s+to|Sent\s+to|To)[:\s]+([A-Za-z][A-Za-z0-9 .&-]{1,40})", txt, flags=re.IGNORECASE)
       if m_to:
         paid_to = m_to.group(1).strip()
+
+    if not payee_upi:
+      m_bank = re.search(r"([A-Za-z]+\s+Bank\s+\d{4})", txt, flags=re.IGNORECASE)
+      if m_bank:
+        payee_upi = m_bank.group(1).strip()
 
     # 7. Auto-categorize based on merchant/payee/notes keywords
     p_low = (paid_to + " " + payee_upi + " " + notes).lower()
@@ -2526,7 +2591,7 @@ def parse_expense_screenshot(img_bytes, filename="receipt.jpg"):
   except Exception:
     pass
 
-  entry_id = f"exp_{txn_id}" if txn_id else f"exp_{int(datetime.now(tz=ist_tz).timestamp())}_{int(amount)}"
+  entry_id = f"exp_{txn_id}" if txn_id else f"exp_{re.sub(r'[^a-zA-Z0-9]', '', paid_to or 'upi')[:12]}_{int(amount)}"
   return {
     "id": entry_id,
     "amount": float(amount),
