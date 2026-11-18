@@ -349,6 +349,46 @@ def update_shared_kayal_store(new_roster, gh_token=""):
     return store
 
 @st.cache_resource
+def _cached_expenses_store(_mtime):
+    return unlock_statements.load_expenses_web_ledger()
+
+def get_shared_expenses_store():
+    mtime = os.path.getmtime(unlock_statements.EXPENSES_WEB_FILE) if os.path.exists(unlock_statements.EXPENSES_WEB_FILE) else 0
+    return _cached_expenses_store(mtime)
+
+def update_shared_expenses_store(new_ledger, commit_msg="Sync Expense Calculator ledger"):
+    store = get_shared_expenses_store()
+    store.clear()
+    store.update(new_ledger)
+    unlock_statements.save_expenses_web_ledger(store)
+    token = _get_github_token()
+    if token:
+        try:
+            import urllib.request
+            api_url = "https://api.github.com/repos/xrvnsp/smart-bill-segregator/contents/expenses_ledger.json"
+            req_get = urllib.request.Request(api_url, headers={"Authorization": f"Bearer {token}", "Accept": "application/vnd.github+json", "User-Agent": "SmartBillSegregator"})
+            sha = None
+            try:
+                with urllib.request.urlopen(req_get, timeout=4) as resp:
+                    sha = json.loads(resp.read().decode("utf-8")).get("sha")
+            except Exception:
+                pass
+            content_b64 = base64.b64encode(json.dumps(store, indent=2, ensure_ascii=False).encode("utf-8")).decode("utf-8")
+            body = {"message": commit_msg, "content": content_b64, "branch": "main"}
+            if sha:
+                body["sha"] = sha
+            req_put = urllib.request.Request(
+                api_url,
+                data=json.dumps(body).encode("utf-8"),
+                method="PUT",
+                headers={"Authorization": f"Bearer {token}", "Accept": "application/vnd.github+json", "Content-Type": "application/json", "User-Agent": "SmartBillSegregator"}
+            )
+            urllib.request.urlopen(req_put, timeout=5)
+        except Exception:
+            pass
+    return store
+
+@st.cache_resource
 def get_shared_shafana_store():
     """Cross-session shared in-memory & disk store ONLY for Shafana's non-sensitive cashback ledger."""
     return unlock_statements.load_shafana_web_ledger()
@@ -717,6 +757,10 @@ def _build_compact_ai_context():
         + f"\n[SHAFANA CASHBACK]\nBill Due: ₹{sf_bill:,.2f}, Earned: ₹{sf_earned:,.2f}, Used: ₹{sf_used:,.2f}, Left: ₹{sf_left:,.2f}\n"
         + ("\n[SAVED SMARTEMI PLANS]\n" + "\n".join(emi_plan_lines) + "\n" if emi_plan_lines else "")
         + ("\n[SAVED FOLD TAGS]\n" + "\n".join(fold_lines) + "\n" if fold_lines else "")
+        + ("\n[EXPENSE CALCULATOR & UPI RECEIPTS LEDGER]\n" + "\n".join(
+            f"- {ex.get('date_time')}: ₹{float(ex.get('amount', 0)):,.2f} paid to {ex.get('paid_to')} [{ex.get('category', 'UPI')}] via {ex.get('app_name', 'UPI')} (Payee: {ex.get('payee_upi', '-')}, Txn ID: {ex.get('transaction_id', '-')})"
+            for ex in (get_shared_expenses_store().get("entries") or [])
+        ) + f"\nTotal Logged Expenses: ₹{sum(float(x.get('amount', 0)) for x in (get_shared_expenses_store().get('entries') or [])):,.2f}\n")
         + ("\n[CREDIT CARD STATEMENTS, EMIS & DATE-WISE PAID/UNPAID BILLS]\n" + "\n".join(stmt_lines) if stmt_lines else "\n[CREDIT CARD STATEMENTS]\nNone available.")
     )
 
@@ -866,14 +910,19 @@ with hdr_col2:
         st.session_state.ui_theme = "light" if is_dark else "dark"
         st.rerun()
 
-# --- Single Segmented Top Navigation Bar (5 Clean Tabs) ---
-nav_cols = st.columns(5)
+shared_exp = get_shared_expenses_store()
+exp_entries = shared_exp.get("entries", [])
+exp_total_amt = sum(float(e.get("amount", 0.0) or 0.0) for e in exp_entries)
+
+# --- Single Segmented Top Navigation Bar (6 Clean Tabs) ---
+nav_cols = st.columns(6)
 nav_items = [
     ("statements", "Statements & EMIs"),
+    ("expenses", f"Expenses (₹{exp_total_amt:,.0f})"),
     ("kayal", f"Dr. Kayalvizhi ({ky_active})"),
     ("shafana", f"Shafana (₹{sf_bill_due:,.0f})"),
     ("ai", "Ask Gemini AI"),
-    ("settings", f"Vault & Settings ({len(active_vault_list)})")
+    ("settings", f"Vault ({len(active_vault_list)})")
 ]
 for idx, (nav_key, nav_label) in enumerate(nav_items):
     is_curr = (st.session_state.active_nav == nav_key)
@@ -903,7 +952,7 @@ for idx, (nav_key, nav_label) in enumerate(nav_items):
 st.markdown("<div style='height: 6px;'></div>", unsafe_allow_html=True)
 
 # --- Compact File Uploader (Visible on Statements, Dr. Kayalvizhi, and Shafana views) ---
-if st.session_state.active_nav in ("statements", "kayal", "shafana"):
+if st.session_state.active_nav in ("statements", "expenses", "kayal", "shafana"):
     uploaded_files = st.file_uploader(
         "Drop Statement PDFs, Fold / Shafana Screenshots, or Dr. Kayalvizhi Duty Roster Photo (Processed strictly in RAM)",
         type=["pdf", "png", "jpg", "jpeg", "webp"],
@@ -922,15 +971,44 @@ if uploaded_files:
     if img_files:
         roster_imgs = []
         fold_imgs = []
+        expense_imgs = []
         shafana_imgs = []
         for f in img_files:
             raw_b = f.getvalue()
-            if st.session_state.show_kayal_roster or unlock_statements.is_duty_roster_image(raw_b, f.name):
+            if st.session_state.active_nav == "expenses" or unlock_statements.is_upi_expense_screenshot(raw_b, f.name):
+                expense_imgs.append({"name": f.name, "bytes": raw_b})
+            elif st.session_state.show_kayal_roster or unlock_statements.is_duty_roster_image(raw_b, f.name):
                 roster_imgs.append({"name": f.name, "bytes": raw_b})
             elif unlock_statements.is_fold_screenshot(raw_b, f.name):
                 fold_imgs.append({"name": f.name, "bytes": raw_b})
             else:
                 shafana_imgs.append({"name": f.name, "bytes": raw_b})
+
+        if expense_imgs:
+            exp_ledger = get_shared_expenses_store()
+            existing_ids = {e.get("id") for e in exp_ledger.get("entries", [])}
+            added_exp = []
+            for e_img in expense_imgs:
+                parsed_e = unlock_statements.parse_expense_screenshot(e_img["bytes"], e_img["name"])
+                if parsed_e["id"] not in existing_ids:
+                    exp_ledger.setdefault("entries", []).insert(0, parsed_e)
+                    existing_ids.add(parsed_e["id"])
+                    added_exp.append(parsed_e)
+                else:
+                    # Update existing entry with latest parsed fields
+                    for idx_e, old_e in enumerate(exp_ledger.get("entries", [])):
+                        if old_e.get("id") == parsed_e["id"]:
+                            exp_ledger["entries"][idx_e] = parsed_e
+                            added_exp.append(parsed_e)
+                            break
+            if added_exp:
+                update_shared_expenses_store(exp_ledger, commit_msg="Auto-log UPI expense screenshot")
+                st.session_state.active_nav = "expenses"
+                for ae in added_exp:
+                    st.success(
+                        f"Parsed Screenshot ({ae['source_file']}): ₹{ae['amount']:,.2f} paid to {ae['paid_to']} · "
+                        f"{ae['date_time']} · {ae['app_name']} (Txn ID: {ae['transaction_id'] or 'Logged'})"
+                    )
 
         if fold_imgs:
             fl_ok, fl_msg, fl_res = unlock_statements.process_fold_screenshots(fold_imgs)
@@ -1291,6 +1369,222 @@ elif st.session_state.active_nav == "shafana":
                 update_shared_shafana_store(shared_sf)
                 st.session_state.statements_data["Shafana_Cashback"] = unlock_statements.build_shafana_statement_from_ledger(get_shared_shafana_store())
                 st.rerun()
+
+# ==============================================================================
+# VIEW 4: EXPENSE CALCULATOR & UPI RECEIPT TRACKER
+# ==============================================================================
+elif st.session_state.active_nav == "expenses":
+    exp_ledger = get_shared_expenses_store()
+    entries_list = exp_ledger.get("entries", [])
+    total_spent = sum(float(e.get("amount", 0.0) or 0.0) for e in entries_list)
+    cat_totals = {}
+    for e in entries_list:
+        c = e.get("category", "UPI / Transfer")
+        cat_totals[c] = cat_totals.get(c, 0.0) + float(e.get("amount", 0.0) or 0.0)
+    top_cat = max(cat_totals.items(), key=lambda kv: kv[1])[0] if cat_totals else "None"
+
+    # Top KPI Strip
+    k1, k2, k3 = st.columns(3)
+    with k1:
+        st.markdown(f"""
+        <div style="background: {bg_surface}; border: 1.5px solid {border_subtle}; border-radius: 16px; padding: 16px 18px;">
+            <div style="font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: {text_secondary};">Total Calculated Expenses</div>
+            <div style="font-size: 26px; font-weight: 800; color: {text_primary}; margin-top: 4px; letter-spacing: -0.02em;">₹{total_spent:,.2f}</div>
+            <div style="font-size: 11.5px; color: {text_secondary}; margin-top: 2px;">Across {len(entries_list)} logged transaction(s)</div>
+        </div>
+        """, unsafe_allow_html=True)
+    with k2:
+        latest_e = entries_list[0] if entries_list else {}
+        st.markdown(f"""
+        <div style="background: {bg_surface}; border: 1.5px solid {border_subtle}; border-radius: 16px; padding: 16px 18px;">
+            <div style="font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: {text_secondary};">Latest Logged Payment</div>
+            <div style="font-size: 18px; font-weight: 800; color: {text_primary}; margin-top: 6px;">{html_lib.escape(str(latest_e.get('paid_to', 'No entries yet')))} · ₹{float(latest_e.get('amount', 0)):,.2f}</div>
+            <div style="font-size: 11.5px; color: {text_secondary}; margin-top: 4px;">{html_lib.escape(str(latest_e.get('date_time', '-')))} · {html_lib.escape(str(latest_e.get('app_name', '')))}</div>
+        </div>
+        """, unsafe_allow_html=True)
+    with k3:
+        cat_badges = " · ".join(f"{k}: ₹{v:,.0f}" for k, v in sorted(cat_totals.items(), key=lambda kv: -kv[1])[:3]) or "Upload or add expenses below"
+        st.markdown(f"""
+        <div style="background: {bg_surface}; border: 1.5px solid {border_subtle}; border-radius: 16px; padding: 16px 18px;">
+            <div style="font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: {text_secondary};">Category Breakdown</div>
+            <div style="font-size: 17px; font-weight: 800; color: {text_primary}; margin-top: 6px;">Top: {html_lib.escape(top_cat)}</div>
+            <div style="font-size: 11.5px; color: {text_secondary}; margin-top: 4px;">{html_lib.escape(cat_badges)}</div>
+        </div>
+        """, unsafe_allow_html=True)
+
+    st.markdown("<div style='height: 12px;'></div>", unsafe_allow_html=True)
+
+    # Manual Add Money + Optional Screenshot Form
+    with st.expander("➕ Add Money / Expense Manually (or Attach Screenshot to Auto-Parse Date & Time)", expanded=True):
+        ist_now_default = datetime.now(tz=timezone(timedelta(hours=5, minutes=30))).strftime("%d %b %Y, %I:%M %p")
+        with st.form("add_manual_expense_form", clear_on_submit=True):
+            f_c1, f_c2, f_c3, f_c4 = st.columns([1.1, 1.5, 1.3, 1.4])
+            with f_c1:
+                m_amt = st.number_input("Amount (₹)", min_value=0.0, step=10.0, format="%.2f")
+            with f_c2:
+                m_paid_to = st.text_input("Paid To / Merchant", placeholder="e.g. J Ramesh / Tea / Fuel")
+            with f_c3:
+                m_cat = st.selectbox("Category", ["UPI / Transfer", "Food & Dining", "Groceries", "Fuel & Travel", "Shopping", "Medical", "Utilities & Bills", "Friends / Split"])
+            with f_c4:
+                m_dt = st.text_input("Date & Time (Auto-parsed if pic attached)", value=ist_now_default)
+
+            f_c5, f_c6 = st.columns([2, 1])
+            with f_c5:
+                m_pic = st.file_uploader("Optional Receipt Screenshot (Samsung Wallet / GPay / PhonePe / Paytm)", type=["png", "jpg", "jpeg", "webp"], key="form_exp_pic")
+            with f_c6:
+                m_notes = st.text_input("Notes / UPI / Txn ID", placeholder="Optional note or UPI ID")
+                st.markdown("<div style='height: 6px;'></div>", unsafe_allow_html=True)
+                sub_exp = st.form_submit_button("Add to Expense Calculator", use_container_width=True)
+
+            if sub_exp:
+                if m_pic is not None:
+                    p_raw = m_pic.getvalue()
+                    parsed_obj = unlock_statements.parse_expense_screenshot(p_raw, m_pic.name)
+                    if m_amt > 0:
+                        parsed_obj["amount"] = float(m_amt)
+                    if m_paid_to.strip():
+                        parsed_obj["paid_to"] = m_paid_to.strip()
+                    if m_cat:
+                        parsed_obj["category"] = m_cat
+                    if m_dt.strip() and m_dt.strip() != ist_now_default:
+                        parsed_obj["date_time"] = m_dt.strip()
+                    if m_notes.strip():
+                        parsed_obj["notes"] = m_notes.strip()
+                    exp_ledger.setdefault("entries", []).insert(0, parsed_obj)
+                    update_shared_expenses_store(exp_ledger, commit_msg=f"Add expense ₹{parsed_obj['amount']:.2f} ({parsed_obj['paid_to']})")
+                    st.success(f"Added ₹{parsed_obj['amount']:,.2f} ({parsed_obj['paid_to']}) at {parsed_obj['date_time']}")
+                    st.rerun()
+                elif m_amt > 0:
+                    new_item = {
+                        "id": f"exp_manual_{int(time.time())}_{int(m_amt)}",
+                        "amount": float(m_amt),
+                        "paid_to": m_paid_to.strip() or "Cash / Manual Expense",
+                        "category": m_cat,
+                        "date_time": m_dt.strip() or ist_now_default,
+                        "app_name": "Manual Entry",
+                        "payee_upi": "",
+                        "sender_upi": "",
+                        "transaction_id": "",
+                        "notes": m_notes.strip() or "Manual",
+                        "source_file": "Manual Entry",
+                        "thumb_b64": ""
+                    }
+                    exp_ledger.setdefault("entries", []).insert(0, new_item)
+                    update_shared_expenses_store(exp_ledger, commit_msg=f"Add manual expense ₹{m_amt:.2f}")
+                    st.success(f"Added ₹{m_amt:,.2f} ({new_item['paid_to']}) at {new_item['date_time']}")
+                    st.rerun()
+                else:
+                    st.warning("Enter an amount (₹) or attach a payment screenshot to auto-parse.")
+
+    # Export as Sheet (.CSV for Excel / Google Sheets) & Cloud Push Bar
+    ex_col1, ex_col2, ex_col3 = st.columns([1.6, 1.6, 1])
+    with ex_col1:
+        import csv
+        csv_buf = io.StringIO()
+        csv_buf.write("﻿")  # UTF-8 BOM for Excel compatibility
+        writer = csv.writer(csv_buf)
+        writer.writerow(["Date & Time", "Paid To / Merchant", "Amount (INR)", "Category", "Payment App", "Payee UPI / Bank", "Sender UPI", "Transaction ID", "Notes", "Screenshot File"])
+        for e in entries_list:
+            writer.writerow([
+                e.get("date_time", ""),
+                e.get("paid_to", ""),
+                f"{float(e.get('amount', 0)):.2f}",
+                e.get("category", ""),
+                e.get("app_name", ""),
+                e.get("payee_upi", ""),
+                e.get("sender_upi", ""),
+                e.get("transaction_id", ""),
+                e.get("notes", ""),
+                e.get("source_file", "")
+            ])
+        writer.writerow([])
+        writer.writerow(["TOTAL", "", f"{total_spent:.2f}", "", "", "", "", "", "", ""])
+        st.download_button(
+            label=f"📊 Export Expense Sheet (.CSV / Excel) — ₹{total_spent:,.2f}",
+            data=csv_buf.getvalue().encode("utf-8"),
+            file_name=f"SmartBills_Expenses_{datetime.now().strftime('%Y%m%d')}.csv",
+            mime="text/csv",
+            use_container_width=True,
+            key="dl_expenses_csv_sheet"
+        )
+    with ex_col2:
+        if st.button("☁️ Push Expenses to Google Sheets", use_container_width=True, type="primary", key="push_expenses_gsheet"):
+            webhook_url = st.session_state.session_passwords.get("sheets_webhook_url", "").strip()
+            if not webhook_url:
+                st.warning("Add your Google Sheets Web App URL in the Vault tab first.")
+            else:
+                import urllib.request
+                exp_rows = [
+                    {
+                        "month": e.get("date_time", ""),
+                        "bank": f"{e.get('app_name', 'UPI')} ({e.get('category', 'Expense')})",
+                        "loan_id": e.get("transaction_id") or e.get("id", ""),
+                        "friend_name": e.get("paid_to", ""),
+                        "amount": f"₹{float(e.get('amount', 0)):,.2f}",
+                        "remaining": e.get("payee_upi") or e.get("notes", "-"),
+                        "status": "Paid Expense"
+                    }
+                    for e in entries_list
+                ]
+                try:
+                    req = urllib.request.Request(
+                        webhook_url,
+                        data=json.dumps({"bills": [], "reimbursements": exp_rows}).encode("utf-8"),
+                        headers={"Content-Type": "application/json", "User-Agent": "SmartBillSegregator/1.0"}
+                    )
+                    with urllib.request.urlopen(req, timeout=12) as resp:
+                        st.success(f"Pushed {len(exp_rows)} expense record(s) to Google Sheets!")
+                except Exception as ex_err:
+                    st.error(f"Google Sheets push failed: {ex_err}")
+    with ex_col3:
+        if entries_list and st.button("🗑️ Clear All Expenses", use_container_width=True, type="secondary", key="clr_all_expenses"):
+            exp_ledger["entries"] = []
+            update_shared_expenses_store(exp_ledger, commit_msg="Clear expenses ledger")
+            st.rerun()
+
+    st.markdown("<div style='height: 10px;'></div>", unsafe_allow_html=True)
+
+    # Render Expense Cards with Screenshot Proof
+    for idx_e, e in enumerate(entries_list):
+        c_row1, c_row2 = st.columns([5.2, 0.8])
+        with c_row1:
+            thumb_html = ""
+            if e.get("thumb_b64"):
+                thumb_html = (
+                    f"<img src='{e['thumb_b64']}' style='width: 58px; height: 96px; object-fit: cover; "
+                    f"border-radius: 10px; border: 1px solid {border_subtle}; flex-shrink: 0;' alt='receipt'/>"
+                )
+            upi_meta = " · ".join(x for x in [e.get("app_name"), e.get("payee_upi"), f"Txn: {e['transaction_id']}" if e.get("transaction_id") else ""] if x)
+            st.markdown(f"""
+            <div style="background: {bg_surface}; border: 1.5px solid {border_subtle}; border-radius: 16px; padding: 14px 18px; margin-bottom: 10px; display: flex; align-items: center; justify-content: space-between; gap: 14px; flex-wrap: wrap;">
+                <div style="display: flex; align-items: center; gap: 14px; min-width: 240px; flex: 1;">
+                    {thumb_html}
+                    <div>
+                        <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+                            <span style="font-size: 15.5px; font-weight: 800; color: {text_primary};">{html_lib.escape(str(e.get('paid_to', 'Expense')))}</span>
+                            <span style="font-size: 10.5px; font-weight: 700; padding: 2px 9px; border-radius: 999px; background: rgba(99, 102, 241, 0.14); color: #6366f1; border: 1px solid rgba(99, 102, 241, 0.3);">{html_lib.escape(str(e.get('category', 'UPI')))}</span>
+                        </div>
+                        <div style="font-size: 12.5px; font-weight: 700; color: {text_secondary}; margin-top: 4px;">
+                            🕒 {html_lib.escape(str(e.get('date_time', '')))}
+                        </div>
+                        <div style="font-size: 11.5px; color: {text_secondary}; margin-top: 2px; font-family: monospace;">
+                            {html_lib.escape(upi_meta)}
+                        </div>
+                    </div>
+                </div>
+                <div style="text-align: right;">
+                    <div style="font-size: 20px; font-weight: 800; color: {text_primary}; letter-spacing: -0.02em;">₹{float(e.get('amount', 0)):,.2f}</div>
+                    <div style="font-size: 10.5px; color: {text_secondary};">{html_lib.escape(str(e.get('source_file', '')))}</div>
+                </div>
+            </div>
+            """, unsafe_allow_html=True)
+        with c_row2:
+            st.markdown("<div style='height: 22px;'></div>", unsafe_allow_html=True)
+            if st.button("Delete", key=f"del_exp_{e.get('id', idx_e)}_{idx_e}", use_container_width=True, type="secondary"):
+                exp_ledger["entries"] = [x for i_x, x in enumerate(entries_list) if i_x != idx_e]
+                update_shared_expenses_store(exp_ledger, commit_msg=f"Delete expense {e.get('paid_to', '')}")
+                st.rerun()
+
 
 # --- Active Statements Action Bar (When Statements Are Loaded) ---
 if st.session_state.active_nav in ("statements", "kayal", "shafana") and st.session_state.statements_data:

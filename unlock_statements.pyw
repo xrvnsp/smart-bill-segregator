@@ -2276,6 +2276,232 @@ def process_statement_file(file_path, base_downloads_dir=None, custom_passwords=
     return False, f"Error: {err_str}", None
 
 
+
+EXPENSES_WEB_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "expenses_ledger.json")
+
+def load_expenses_web_ledger():
+  """Loads the web-synced Expense Calculator ledger from expenses_ledger.json."""
+  if os.path.exists(EXPENSES_WEB_FILE):
+    try:
+      with open(EXPENSES_WEB_FILE, "r", encoding="utf-8") as f:
+        data = json.load(f)
+      if isinstance(data, dict) and isinstance(data.get("entries"), list):
+        return data
+    except Exception:
+      pass
+  return {"updated_at": "", "entries": []}
+
+def save_expenses_web_ledger(ledger):
+  """Saves the Expense Calculator ledger to expenses_ledger.json."""
+  from datetime import datetime, timezone, timedelta
+  ist_tz = timezone(timedelta(hours=5, minutes=30))
+  ledger["updated_at"] = datetime.now(tz=ist_tz).isoformat(timespec="seconds")
+  try:
+    with open(EXPENSES_WEB_FILE, "w", encoding="utf-8") as f:
+      json.dump(ledger, f, indent=2, ensure_ascii=False)
+  except Exception:
+    pass
+  return ledger
+
+def _is_rupee_glyph_misread(pil_gray_img, bbox):
+  """Detects when Tesseract misreads the Indian Rupee symbol '₹' as a leading '2' or '7'."""
+  try:
+    import numpy as np
+    left, top, w, h = bbox
+    if w <= 0 or h <= 0:
+      return False
+    crop = pil_gray_img.crop((left, top, left + w, top + h)).convert("L")
+    arr = np.array(crop) < 95
+    col_has_ink = arr.sum(axis=0) > 0
+    segs = []
+    in_seg, start = False, 0
+    for x, val in enumerate(col_has_ink):
+      if val and not in_seg:
+        in_seg, start = True, x
+      elif not val and in_seg:
+        in_seg = False
+        segs.append((start, x))
+    if in_seg:
+      segs.append((start, len(col_has_ink)))
+    if len(segs) < 2:
+      return False
+    s0, e0 = segs[0]
+    first_char = arr[:, s0:e0]
+    ch_h, ch_w = first_char.shape
+    if ch_h < 10 or ch_w < 5:
+      return False
+    row_ink = first_char.sum(axis=1) / float(ch_w)
+    top_band = row_ink[:max(1, int(ch_h * 0.15))].max()
+    mid_top_band = row_ink[int(ch_h * 0.20):max(int(ch_h * 0.20) + 1, int(ch_h * 0.42))].max()
+    bot_band = row_ink[int(ch_h * 0.82):].max()
+    if top_band > 0.72 and mid_top_band > 0.72 and bot_band < 0.55:
+      return True
+  except Exception:
+    pass
+  return False
+
+def is_upi_expense_screenshot(img_bytes, filename=""):
+  """Returns True if an uploaded image is a UPI / Samsung Wallet / GPay / PhonePe / Paytm payment receipt."""
+  fn_low = (filename or "").lower()
+  if any(k in fn_low for k in ("transaction", "upi", "gpay", "phonepe", "paytm", "wallet", "receipt", "expense")):
+    if "fold" not in fn_low and "roster" not in fn_low and "shafana" not in fn_low:
+      return True
+  try:
+    import pytesseract
+    from PIL import Image, ImageOps
+    im = Image.open(io.BytesIO(img_bytes))
+    txt = pytesseract.image_to_string(ImageOps.grayscale(im)).lower()
+    if any(k in txt for k in ("samsung wallet", "transaction id", "sent from:", "paid to", "upi", "google pay", "phonepe", "utr")):
+      if "paid using" not in txt and "tagged as" not in txt and "delivering to raja mohamed" not in txt:
+        return True
+  except Exception:
+    pass
+  return False
+
+def parse_expense_screenshot(img_bytes, filename="receipt.jpg"):
+  """Parses a UPI / payment receipt screenshot for Amount, Date & Time, Recipient, UPI IDs, App Name, Transaction ID, and creates a compact WebP thumbnail."""
+  import base64
+  from datetime import datetime, timezone, timedelta
+  ist_tz = timezone(timedelta(hours=5, minutes=30))
+  now_dt_str = datetime.now(tz=ist_tz).strftime("%d %b %Y, %I:%M %p")
+  thumb_b64 = ""
+  txt = ""
+  amount = 0.0
+  date_time_str = ""
+  paid_to = ""
+  payee_upi = ""
+  sender_upi = ""
+  app_name = "UPI / Payment App"
+  txn_id = ""
+  notes = "UPI"
+  category = "UPI / Transfer"
+
+  try:
+    import pytesseract
+    from PIL import Image, ImageOps
+    im = Image.open(io.BytesIO(img_bytes))
+    # Generate compact WebP thumbnail
+    thumb_im = im.convert("RGB")
+    thumb_im.thumbnail((260, 520), Image.Resampling.LANCZOS)
+    buf = io.BytesIO()
+    thumb_im.save(buf, format="WEBP", quality=75)
+    thumb_b64 = "data:image/webp;base64," + base64.b64encode(buf.getvalue()).decode("ascii")
+
+    gray = ImageOps.grayscale(im)
+    txt = pytesseract.image_to_string(gray)
+    data = pytesseract.image_to_data(gray, output_type=pytesseract.Output.DICT)
+
+    # 1. Extract amount with Rupee symbol correction
+    for i, word in enumerate(data.get("text", [])):
+      w_clean = word.strip().replace(",", "")
+      m_amt = re.match(r"^[₹27]?(\d+(?:\.\d{1,2})?)$", w_clean)
+      if m_amt and data["height"][i] >= 22:
+        bbox = (data["left"][i], data["top"][i], data["width"][i], data["height"][i])
+        if w_clean[0] in ("2", "7") and len(w_clean.split(".")[0]) >= 3 and _is_rupee_glyph_misread(gray, bbox):
+          amount = float(w_clean[1:])
+        else:
+          amount = float(w_clean.lstrip("₹"))
+        if amount > 0:
+          break
+
+    if amount <= 0:
+      m_fallback = re.search(r"(?:₹|Rs\.?|INR)\s*([0-9,]+(?:\.[0-9]{1,2})?)", txt, flags=re.IGNORECASE)
+      if m_fallback:
+        amount = float(m_fallback.group(1).replace(",", ""))
+
+    # 2. Extract Date & Time (e.g. "18 NOV 2026, 12:22 PM" or "18/11/2026 12:22 PM")
+    m_dt = re.search(
+      r"(\d{1,2}\s+(?:JAN|FEB|MAR|APR|MAY|JUN|JUL|AUG|SEP|SEPT|OCT|NOV|DEC)[A-Z]*\s+\d{4}(?:[,\s]+\d{1,2}:\d{2}\s*(?:AM|PM))?)",
+      txt,
+      flags=re.IGNORECASE
+    )
+    if m_dt:
+      raw_dt = re.sub(r"\s+", " ", m_dt.group(1).strip())
+      parts = raw_dt.split(",")
+      d_part = parts[0].strip().title()
+      t_part = parts[1].strip().upper() if len(parts) > 1 else ""
+      date_time_str = f"{d_part}, {t_part}" if t_part else d_part
+    else:
+      m_dt2 = re.search(r"(\d{1,2}[-/]\d{1,2}[-/]\d{2,4}(?:[,\s]+\d{1,2}:\d{2}\s*(?:AM|PM))?)", txt, flags=re.IGNORECASE)
+      if m_dt2:
+        date_time_str = re.sub(r"\s+", " ", m_dt2.group(1).strip())
+
+    # 3. Detect Payment App
+    low = txt.lower()
+    if "samsung wallet" in low:
+      app_name = "Samsung Wallet"
+    elif "google pay" in low or "gpay" in low:
+      app_name = "Google Pay"
+    elif "phonepe" in low:
+      app_name = "PhonePe"
+    elif "paytm" in low and "paid from" not in low:
+      app_name = "Paytm"
+    elif "cred" in low:
+      app_name = "CRED"
+    elif "fold" in low:
+      app_name = "Fold"
+
+    # 4. Transaction ID / UTR
+    m_tx = re.search(r"Transaction\s*ID[:\s]*([A-Za-z0-9]+)", txt, flags=re.IGNORECASE)
+    if not m_tx:
+      m_tx = re.search(r"(?:UTR|Ref\s*No|UPI\s*Ref)[:\s]*([0-9]{10,16})", txt, flags=re.IGNORECASE)
+    if m_tx:
+      txn_id = m_tx.group(1).strip()
+
+    # 5. UPI IDs & Recipient Name
+    lines = [ln.strip() for ln in txt.splitlines() if ln.strip()]
+    m_sent_from = re.search(r"Sent\s*from[:\s]*([a-zA-Z0-9._-]+@[a-zA-Z0-9._-]+)", txt, flags=re.IGNORECASE)
+    if m_sent_from:
+      sender_upi = m_sent_from.group(1).strip()
+    for idx_l, ln in enumerate(lines):
+      if "@" in ln and "sent from" not in ln.lower():
+        m_u = re.search(r"([a-zA-Z0-9._-]+@[a-zA-Z0-9._-]+)", ln)
+        if m_u:
+          payee_upi = m_u.group(1).strip()
+          if idx_l + 1 < len(lines) and "bank" in lines[idx_l + 1].lower():
+            payee_upi = f"{payee_upi} ({lines[idx_l + 1].strip()})"
+          if idx_l > 0:
+            prev_ln = lines[idx_l - 1].strip()
+            if not any(k in prev_ln.lower() for k in ("paid from", "wallet", "sent", "bank")):
+              paid_to = prev_ln
+          break
+
+    if not paid_to:
+      m_to = re.search(r"(?:Paid\s+to|To)[:\s]+([A-Za-z0-9 .&-]{2,40})", txt, flags=re.IGNORECASE)
+      if m_to:
+        paid_to = m_to.group(1).strip()
+
+    # 6. Auto-categorize based on merchant/payee keywords
+    p_low = (paid_to + " " + payee_upi).lower()
+    if any(k in p_low for k in ("swiggy", "zomato", "hotel", "cafe", "bakery", "restaurant", "tea", "coffee", "food")):
+      category = "Food & Dining"
+    elif any(k in p_low for k in ("mart", "supermarket", "grocery", "blinkit", "zepto", "instamart", "reliance")):
+      category = "Groceries"
+    elif any(k in p_low for k in ("petrol", "fuel", "shell", "hpcl", "bpcl", "iocl", "uber", "ola", "rapido")):
+      category = "Fuel & Travel"
+    elif any(k in p_low for k in ("pharma", "medical", "hospital", "clinic", "apollo", "medplus")):
+      category = "Medical"
+    elif any(k in p_low for k in ("amazon", "flipkart", "myntra", "ajio", "shopping")):
+      category = "Shopping"
+  except Exception:
+    pass
+
+  entry_id = f"exp_{txn_id}" if txn_id else f"exp_{int(datetime.now(tz=ist_tz).timestamp())}_{int(amount)}"
+  return {
+    "id": entry_id,
+    "amount": float(amount),
+    "paid_to": paid_to or "UPI Recipient",
+    "category": category,
+    "date_time": date_time_str or now_dt_str,
+    "app_name": app_name,
+    "payee_upi": payee_upi,
+    "sender_upi": sender_upi,
+    "transaction_id": txn_id,
+    "notes": notes,
+    "source_file": filename,
+    "thumb_b64": thumb_b64
+  }
+
 BILL_NAMES_WEB_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "bill_names.json")
 
 def load_bill_names_web():
