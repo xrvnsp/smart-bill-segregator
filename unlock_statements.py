@@ -2810,10 +2810,10 @@ def generate_modern_dashboard_html(results_list, output_dir=".", write_to_disk=T
     <!-- Date-Wise Segregated Breakdown -->
     <div class="space-y-5" id="date-breakdown-container"></div>
 
-    <!-- Minimal Security Footer -->
-    <footer class="mt-12 pt-6 pb-8 border-t border-slate-200/70 text-center text-xs font-medium text-slate-400 flex flex-col items-center gap-1">
-      <div class="tracking-tight text-slate-500 font-semibold">Smart Bill Segregator · Automated Statement &amp; EMI Reconciliation</div>
-      <div class="text-[11px] text-slate-400">Zero-Disk Privacy Architecture · Statements are decrypted strictly in volatile RAM and never stored on any server.</div>
+    <!-- Friendly Footer -->
+    <footer class="mt-12 pt-6 pb-8 border-t border-slate-200/70 text-center text-xs font-semibold text-slate-500 flex flex-col items-center gap-1.5">
+      <div>Made with ❤️ for friends — because splitting EMIs shouldn't ruin friendships (or give you a migraine) 🍕💳</div>
+      <div class="text-[11px] font-medium text-slate-400">🔒 Zero-Disk Privacy · Statements are decrypted strictly in volatile RAM and never stored on any server.</div>
     </footer>
 
   </main>

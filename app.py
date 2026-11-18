@@ -108,7 +108,7 @@ if "active_special_view" not in st.session_state:
 if "active_nav" not in st.session_state:
     st.session_state.active_nav = "statements"
 if "ui_theme" not in st.session_state:
-    st.session_state.ui_theme = "dark"
+    st.session_state.ui_theme = "light"
 if "statements_data" not in st.session_state:
     st.session_state.statements_data = {}
 
@@ -116,29 +116,30 @@ is_dark = (st.session_state.ui_theme == "dark")
 
 # --- Apple / Fintech Adaptive Stylesheet (Dark & Light Mode) ---
 bg_main = "#090d16" if is_dark else "#f8fafc"
-bg_surface = "rgba(17, 24, 39, 0.78)" if is_dark else "rgba(255, 255, 255, 0.88)"
-bg_elevated = "#111827" if is_dark else "#ffffff"
-border_subtle = "rgba(148, 163, 184, 0.16)" if is_dark else "rgba(226, 232, 240, 0.95)"
+bg_surface = "#111827" if is_dark else "#ffffff"
+bg_elevated = "#1e293b" if is_dark else "#ffffff"
+border_subtle = "rgba(148, 163, 184, 0.22)" if is_dark else "#cbd5e1"
 text_primary = "#f8fafc" if is_dark else "#0f172a"
-text_secondary = "#94a3b8" if is_dark else "#64748b"
-accent_primary = "#6366f1" if is_dark else "#0f172a"
+text_secondary = "#94a3b8" if is_dark else "#475569"
+accent_primary = "linear-gradient(135deg, #4f46e5 0%, #6366f1 100%)"
+accent_border = "#4f46e5"
 accent_text = "#ffffff"
-btn_sec_bg = "rgba(30, 41, 59, 0.75)" if is_dark else "#ffffff"
-btn_sec_border = "rgba(148, 163, 184, 0.22)" if is_dark else "#e2e8f0"
-btn_sec_text = "#e2e8f0" if is_dark else "#334155"
+btn_sec_bg = "#1e293b" if is_dark else "#ffffff"
+btn_sec_border = "#334155" if is_dark else "#cbd5e1"
+btn_sec_text = "#f8fafc" if is_dark else "#0f172a"
 
 st.markdown(f"""
 <style>
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Plus+Jakarta+Sans:wght@500;600;700;800&display=swap');
 
-    .stApp {{
+    .stApp, [data-testid="stAppViewContainer"], .main {{
         background-color: {bg_main} !important;
         color: {text_primary} !important;
     }}
 
-    .stMarkdown, .stText, h1, h2, h3, h4, h5, h6, p, label, [data-testid="stCaptionContainer"], [data-testid="stWidgetLabel"] p {{
+    .stMarkdown, .stText, h1, h2, h3, h4, h5, h6, label, [data-testid="stCaptionContainer"], [data-testid="stWidgetLabel"] p {{
         font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-        color: {text_primary};
+        color: {text_primary} !important;
     }}
 
     /* Hide bulky left sidebar & Streamlit chrome completely */
@@ -167,56 +168,104 @@ st.markdown(f"""
         margin: 0 auto !important;
     }}
 
-    /* Apple-style buttons with instant pointer-down response */
-    .stButton > button {{
+    /* Apple-style buttons with explicit child text colors so Light Mode never has black-on-black */
+    .stButton > button, .stDownloadButton > button, .stFormSubmitButton > button {{
         border-radius: 12px !important;
-        font-weight: 600 !important;
+        font-weight: 700 !important;
         font-size: 13px !important;
         letter-spacing: -0.01em !important;
-        padding: 0.5rem 0.9rem !important;
+        padding: 0.52rem 0.9rem !important;
         transition: transform 100ms ease-out, background-color 150ms ease, border-color 150ms ease, box-shadow 150ms ease !important;
     }}
-    .stButton > button:active {{
+    .stButton > button:active, .stDownloadButton > button:active {{
         transform: scale(0.97) !important;
     }}
-    .stButton > button[kind="secondary"] {{
+    .stButton > button[kind="secondary"], .stDownloadButton > button {{
         background: {btn_sec_bg} !important;
         color: {btn_sec_text} !important;
-        border: 1px solid {btn_sec_border} !important;
-        backdrop-filter: blur(16px) saturate(180%) !important;
+        border: 1.5px solid {btn_sec_border} !important;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05) !important;
     }}
-    .stButton > button[kind="secondary"]:hover {{
+    .stButton > button[kind="secondary"] *, .stDownloadButton > button * {{
+        color: {btn_sec_text} !important;
+    }}
+    .stButton > button[kind="secondary"]:hover, .stDownloadButton > button:hover {{
         border-color: #6366f1 !important;
     }}
-    .stButton > button[kind="primary"] {{
+    .stButton > button[kind="primary"], .stFormSubmitButton > button {{
         background: {accent_primary} !important;
-        color: {accent_text} !important;
-        border: 1px solid {accent_primary} !important;
-        box-shadow: 0 4px 14px rgba(99, 102, 241, 0.25) !important;
+        color: #ffffff !important;
+        border: 1.5px solid {accent_border} !important;
+        box-shadow: 0 4px 14px rgba(79, 70, 229, 0.28) !important;
+    }}
+    .stButton > button[kind="primary"] *, .stFormSubmitButton > button * {{
+        color: #ffffff !important;
     }}
 
-    /* Sleek File Uploader Dropzone */
+    /* Sleek File Uploader Dropzone with High-Contrast Button & Helper Text in Both Modes */
     [data-testid="stFileUploader"] {{
         background: {bg_surface} !important;
-        border: 1px solid {border_subtle} !important;
+        border: 1.5px solid {border_subtle} !important;
         border-radius: 16px !important;
-        padding: 10px 14px !important;
-        backdrop-filter: blur(20px) saturate(180%) !important;
+        padding: 12px 16px !important;
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.04) !important;
+    }}
+    [data-testid="stFileUploader"] label, [data-testid="stFileUploader"] label p {{
+        color: {text_primary} !important;
+        font-weight: 600 !important;
     }}
     [data-testid="stFileUploaderDropzone"] {{
-        background: transparent !important;
-        border: 1px dashed {border_subtle} !important;
+        background: {bg_main} !important;
+        border: 1.5px dashed {border_subtle} !important;
         border-radius: 12px !important;
-        padding: 10px 14px !important;
+        padding: 12px 16px !important;
+    }}
+    [data-testid="stFileUploaderDropzone"] span,
+    [data-testid="stFileUploaderDropzone"] small,
+    [data-testid="stFileUploaderDropzone"] div,
+    [data-testid="stFileUploaderDropzoneInstructions"] * {{
+        color: {text_secondary} !important;
+        opacity: 1 !important;
+    }}
+    [data-testid="stFileUploaderDropzone"] button {{
+        background: linear-gradient(135deg, #4f46e5 0%, #6366f1 100%) !important;
+        color: #ffffff !important;
+        border: none !important;
+        border-radius: 10px !important;
+        padding: 6px 16px !important;
+        font-weight: 700 !important;
+        box-shadow: 0 2px 8px rgba(79, 70, 229, 0.25) !important;
+    }}
+    [data-testid="stFileUploaderDropzone"] button * {{
+        color: #ffffff !important;
     }}
 
-    /* Inputs & Expanders */
+    /* Uploaded file pills inside file uploader */
+    [data-testid="stFileUploaderFile"] {{
+        background: {bg_elevated} !important;
+        border: 1px solid {border_subtle} !important;
+        border-radius: 10px !important;
+    }}
+    [data-testid="stFileUploaderFile"] * {{
+        color: {text_primary} !important;
+    }}
+
+    /* Inputs, Chat Messages & Expanders */
     .stTextInput input, .stNumberInput input, .stTextArea textarea {{
         background: {bg_elevated} !important;
         color: {text_primary} !important;
-        border: 1px solid {border_subtle} !important;
+        border: 1.5px solid {border_subtle} !important;
         border-radius: 10px !important;
         font-size: 13px !important;
+    }}
+    [data-testid="stChatMessage"] {{
+        background: {bg_surface} !important;
+        border: 1px solid {border_subtle} !important;
+        border-radius: 14px !important;
+        padding: 10px 14px !important;
+    }}
+    [data-testid="stChatMessage"] * {{
+        color: {text_primary} !important;
     }}
     [data-testid="stExpander"] {{
         background: {bg_surface} !important;
@@ -1090,7 +1139,7 @@ if st.session_state.active_nav == "ai":
             quick_prompt = "Which bills and EMIs are unpaid in ICICI Amazon and HDFC, and what are their amounts?"
         if q_cols[2].button("Shafana cashback summary", use_container_width=True, key="ai_q3"):
             quick_prompt = "What is Shafana's total bill due and remaining cashback balance?"
-        if q_cols[3].button("Clear History", use_container_width=True, key="ai_clr"):
+        if q_cols[3].button("🗑️ Clear Chatbot", use_container_width=True, type="secondary", key="ai_clr"):
             st.session_state.ai_chat_history = []
             st.rerun()
 
@@ -1334,24 +1383,26 @@ def get_card_shuffle_html(dark_mode=True):
     amazon_b64 = unlock_statements.get_card_b64("card-facia-amazon.png")
     sbi_b64 = unlock_statements.get_card_b64("simply-click-card-face.png")
 
-    card_bg = "rgba(17, 24, 39, 0.82)" if dark_mode else "rgba(255, 255, 255, 0.94)"
-    card_border = "rgba(148, 163, 184, 0.16)" if dark_mode else "rgba(226, 232, 240, 0.95)"
-    sec_bg = "rgba(15, 23, 42, 0.65)" if dark_mode else "rgba(248, 250, 252, 0.88)"
+    body_bg = "#090d16" if dark_mode else "#f8fafc"
+    card_bg = "#111827" if dark_mode else "#ffffff"
+    card_border = "#1e293b" if dark_mode else "#e2e8f0"
+    sec_bg = "#0f172a" if dark_mode else "#f8fafc"
     t_prim = "#f8fafc" if dark_mode else "#0f172a"
-    t_sec = "#94a3b8" if dark_mode else "#64748b"
-    pill_bg = "rgba(30, 41, 59, 0.8)" if dark_mode else "#f1f5f9"
-    pill_border = "rgba(148, 163, 184, 0.22)" if dark_mode else "#cbd5e1"
-    pill_txt = "#e2e8f0" if dark_mode else "#334155"
+    t_sec = "#94a3b8" if dark_mode else "#475569"
+    pill_bg = "#1e293b" if dark_mode else "#f1f5f9"
+    pill_border = "#334155" if dark_mode else "#cbd5e1"
+    pill_txt = "#f8fafc" if dark_mode else "#0f172a"
+    scheme = "dark" if dark_mode else "light"
 
-    return f"""<!DOCTYPE html>
-<html lang="en">
+    return f"""<!-- theme:{scheme} --><!DOCTYPE html>
+<html lang="en" style="color-scheme: {scheme};">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <style>
     * {{ box-sizing: border-box; margin: 0; padding: 0; font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; }}
-    body {{ background: transparent; display: flex; justify-content: center; align-items: flex-start; padding: 4px 2px 12px 2px; overflow-x: hidden; }}
+    body {{ background: {body_bg}; color: {t_prim}; display: flex; justify-content: center; align-items: flex-start; padding: 4px 2px 12px 2px; overflow-x: hidden; }}
     .showcase-card {{
       width: 100%;
       max-width: 1180px;
@@ -1566,7 +1617,10 @@ def get_card_shuffle_html(dark_mode=True):
       </div>
     </div>
     <div class="security-note">
-      Zero-Disk Architecture · All statements are decrypted strictly in volatile RAM and never stored on server storage.
+      🔒 Zero-Disk Architecture · Statements are decrypted strictly in volatile RAM and never stored on server storage.
+    </div>
+    <div style="margin-top: 10px; font-size: 12.5px; font-weight: 600; color: {t_sec};">
+      Made with ❤️ for friends — because splitting EMIs shouldn't ruin friendships (or give you a migraine) 🍕💳
     </div>
   </div>
   <script>
@@ -1605,4 +1659,11 @@ if st.session_state.active_nav in ("statements", "kayal", "shafana"):
         )
         components.html(dashboard_html, height=1450, scrolling=True)
     else:
-        components.html(get_card_shuffle_html(dark_mode=is_dark), height=760, scrolling=False)
+        components.html(get_card_shuffle_html(dark_mode=is_dark), height=770 if is_dark else 771, scrolling=False)
+
+# --- Friendly Footer ---
+st.markdown(f"""
+<div style="text-align: center; max-width: 720px; margin: 22px auto 0 auto; padding: 14px 18px 48px 18px; border-top: 1px solid {border_subtle}; color: {text_secondary}; font-size: 13px; font-weight: 600; line-height: 1.55;">
+    Made with ❤️ for friends — because splitting EMIs shouldn't ruin friendships (or give you a migraine) 🍕💳
+</div>
+""", unsafe_allow_html=True)
