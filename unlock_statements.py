@@ -2358,8 +2358,35 @@ def is_upi_expense_screenshot(img_bytes, filename=""):
     pass
   return False
 
+def _extract_receipt_row_value(data, label_pattern):
+  """Finds a label word/phrase (like 'Notes:', 'Transaction', 'ID:', 'from:') in Tesseract bounding boxes
+  and returns all text tokens on the same horizontal row to the right of that label."""
+  n_words = len(data.get("text", []))
+  for i in range(n_words):
+    w_str = (data["text"][i] or "").strip()
+    if not w_str:
+      continue
+    if re.match(label_pattern, w_str, flags=re.IGNORECASE):
+      y_mid = data["top"][i] + data["height"][i] / 2.0
+      x_right = data["left"][i] + data["width"][i]
+      row_tokens = []
+      for j in range(n_words):
+        if i == j:
+          continue
+        t_str = (data["text"][j] or "").strip()
+        if not t_str:
+          continue
+        yj_mid = data["top"][j] + data["height"][j] / 2.0
+        if abs(yj_mid - y_mid) <= max(18, data["height"][i] * 1.25) and data["left"][j] > x_right + 4:
+          if not re.match(r"^(?:ID:|from:|to:)$", t_str, flags=re.IGNORECASE):
+            row_tokens.append((data["left"][j], t_str))
+      if row_tokens:
+        row_tokens.sort(key=lambda x: x[0])
+        return " ".join(t for _, t in row_tokens).strip()
+  return ""
+
 def parse_expense_screenshot(img_bytes, filename="receipt.jpg"):
-  """Parses a UPI / payment receipt screenshot for Amount, Date & Time, Recipient, UPI IDs, App Name, Transaction ID, and creates a compact WebP thumbnail."""
+  """Parses a UPI / payment receipt screenshot for Amount, Date & Time, Recipient, Notes, UPI IDs, App Name, Transaction ID, and creates a compact WebP thumbnail."""
   import base64
   from datetime import datetime, timezone, timedelta
   ist_tz = timezone(timedelta(hours=5, minutes=30))
@@ -2373,14 +2400,13 @@ def parse_expense_screenshot(img_bytes, filename="receipt.jpg"):
   sender_upi = ""
   app_name = "UPI / Payment App"
   txn_id = ""
-  notes = "UPI"
+  notes = ""
   category = "UPI / Transfer"
 
   try:
     import pytesseract
     from PIL import Image, ImageOps
     im = Image.open(io.BytesIO(img_bytes))
-    # Generate compact WebP thumbnail
     thumb_im = im.convert("RGB")
     thumb_im.thumbnail((260, 520), Image.Resampling.LANCZOS)
     buf = io.BytesIO()
@@ -2441,20 +2467,33 @@ def parse_expense_screenshot(img_bytes, filename="receipt.jpg"):
     elif "fold" in low:
       app_name = "Fold"
 
-    # 4. Transaction ID / UTR
-    m_tx = re.search(r"Transaction\s*ID[:\s]*([A-Za-z0-9]+)", txt, flags=re.IGNORECASE)
-    if not m_tx:
-      m_tx = re.search(r"(?:UTR|Ref\s*No|UPI\s*Ref)[:\s]*([0-9]{10,16})", txt, flags=re.IGNORECASE)
-    if m_tx:
-      txn_id = m_tx.group(1).strip()
+    # 4. Transaction ID / UTR (bounding box row alignment + regex fallback)
+    txn_id = _extract_receipt_row_value(data, r"^(?:Transaction|ID:|UTR:?)$")
+    if not txn_id:
+      m_tx = re.search(r"Transaction\s*ID[:\s]*([A-Za-z0-9]+)", txt, flags=re.IGNORECASE)
+      if not m_tx:
+        m_tx = re.search(r"(?:UTR|Ref\s*No|UPI\s*Ref)[:\s]*([0-9]{10,16})", txt, flags=re.IGNORECASE)
+      if m_tx:
+        txn_id = m_tx.group(1).strip()
 
-    # 5. UPI IDs & Recipient Name
+    # 5. Notes / Remarks (bounding box row alignment + regex fallback)
+    notes = _extract_receipt_row_value(data, r"^(?:Notes?|Remarks?|Message|Description)[:\-]?$")
+    if not notes:
+      m_notes = re.search(r"(?:Notes?|Remarks?|Message)[:\-]\s*([^\n\r]+)", txt, flags=re.IGNORECASE)
+      if m_notes:
+        cand_n = m_notes.group(1).strip()
+        if cand_n and not cand_n.lower().startswith("powered by"):
+          notes = cand_n
+
+    # 6. UPI IDs & Recipient Name
     lines = [ln.strip() for ln in txt.splitlines() if ln.strip()]
-    m_sent_from = re.search(r"Sent\s*from[:\s]*([a-zA-Z0-9._-]+@[a-zA-Z0-9._-]+)", txt, flags=re.IGNORECASE)
-    if m_sent_from:
-      sender_upi = m_sent_from.group(1).strip()
+    sender_upi = _extract_receipt_row_value(data, r"^from:?$")
+    if not sender_upi:
+      m_sent_from = re.search(r"Sent\s*from[:\s]*([a-zA-Z0-9._-]+@[a-zA-Z0-9._-]+)", txt, flags=re.IGNORECASE)
+      if m_sent_from:
+        sender_upi = m_sent_from.group(1).strip()
     for idx_l, ln in enumerate(lines):
-      if "@" in ln and "sent from" not in ln.lower():
+      if "@" in ln and "sent from" not in ln.lower() and ln.strip() != sender_upi:
         m_u = re.search(r"([a-zA-Z0-9._-]+@[a-zA-Z0-9._-]+)", ln)
         if m_u:
           payee_upi = m_u.group(1).strip()
@@ -2471,15 +2510,15 @@ def parse_expense_screenshot(img_bytes, filename="receipt.jpg"):
       if m_to:
         paid_to = m_to.group(1).strip()
 
-    # 6. Auto-categorize based on merchant/payee keywords
-    p_low = (paid_to + " " + payee_upi).lower()
-    if any(k in p_low for k in ("swiggy", "zomato", "hotel", "cafe", "bakery", "restaurant", "tea", "coffee", "food")):
+    # 7. Auto-categorize based on merchant/payee/notes keywords
+    p_low = (paid_to + " " + payee_upi + " " + notes).lower()
+    if any(k in p_low for k in ("swiggy", "zomato", "hotel", "cafe", "bakery", "restaurant", "tea", "coffee", "food", "snack", "lunch", "dinner")):
       category = "Food & Dining"
-    elif any(k in p_low for k in ("mart", "supermarket", "grocery", "blinkit", "zepto", "instamart", "reliance")):
+    elif any(k in p_low for k in ("mart", "supermarket", "grocery", "blinkit", "zepto", "instamart", "reliance", "vegetable", "milk")):
       category = "Groceries"
-    elif any(k in p_low for k in ("petrol", "fuel", "shell", "hpcl", "bpcl", "iocl", "uber", "ola", "rapido")):
+    elif any(k in p_low for k in ("petrol", "fuel", "shell", "hpcl", "bpcl", "iocl", "uber", "ola", "rapido", "auto", "cab")):
       category = "Fuel & Travel"
-    elif any(k in p_low for k in ("pharma", "medical", "hospital", "clinic", "apollo", "medplus")):
+    elif any(k in p_low for k in ("pharma", "medical", "hospital", "clinic", "apollo", "medplus", "medicine")):
       category = "Medical"
     elif any(k in p_low for k in ("amazon", "flipkart", "myntra", "ajio", "shopping")):
       category = "Shopping"
@@ -2497,7 +2536,7 @@ def parse_expense_screenshot(img_bytes, filename="receipt.jpg"):
     "payee_upi": payee_upi,
     "sender_upi": sender_upi,
     "transaction_id": txn_id,
-    "notes": notes,
+    "notes": notes or "UPI",
     "source_file": filename,
     "thumb_b64": thumb_b64
   }

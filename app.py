@@ -986,29 +986,28 @@ if uploaded_files:
 
         if expense_imgs:
             exp_ledger = get_shared_expenses_store()
-            existing_ids = {e.get("id") for e in exp_ledger.get("entries", [])}
+            seen_uploads = st.session_state.setdefault("processed_exp_hashes", set())
             added_exp = []
+            newly_persisted = False
             for e_img in expense_imgs:
+                f_sig = f"{e_img['name']}_{len(e_img['bytes'])}"
                 parsed_e = unlock_statements.parse_expense_screenshot(e_img["bytes"], e_img["name"])
-                if parsed_e["id"] not in existing_ids:
-                    exp_ledger.setdefault("entries", []).insert(0, parsed_e)
-                    existing_ids.add(parsed_e["id"])
-                    added_exp.append(parsed_e)
-                else:
-                    # Update existing entry with latest parsed fields
-                    for idx_e, old_e in enumerate(exp_ledger.get("entries", [])):
-                        if old_e.get("id") == parsed_e["id"]:
-                            exp_ledger["entries"][idx_e] = parsed_e
-                            added_exp.append(parsed_e)
-                            break
-            if added_exp:
+                added_exp.append(parsed_e)
+                if f_sig not in seen_uploads:
+                    seen_uploads.add(f_sig)
+                    # Remove existing duplicate ID if present and insert fresh at top (#1) of table
+                    exp_ledger["entries"] = [x for x in exp_ledger.get("entries", []) if x.get("id") != parsed_e["id"]]
+                    exp_ledger["entries"].insert(0, parsed_e)
+                    newly_persisted = True
+            if newly_persisted:
                 update_shared_expenses_store(exp_ledger, commit_msg="Auto-log UPI expense screenshot")
                 st.session_state.active_nav = "expenses"
-                for ae in added_exp:
-                    st.success(
-                        f"Parsed Screenshot ({ae['source_file']}): ₹{ae['amount']:,.2f} paid to {ae['paid_to']} · "
-                        f"{ae['date_time']} · {ae['app_name']} (Txn ID: {ae['transaction_id'] or 'Logged'})"
-                    )
+            for ae in added_exp:
+                st.success(
+                    f"✅ Parsed Screenshot ({ae['source_file']}): ₹{ae['amount']:,.2f} · Paid to: {ae['paid_to']} · "
+                    f"Date & Time: {ae['date_time']} · Notes: {ae.get('notes', 'UPI')} · "
+                    f"{ae['app_name']} (Txn ID: {ae['transaction_id'] or 'Logged'})"
+                )
 
         if fold_imgs:
             fl_ok, fl_msg, fl_res = unlock_statements.process_fold_screenshots(fold_imgs)
@@ -1374,6 +1373,34 @@ elif st.session_state.active_nav == "shafana":
 # VIEW 4: EXPENSE CALCULATOR & UPI RECEIPT TRACKER
 # ==============================================================================
 elif st.session_state.active_nav == "expenses":
+    # Instant Dedicated Screenshot Dropzone (Outside st.form so it auto-parses & updates table immediately!)
+    exp_up_files = st.file_uploader(
+        "📸 Instant Receipt OCR: Drop Samsung Wallet / GPay / PhonePe / Paytm Screenshot(s) — Auto-Parses Amount, Date & Time, Paid To & Notes Immediately",
+        type=["png", "jpg", "jpeg", "webp"],
+        accept_multiple_files=True,
+        key="dedicated_expense_uploader"
+    )
+    if exp_up_files:
+        exp_ledger_now = get_shared_expenses_store()
+        seen_ded = st.session_state.setdefault("processed_ded_exp_hashes", set())
+        ded_changed = False
+        for ef in exp_up_files:
+            raw_ef = ef.getvalue()
+            sig_ef = f"ded_{ef.name}_{len(raw_ef)}"
+            parsed_ef = unlock_statements.parse_expense_screenshot(raw_ef, ef.name)
+            if sig_ef not in seen_ded:
+                seen_ded.add(sig_ef)
+                exp_ledger_now["entries"] = [x for x in exp_ledger_now.get("entries", []) if x.get("id") != parsed_ef["id"]]
+                exp_ledger_now["entries"].insert(0, parsed_ef)
+                ded_changed = True
+            st.success(
+                f"✅ Added to View Table ({ef.name}): ₹{parsed_ef['amount']:,.2f} · Paid to: {parsed_ef['paid_to']} · "
+                f"Date & Time: {parsed_ef['date_time']} · Notes: {parsed_ef.get('notes', 'UPI')} · "
+                f"Txn ID: {parsed_ef.get('transaction_id') or '-'}"
+            )
+        if ded_changed:
+            update_shared_expenses_store(exp_ledger_now, commit_msg="Auto-parse UPI screenshot into Expense Table")
+
     exp_ledger = get_shared_expenses_store()
     entries_list = exp_ledger.get("entries", [])
     total_spent = sum(float(e.get("amount", 0.0) or 0.0) for e in entries_list)
@@ -1399,7 +1426,7 @@ elif st.session_state.active_nav == "expenses":
         <div style="background: {bg_surface}; border: 1.5px solid {border_subtle}; border-radius: 16px; padding: 16px 18px;">
             <div style="font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: {text_secondary};">Latest Logged Payment</div>
             <div style="font-size: 18px; font-weight: 800; color: {text_primary}; margin-top: 6px;">{html_lib.escape(str(latest_e.get('paid_to', 'No entries yet')))} · ₹{float(latest_e.get('amount', 0)):,.2f}</div>
-            <div style="font-size: 11.5px; color: {text_secondary}; margin-top: 4px;">{html_lib.escape(str(latest_e.get('date_time', '-')))} · {html_lib.escape(str(latest_e.get('app_name', '')))}</div>
+            <div style="font-size: 11.5px; color: {text_secondary}; margin-top: 4px;">{html_lib.escape(str(latest_e.get('date_time', '-')))} · Notes: {html_lib.escape(str(latest_e.get('notes', 'UPI')))}</div>
         </div>
         """, unsafe_allow_html=True)
     with k3:
@@ -1414,47 +1441,25 @@ elif st.session_state.active_nav == "expenses":
 
     st.markdown("<div style='height: 12px;'></div>", unsafe_allow_html=True)
 
-    # Manual Add Money + Optional Screenshot Form
-    with st.expander("➕ Add Money / Expense Manually (or Attach Screenshot to Auto-Parse Date & Time)", expanded=True):
+    # Manual Add Money Form
+    with st.expander("➕ Add Manual Cash / Expense Entry (or Override Screenshot Details)", expanded=False):
         ist_now_default = datetime.now(tz=timezone(timedelta(hours=5, minutes=30))).strftime("%d %b %Y, %I:%M %p")
         with st.form("add_manual_expense_form", clear_on_submit=True):
-            f_c1, f_c2, f_c3, f_c4 = st.columns([1.1, 1.5, 1.3, 1.4])
+            f_c1, f_c2, f_c3, f_c4, f_c5 = st.columns([1.0, 1.4, 1.2, 1.3, 1.2])
             with f_c1:
                 m_amt = st.number_input("Amount (₹)", min_value=0.0, step=10.0, format="%.2f")
             with f_c2:
                 m_paid_to = st.text_input("Paid To / Merchant", placeholder="e.g. J Ramesh / Tea / Fuel")
             with f_c3:
-                m_cat = st.selectbox("Category", ["UPI / Transfer", "Food & Dining", "Groceries", "Fuel & Travel", "Shopping", "Medical", "Utilities & Bills", "Friends / Split"])
+                m_notes = st.text_input("Notes", placeholder="e.g. UPI / Snacks / Auto")
             with f_c4:
-                m_dt = st.text_input("Date & Time (Auto-parsed if pic attached)", value=ist_now_default)
-
-            f_c5, f_c6 = st.columns([2, 1])
+                m_cat = st.selectbox("Category", ["UPI / Transfer", "Food & Dining", "Groceries", "Fuel & Travel", "Shopping", "Medical", "Utilities & Bills", "Friends / Split"])
             with f_c5:
-                m_pic = st.file_uploader("Optional Receipt Screenshot (Samsung Wallet / GPay / PhonePe / Paytm)", type=["png", "jpg", "jpeg", "webp"], key="form_exp_pic")
-            with f_c6:
-                m_notes = st.text_input("Notes / UPI / Txn ID", placeholder="Optional note or UPI ID")
-                st.markdown("<div style='height: 6px;'></div>", unsafe_allow_html=True)
-                sub_exp = st.form_submit_button("Add to Expense Calculator", use_container_width=True)
+                m_dt = st.text_input("Date & Time", value=ist_now_default)
 
+            sub_exp = st.form_submit_button("➕ Add Manual Expense to View Table", use_container_width=True)
             if sub_exp:
-                if m_pic is not None:
-                    p_raw = m_pic.getvalue()
-                    parsed_obj = unlock_statements.parse_expense_screenshot(p_raw, m_pic.name)
-                    if m_amt > 0:
-                        parsed_obj["amount"] = float(m_amt)
-                    if m_paid_to.strip():
-                        parsed_obj["paid_to"] = m_paid_to.strip()
-                    if m_cat:
-                        parsed_obj["category"] = m_cat
-                    if m_dt.strip() and m_dt.strip() != ist_now_default:
-                        parsed_obj["date_time"] = m_dt.strip()
-                    if m_notes.strip():
-                        parsed_obj["notes"] = m_notes.strip()
-                    exp_ledger.setdefault("entries", []).insert(0, parsed_obj)
-                    update_shared_expenses_store(exp_ledger, commit_msg=f"Add expense ₹{parsed_obj['amount']:.2f} ({parsed_obj['paid_to']})")
-                    st.success(f"Added ₹{parsed_obj['amount']:,.2f} ({parsed_obj['paid_to']}) at {parsed_obj['date_time']}")
-                    st.rerun()
-                elif m_amt > 0:
+                if m_amt > 0:
                     new_item = {
                         "id": f"exp_manual_{int(time.time())}_{int(m_amt)}",
                         "amount": float(m_amt),
@@ -1462,39 +1467,39 @@ elif st.session_state.active_nav == "expenses":
                         "category": m_cat,
                         "date_time": m_dt.strip() or ist_now_default,
                         "app_name": "Manual Entry",
-                        "payee_upi": "",
-                        "sender_upi": "",
-                        "transaction_id": "",
+                        "payee_upi": "-",
+                        "sender_upi": "-",
+                        "transaction_id": f"MAN-{int(time.time())}",
                         "notes": m_notes.strip() or "Manual",
                         "source_file": "Manual Entry",
                         "thumb_b64": ""
                     }
                     exp_ledger.setdefault("entries", []).insert(0, new_item)
                     update_shared_expenses_store(exp_ledger, commit_msg=f"Add manual expense ₹{m_amt:.2f}")
-                    st.success(f"Added ₹{m_amt:,.2f} ({new_item['paid_to']}) at {new_item['date_time']}")
+                    st.success(f"Added ₹{m_amt:,.2f} ({new_item['paid_to']}) · Notes: {new_item['notes']} at {new_item['date_time']}")
                     st.rerun()
                 else:
-                    st.warning("Enter an amount (₹) or attach a payment screenshot to auto-parse.")
+                    st.warning("Please enter an Amount (₹) greater than 0.")
 
     # Export as Sheet (.CSV for Excel / Google Sheets) & Cloud Push Bar
     ex_col1, ex_col2, ex_col3 = st.columns([1.6, 1.6, 1])
     with ex_col1:
         import csv
         csv_buf = io.StringIO()
-        csv_buf.write("﻿")  # UTF-8 BOM for Excel compatibility
+        csv_buf.write("\ufeff")  # UTF-8 BOM for Excel compatibility
         writer = csv.writer(csv_buf)
-        writer.writerow(["Date & Time", "Paid To / Merchant", "Amount (INR)", "Category", "Payment App", "Payee UPI / Bank", "Sender UPI", "Transaction ID", "Notes", "Screenshot File"])
+        writer.writerow(["Date & Time", "Paid To / Merchant", "Amount (INR)", "Notes", "Category", "Payment App", "Payee UPI / Bank", "Sender UPI", "Transaction ID", "Screenshot File"])
         for e in entries_list:
             writer.writerow([
                 e.get("date_time", ""),
                 e.get("paid_to", ""),
                 f"{float(e.get('amount', 0)):.2f}",
+                e.get("notes", ""),
                 e.get("category", ""),
                 e.get("app_name", ""),
                 e.get("payee_upi", ""),
                 e.get("sender_upi", ""),
                 e.get("transaction_id", ""),
-                e.get("notes", ""),
                 e.get("source_file", "")
             ])
         writer.writerow([])
@@ -1519,7 +1524,7 @@ elif st.session_state.active_nav == "expenses":
                         "month": e.get("date_time", ""),
                         "bank": f"{e.get('app_name', 'UPI')} ({e.get('category', 'Expense')})",
                         "loan_id": e.get("transaction_id") or e.get("id", ""),
-                        "friend_name": e.get("paid_to", ""),
+                        "friend_name": f"{e.get('paid_to', '')} (Notes: {e.get('notes', 'UPI')})",
                         "amount": f"₹{float(e.get('amount', 0)):,.2f}",
                         "remaining": e.get("payee_upi") or e.get("notes", "-"),
                         "status": "Paid Expense"
@@ -1542,9 +1547,69 @@ elif st.session_state.active_nav == "expenses":
             update_shared_expenses_store(exp_ledger, commit_msg="Clear expenses ledger")
             st.rerun()
 
-    st.markdown("<div style='height: 10px;'></div>", unsafe_allow_html=True)
+    st.markdown("<div style='height: 12px;'></div>", unsafe_allow_html=True)
 
-    # Render Expense Cards with Screenshot Proof
+    # Live Structured HTML View Table ("📋 Expense Calculator View Table")
+    if entries_list:
+        th_bg = "#1e293b" if is_dark else "#f1f5f9"
+        tr_alt = "rgba(30, 41, 59, 0.45)" if is_dark else "#f8fafc"
+        rows_html = []
+        for idx_r, e in enumerate(entries_list, 1):
+            r_bg = tr_alt if idx_r % 2 == 0 else "transparent"
+            t_img = (
+                f"<img src='{e['thumb_b64']}' style='width:32px;height:52px;object-fit:cover;border-radius:6px;border:1px solid {border_subtle};vertical-align:middle;'/>"
+                if e.get("thumb_b64") else "—"
+            )
+            rows_html.append(
+                f"<tr style='background:{r_bg};border-bottom:1px solid {border_subtle};'>"
+                f"<td style='padding:10px 12px;font-weight:700;color:{text_secondary};'>{idx_r}</td>"
+                f"<td style='padding:6px 10px;'>{t_img}</td>"
+                f"<td style='padding:10px 12px;font-weight:700;color:{text_primary};white-space:nowrap;'>{html_lib.escape(str(e.get('date_time', '-')))}</td>"
+                f"<td style='padding:10px 12px;font-weight:800;color:{text_primary};'>{html_lib.escape(str(e.get('paid_to', '-')))}</td>"
+                f"<td style='padding:10px 12px;font-weight:700;color:#6366f1;'>{html_lib.escape(str(e.get('notes', 'UPI')))}</td>"
+                f"<td style='padding:10px 12px;font-size:12px;color:{text_secondary};'>{html_lib.escape(str(e.get('category', 'UPI')))}</td>"
+                f"<td style='padding:10px 12px;font-size:12px;color:{text_secondary};'>{html_lib.escape(str(e.get('app_name', '-')))}<br/><span style='font-family:monospace;font-size:11px;'>{html_lib.escape(str(e.get('payee_upi', '')))}</span></td>"
+                f"<td style='padding:10px 12px;font-family:monospace;font-size:12px;color:{text_secondary};'>{html_lib.escape(str(e.get('transaction_id', '-')))}</td>"
+                f"<td style='padding:10px 14px;font-weight:800;font-size:14.5px;color:{text_primary};text-align:right;white-space:nowrap;'>₹{float(e.get('amount', 0)):,.2f}</td>"
+                f"</tr>"
+            )
+        table_html = f"""
+        <div style="background:{bg_surface};border:1.5px solid {border_subtle};border-radius:16px;overflow:hidden;margin-bottom:14px;">
+            <div style="padding:12px 16px;background:{th_bg};border-bottom:1px solid {border_subtle};display:flex;justify-content:space-between;align-items:center;">
+                <span style="font-size:13px;font-weight:800;color:{text_primary};letter-spacing:-0.01em;">📋 Expense Calculator View Table ({len(entries_list)} Entries)</span>
+                <span style="font-size:13px;font-weight:800;color:#6366f1;">Total: ₹{total_spent:,.2f}</span>
+            </div>
+            <div style="overflow-x:auto;">
+                <table style="width:100%;border-collapse:collapse;font-size:12.5px;text-align:left;">
+                    <thead>
+                        <tr style="background:{th_bg};color:{text_secondary};font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:0.04em;border-bottom:1px solid {border_subtle};">
+                            <th style="padding:10px 12px;">#</th>
+                            <th style="padding:10px 10px;">Pic</th>
+                            <th style="padding:10px 12px;">Date &amp; Time</th>
+                            <th style="padding:10px 12px;">Paid To</th>
+                            <th style="padding:10px 12px;">Notes</th>
+                            <th style="padding:10px 12px;">Category</th>
+                            <th style="padding:10px 12px;">App &amp; Payee UPI</th>
+                            <th style="padding:10px 12px;">Transaction ID</th>
+                            <th style="padding:10px 14px;text-align:right;">Amount (₹)</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {''.join(rows_html)}
+                    </tbody>
+                    <tfoot>
+                        <tr style="background:{th_bg};border-top:2px solid {border_subtle};font-weight:800;color:{text_primary};">
+                            <td colspan="8" style="padding:12px 14px;text-align:right;font-size:13px;text-transform:uppercase;letter-spacing:0.04em;">Grand Total Expenses</td>
+                            <td style="padding:12px 14px;text-align:right;font-size:16px;color:#6366f1;">₹{total_spent:,.2f}</td>
+                        </tr>
+                    </tfoot>
+                </table>
+            </div>
+        </div>
+        """
+        st.markdown(table_html, unsafe_allow_html=True)
+
+    # Render Expense Cards with Screenshot Proof & Individual Delete Button
     for idx_e, e in enumerate(entries_list):
         c_row1, c_row2 = st.columns([5.2, 0.8])
         with c_row1:
@@ -1554,7 +1619,7 @@ elif st.session_state.active_nav == "expenses":
                     f"<img src='{e['thumb_b64']}' style='width: 58px; height: 96px; object-fit: cover; "
                     f"border-radius: 10px; border: 1px solid {border_subtle}; flex-shrink: 0;' alt='receipt'/>"
                 )
-            upi_meta = " · ".join(x for x in [e.get("app_name"), e.get("payee_upi"), f"Txn: {e['transaction_id']}" if e.get("transaction_id") else ""] if x)
+            upi_meta = " · ".join(x for x in [e.get("app_name"), e.get("payee_upi"), f"From: {e['sender_upi']}" if e.get("sender_upi") else "", f"Txn: {e['transaction_id']}" if e.get("transaction_id") else ""] if x)
             st.markdown(f"""
             <div style="background: {bg_surface}; border: 1.5px solid {border_subtle}; border-radius: 16px; padding: 14px 18px; margin-bottom: 10px; display: flex; align-items: center; justify-content: space-between; gap: 14px; flex-wrap: wrap;">
                 <div style="display: flex; align-items: center; gap: 14px; min-width: 240px; flex: 1;">
@@ -1563,6 +1628,7 @@ elif st.session_state.active_nav == "expenses":
                         <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
                             <span style="font-size: 15.5px; font-weight: 800; color: {text_primary};">{html_lib.escape(str(e.get('paid_to', 'Expense')))}</span>
                             <span style="font-size: 10.5px; font-weight: 700; padding: 2px 9px; border-radius: 999px; background: rgba(99, 102, 241, 0.14); color: #6366f1; border: 1px solid rgba(99, 102, 241, 0.3);">{html_lib.escape(str(e.get('category', 'UPI')))}</span>
+                            <span style="font-size: 11px; font-weight: 700; padding: 2px 9px; border-radius: 999px; background: rgba(16, 185, 129, 0.14); color: #10b981; border: 1px solid rgba(16, 185, 129, 0.3);">📝 Notes: {html_lib.escape(str(e.get('notes', 'UPI')))}</span>
                         </div>
                         <div style="font-size: 12.5px; font-weight: 700; color: {text_secondary}; margin-top: 4px;">
                             🕒 {html_lib.escape(str(e.get('date_time', '')))}
@@ -1584,7 +1650,6 @@ elif st.session_state.active_nav == "expenses":
                 exp_ledger["entries"] = [x for i_x, x in enumerate(entries_list) if i_x != idx_e]
                 update_shared_expenses_store(exp_ledger, commit_msg=f"Delete expense {e.get('paid_to', '')}")
                 st.rerun()
-
 
 # --- Active Statements Action Bar (When Statements Are Loaded) ---
 if st.session_state.active_nav in ("statements", "kayal", "shafana") and st.session_state.statements_data:
