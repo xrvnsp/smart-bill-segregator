@@ -80,100 +80,15 @@ for _legacy_dir in ["Statements_October_2026", "temp_uploaded_statements"]:
         except Exception:
             pass
 
-# --- Page Configuration (Must Be First Streamlit Call) ---
+# --- Page Configuration (Collapsed Sidebar for Clean Native App Experience) ---
 st.set_page_config(
     page_title="Smart Bill Segregator",
     page_icon="💳",
     layout="wide",
-    initial_sidebar_state="expanded"
+    initial_sidebar_state="collapsed"
 )
 
-# --- Responsive Stylesheet: Clean Typography Without Breaking Material Icons ---
-st.markdown("""
-<style>
-    @import url('https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&family=Inter:wght@400;500;600;700;800&family=Plus+Jakarta+Sans:wght@500;600;700;800;900&display=swap');
-
-    /* Apply professional font ONLY to text/markdown elements — NEVER override Material Symbols icon spans! */
-    .stMarkdown, .stText, h1, h2, h3, h4, h5, h6, [data-testid="stCaptionContainer"], [data-testid="stWidgetLabel"] p {
-        font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-    }
-
-    /* Crazy comic font for tongue-in-cheek privacy disclaimer */
-    .crazy-comic-font {
-        font-family: 'Fredoka', 'Comic Sans MS', cursive, sans-serif !important;
-        font-weight: 600 !important;
-        letter-spacing: 0.02em !important;
-    }
-
-    /* Header styling: transparent background, compact height, keep native sidebar toggle visible */
-    header[data-testid="stHeader"], header {
-        background: transparent !important;
-        height: 2.75rem !important;
-        min-height: 2.75rem !important;
-        padding: 0 !important;
-        margin: 0 !important;
-        overflow: visible !important;
-        z-index: 999999 !important;
-    }
-    
-    /* Hide ONLY the decorative colored top line, deploy button, and 3-dots menu */
-    #MainMenu, 
-    [data-testid="stDecoration"], 
-    .stAppDeployButton, 
-    [data-testid="stAppDeployButton"], 
-    [data-testid="stStatusWidget"] {
-        display: none !important;
-    }
-
-    /* Keep Streamlit's native sidebar toggle clean and visible */
-    [data-testid="collapsedControl"],
-    [data-testid="stSidebarCollapsedControl"] {
-        visibility: visible !important;
-        opacity: 1 !important;
-        z-index: 9999999 !important;
-    }
-
-    /* Container padding: tight top margin for zero blank space */
-    .block-container {
-        padding-top: 0.5rem !important;
-        padding-bottom: 2rem !important;
-        padding-left: 1rem !important;
-        padding-right: 1rem !important;
-        max-width: 100% !important;
-    }
-    footer {visibility: hidden;}
-
-    iframe {
-        border-radius: 20px;
-        box-shadow: 0 4px 25px -3px rgba(0, 0, 0, 0.08);
-        border: 1px solid #e2e8f0;
-        width: 100% !important;
-    }
-
-    /* Sidebar 5-second persistent toast */
-    .sidebar-toast-5s {
-        animation: toastFade5s 5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
-    }
-
-    @keyframes toastFade5s {
-        0% { opacity: 0; transform: translateY(-6px); }
-        8% { opacity: 1; transform: translateY(0); }
-        84% { opacity: 1; transform: translateY(0); }
-        100% { opacity: 0; transform: translateY(-6px); }
-    }
-
-    /* Mobile adjustments */
-    @media (max-width: 640px) {
-        .block-container {
-            padding-top: 0.25rem !important;
-            padding-left: 0.5rem !important;
-            padding-right: 0.5rem !important;
-        }
-    }
-</style>
-""", unsafe_allow_html=True)
-
-# --- Initialize Private Session Passwords & Browser-Persisted EMI Nicknames ---
+# --- Initialize Session State ---
 if "session_passwords" not in st.session_state:
     st.session_state.session_passwords = {"icici": "", "hdfc": "", "sbi": "", "scapia": "", "payslip": "", "sheets_webhook_url": "", "gemini_api_key": ""}
 if "emi_nicknames" not in st.session_state:
@@ -190,6 +105,142 @@ if "show_kayal_roster" not in st.session_state:
     st.session_state.show_kayal_roster = False
 if "active_special_view" not in st.session_state:
     st.session_state.active_special_view = None
+if "active_nav" not in st.session_state:
+    st.session_state.active_nav = "statements"
+if "ui_theme" not in st.session_state:
+    st.session_state.ui_theme = "dark"
+if "statements_data" not in st.session_state:
+    st.session_state.statements_data = {}
+
+is_dark = (st.session_state.ui_theme == "dark")
+
+# --- Apple / Fintech Adaptive Stylesheet (Dark & Light Mode) ---
+bg_main = "#090d16" if is_dark else "#f8fafc"
+bg_surface = "rgba(17, 24, 39, 0.78)" if is_dark else "rgba(255, 255, 255, 0.88)"
+bg_elevated = "#111827" if is_dark else "#ffffff"
+border_subtle = "rgba(148, 163, 184, 0.16)" if is_dark else "rgba(226, 232, 240, 0.95)"
+text_primary = "#f8fafc" if is_dark else "#0f172a"
+text_secondary = "#94a3b8" if is_dark else "#64748b"
+accent_primary = "#6366f1" if is_dark else "#0f172a"
+accent_text = "#ffffff"
+btn_sec_bg = "rgba(30, 41, 59, 0.75)" if is_dark else "#ffffff"
+btn_sec_border = "rgba(148, 163, 184, 0.22)" if is_dark else "#e2e8f0"
+btn_sec_text = "#e2e8f0" if is_dark else "#334155"
+
+st.markdown(f"""
+<style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Plus+Jakarta+Sans:wght@500;600;700;800&display=swap');
+
+    .stApp {{
+        background-color: {bg_main} !important;
+        color: {text_primary} !important;
+    }}
+
+    .stMarkdown, .stText, h1, h2, h3, h4, h5, h6, p, label, [data-testid="stCaptionContainer"], [data-testid="stWidgetLabel"] p {{
+        font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        color: {text_primary};
+    }}
+
+    /* Hide bulky left sidebar & Streamlit chrome completely */
+    [data-testid="stSidebar"],
+    [data-testid="collapsedControl"],
+    [data-testid="stSidebarCollapsedControl"],
+    #MainMenu,
+    [data-testid="stDecoration"],
+    .stAppDeployButton,
+    [data-testid="stAppDeployButton"],
+    [data-testid="stStatusWidget"],
+    header[data-testid="stHeader"],
+    header,
+    footer {{
+        display: none !important;
+        visibility: hidden !important;
+        height: 0 !important;
+    }}
+
+    .block-container {{
+        padding-top: 1rem !important;
+        padding-bottom: 2.5rem !important;
+        padding-left: 1.25rem !important;
+        padding-right: 1.25rem !important;
+        max-width: 1240px !important;
+        margin: 0 auto !important;
+    }}
+
+    /* Apple-style buttons with instant pointer-down response */
+    .stButton > button {{
+        border-radius: 12px !important;
+        font-weight: 600 !important;
+        font-size: 13px !important;
+        letter-spacing: -0.01em !important;
+        padding: 0.5rem 0.9rem !important;
+        transition: transform 100ms ease-out, background-color 150ms ease, border-color 150ms ease, box-shadow 150ms ease !important;
+    }}
+    .stButton > button:active {{
+        transform: scale(0.97) !important;
+    }}
+    .stButton > button[kind="secondary"] {{
+        background: {btn_sec_bg} !important;
+        color: {btn_sec_text} !important;
+        border: 1px solid {btn_sec_border} !important;
+        backdrop-filter: blur(16px) saturate(180%) !important;
+    }}
+    .stButton > button[kind="secondary"]:hover {{
+        border-color: #6366f1 !important;
+    }}
+    .stButton > button[kind="primary"] {{
+        background: {accent_primary} !important;
+        color: {accent_text} !important;
+        border: 1px solid {accent_primary} !important;
+        box-shadow: 0 4px 14px rgba(99, 102, 241, 0.25) !important;
+    }}
+
+    /* Sleek File Uploader Dropzone */
+    [data-testid="stFileUploader"] {{
+        background: {bg_surface} !important;
+        border: 1px solid {border_subtle} !important;
+        border-radius: 16px !important;
+        padding: 10px 14px !important;
+        backdrop-filter: blur(20px) saturate(180%) !important;
+    }}
+    [data-testid="stFileUploaderDropzone"] {{
+        background: transparent !important;
+        border: 1px dashed {border_subtle} !important;
+        border-radius: 12px !important;
+        padding: 10px 14px !important;
+    }}
+
+    /* Inputs & Expanders */
+    .stTextInput input, .stNumberInput input, .stTextArea textarea {{
+        background: {bg_elevated} !important;
+        color: {text_primary} !important;
+        border: 1px solid {border_subtle} !important;
+        border-radius: 10px !important;
+        font-size: 13px !important;
+    }}
+    [data-testid="stExpander"] {{
+        background: {bg_surface} !important;
+        border: 1px solid {border_subtle} !important;
+        border-radius: 16px !important;
+        overflow: hidden !important;
+    }}
+
+    iframe {{
+        border-radius: 20px;
+        box-shadow: 0 10px 30px -5px rgba(0, 0, 0, 0.18);
+        border: 1px solid {border_subtle};
+        width: 100% !important;
+    }}
+
+    @media (max-width: 640px) {{
+        .block-container {{
+            padding-top: 0.6rem !important;
+            padding-left: 0.65rem !important;
+            padding-right: 0.65rem !important;
+        }}
+    }}
+</style>
+""", unsafe_allow_html=True)
 
 def get_ist_kayal_greeting():
     """Returns time-of-day romantic greeting for Dr Cuteuh Pattuh in Indian Standard Time (IST)."""
@@ -410,501 +461,7 @@ if client_vault and isinstance(client_vault, dict):
             if changed_bn:
                 unlock_statements.save_bill_names_web(meta_bn_sync)
 
-# --- Sidebar Controls ---
-with st.sidebar:
-    st.markdown("### 💳 Smart Bill Segregator")
-    st.caption("Auto-segregate statements, friend EMIs, cashback, and regular expenses.")
 
-    git_info = get_git_last_updated_info()
-    safe_git_msg = html_lib.escape(git_info["msg"])
-    safe_git_hash = html_lib.escape(git_info["hash"])
-    st.markdown(f"""
-    <div style="
-        background: #f0f9ff;
-        border: 1.5px solid #38bdf8;
-        border-radius: 12px;
-        padding: 10px 12px;
-        margin-bottom: 12px;
-        box-shadow: 0 2px 6px rgba(2, 132, 199, 0.08);
-    ">
-        <div style="font-size: 11px; font-weight: 800; color: #0369a1; text-transform: uppercase; letter-spacing: 0.04em; display: flex; align-items: center; gap: 5px;">
-            <span>🕒</span><span>Website Last Updated (Git)</span>
-        </div>
-        <div style="font-size: 12.5px; font-weight: 800; color: #0f172a; margin-top: 4px;">
-            {git_info["time_str"]}
-        </div>
-        <div style="font-size: 11px; font-weight: 600; color: #334155; margin-top: 3px; line-height: 1.35; word-break: break-word;">
-            <span style="background: #e0f2fe; color: #0369a1; padding: 1px 5px; border-radius: 4px; font-family: monospace; font-weight: 700;">#{safe_git_hash}</span> {safe_git_msg}
-        </div>
-    </div>
-    """, unsafe_allow_html=True)
-
-    with st.expander("🔑 Device Stored Passwords", expanded=True):
-        st.caption("🔒 Stored strictly in your browser's local storage on this device. Never saved on any server.")
-        
-        scapia_val = st.text_input(
-            "Scapia Axis Password",
-            value=st.session_state.session_passwords.get("scapia", ""),
-            type="password",
-            help="UPPERCASE name (4) + DDMM (e.g. ROHI2512)",
-            key="input_scapia_pwd"
-        )
-        hdfc_val = st.text_input(
-            "HDFC Password",
-            value=st.session_state.session_passwords.get("hdfc", ""),
-            type="password",
-            help="UPPERCASE name (4) + DDMM (e.g. ROHI2512)",
-            key="input_hdfc_pwd"
-        )
-        icici_val = st.text_input(
-            "ICICI Password",
-            value=st.session_state.session_passwords.get("icici", ""),
-            type="password",
-            help="Lowercase name (4) + DDMM (e.g. rohi2512)",
-            key="input_icici_pwd"
-        )
-        sbi_val = st.text_input(
-            "SBI SimplyCLICK Password",
-            value=st.session_state.session_passwords.get("sbi", ""),
-            type="password",
-            help="Date of birth in DDMMYYYY + Last 4 digits of card (e.g. 150819954321)",
-            key="input_sbi_pwd"
-        )
-        payslip_val = st.text_input(
-            "Salary Payslip Password",
-            value=st.session_state.session_passwords.get("payslip", ""),
-            type="password",
-            help="Employee No + PAN last 4 digits (e.g. 115000A or 1234000A)",
-            key="input_payslip_pwd"
-        )
-        webhook_val = st.text_input(
-            "Google Sheets Web App URL",
-            value=st.session_state.session_passwords.get("sheets_webhook_url", ""),
-            key="input_webhook_url"
-        )
-        gemini_key_val = st.text_input(
-            "Gemini API Key (Free Tier)",
-            value=st.session_state.session_passwords.get("gemini_api_key", ""),
-            type="password",
-            help="Free key from aistudio.google.com (or set GEMINI_API_KEY in Streamlit Secrets)",
-            key="input_gemini_api_key"
-        )
-
-        # Stacked full-width buttons so text is 100% readable without truncation!
-        if st.button("💾 Save Passwords on This Device", use_container_width=True, type="primary"):
-            st.session_state.session_passwords["scapia"] = scapia_val.strip()
-            st.session_state.session_passwords["icici"] = icici_val.strip()
-            st.session_state.session_passwords["hdfc"] = hdfc_val.strip()
-            st.session_state.session_passwords["sbi"] = sbi_val.strip()
-            st.session_state.session_passwords["payslip"] = payslip_val.strip()
-            st.session_state.session_passwords["sheets_webhook_url"] = webhook_val.strip()
-            st.session_state.session_passwords["gemini_api_key"] = gemini_key_val.strip()
-            st.session_state["pending_save_vault"] = {
-                "scapia": scapia_val.strip(),
-                "icici": icici_val.strip(),
-                "hdfc": hdfc_val.strip(),
-                "sbi": sbi_val.strip(),
-                "payslip": payslip_val.strip(),
-                "sheets_webhook_url": webhook_val.strip(),
-                "gemini_api_key": gemini_key_val.strip()
-            }
-            st.session_state["sidebar_toast_until"] = time.time() + 5.0
-            st.session_state["sidebar_toast_notice"] = {
-                "type": "success",
-                "title": "Passwords Saved Locally!",
-                "desc": "Saved in this browser vault for 1-click auto-unlock."
-            }
-            st.rerun()
-
-        if st.button("🗑️ Forget Saved Passwords", use_container_width=True, help="Clear saved passwords from this browser"):
-            forget_browser_passwords()
-            st.rerun()
-
-        # 5-Second Persistent Toast in Sidebar
-        now_time = time.time()
-        if "sidebar_toast_until" in st.session_state:
-            if now_time < st.session_state["sidebar_toast_until"]:
-                rem_sec = max(0.5, st.session_state["sidebar_toast_until"] - now_time)
-                s_notice = st.session_state.get("sidebar_toast_notice", {
-                    "title": "Passwords Saved Locally!",
-                    "desc": "Saved in this browser vault for 1-click auto-unlock."
-                })
-                st.markdown(f"""
-                <div id="sidebar-toast-box" class="sidebar-toast-5s" style="
-                    background: #064e3b;
-                    border: 1.5px solid #10b981;
-                    border-radius: 12px;
-                    padding: 12px 14px;
-                    margin-top: 10px;
-                    margin-bottom: 8px;
-                    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.35);
-                    display: flex;
-                    align-items: center;
-                    gap: 10px;
-                ">
-                    <span style="font-size: 20px; line-height: 1;">🔒</span>
-                    <div style="flex: 1; min-width: 0;">
-                        <div style="font-size: 12px; font-weight: 800; color: #ffffff; letter-spacing: -0.01em;">{s_notice['title']}</div>
-                        <div style="font-size: 11px; color: #a7f3d0; font-weight: 600; margin-top: 2px; line-height: 1.35;">{s_notice['desc']}</div>
-                    </div>
-                </div>
-                <script>
-                    setTimeout(function() {{
-                        var el = document.getElementById('sidebar-toast-box');
-                        if (el) {{
-                            el.style.display = 'none';
-                        }}
-                    }}, {int(rem_sec * 1000)});
-                </script>
-                """, unsafe_allow_html=True)
-            else:
-                st.session_state.pop("sidebar_toast_until", None)
-                st.session_state.pop("sidebar_toast_notice", None)
-
-    with st.expander("🏷️ Browser-Saved EMI Nicknames", expanded=bool(st.session_state.emi_nicknames)):
-        st.caption("🔒 Remembered in your browser's `localStorage` on this device across sessions.")
-        if st.session_state.emi_nicknames:
-            for lid, lname in list(st.session_state.emi_nicknames.items()):
-                lphone = st.session_state.emi_phones.get(lid) or st.session_state.emi_phones.get(lname, "")
-                phone_badge = f" • 📱 +{lphone}" if lphone else ""
-                st.markdown(
-                    f"<div style='background:rgba(245,243,255,0.95);border:1px solid #c4b5fd;border-radius:10px;padding:7px 10px;margin-bottom:6px;font-size:11.5px;color:#2e1065;'>"
-                    f"<b>🏷️ {html_lib.escape(lname)}</b> <span style='font-family:monospace;color:#6d28d9;font-size:10.5px;'>({html_lib.escape(lid)}){html_lib.escape(phone_badge)}</span>"
-                    f"</div>",
-                    unsafe_allow_html=True
-                )
-        else:
-            st.caption("No EMI nicknames saved yet. Add one below or click **💾 Save Tag in Browser** directly on any purple EMI receipt card!")
-
-        emi_loan_key = st.text_input(
-            "Loan ID / EMI Key",
-            placeholder="e.g. 146608745 or 28/09/2026_44370.00",
-            key="side_emi_key"
-        )
-        emi_friend_name = st.text_input(
-            "Friend / Item Nickname",
-            placeholder="e.g. Naveen S25 Edge",
-            key="side_emi_name"
-        )
-        emi_friend_phone = st.text_input(
-            "Friend WhatsApp No. (Optional)",
-            placeholder="10-digit mobile (e.g. 9876543210)",
-            key="side_emi_phone"
-        )
-        if st.button("💾 Save EMI Nickname in Browser", use_container_width=True, key="btn_save_emi_side"):
-            if emi_loan_key.strip() and emi_friend_name.strip():
-                k_clean = emi_loan_key.strip()
-                n_clean = emi_friend_name.strip()
-                p_digits = "".join(ch for ch in emi_friend_phone.strip() if ch.isdigit())
-                if len(p_digits) == 10:
-                    p_digits = "91" + p_digits
-                st.session_state.emi_nicknames[k_clean] = n_clean
-                if p_digits:
-                    st.session_state.emi_phones[k_clean] = p_digits
-                    st.session_state.emi_phones[n_clean] = p_digits
-                st.session_state["pending_save_emi_vault"] = {
-                    "names": dict(st.session_state.emi_nicknames),
-                    "phones": dict(st.session_state.emi_phones)
-                }
-                st.session_state["sidebar_toast_until"] = time.time() + 5.0
-                st.session_state["sidebar_toast_notice"] = {
-                    "type": "success",
-                    "title": f"Saved EMI Tag: {n_clean}",
-                    "desc": "Stored in browser localStorage on this device."
-                }
-                st.rerun()
-
-        if st.session_state.emi_nicknames:
-            if st.button("🗑️ Clear Saved EMI Nicknames", use_container_width=True, key="btn_clear_emi_side"):
-                st.session_state.emi_nicknames = {}
-                st.session_state.emi_phones = {}
-                st.session_state["pending_clear_emi_vault"] = True
-                st.session_state["emi_vault_cleared_until"] = time.time() + 4.0
-                st.session_state["sidebar_toast_until"] = time.time() + 5.0
-                st.session_state["sidebar_toast_notice"] = {
-                    "type": "info",
-                    "title": "EMI Nicknames Cleared",
-                    "desc": "Wiped from this device browser vault."
-                }
-                st.rerun()
-
-    shared_sf = get_shared_shafana_store()
-    sf_entries = [e for e in shared_sf.get("entries", []) if e.get("role") == "shafana_order"]
-    sf_open_cb = float(shared_sf.get("openingCb", 0.0) or 0.0)
-    sf_cb_used = float(shared_sf.get("manualCbUsed", 0.0) or 0.0)
-    sf_bill_due = sum(float(e.get("amount", 0.0)) for e in sf_entries)
-    sf_cb_earned = sum(float(e.get("cashback_earned", 0.0)) for e in sf_entries)
-    sf_net_kitty = sf_open_cb + sf_cb_earned - sf_cb_used
-
-    with st.expander("🎁 Shafana Cashback (Simple View)", expanded=True):
-        st.caption("🌐 Synced across the web (`shafana_cashback.json`). Simple view for Shafana + manual Cashback Used entry.")
-        st.markdown(f"""
-        <div style="background: linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%); border: 1.5px solid #f59e0b; border-radius: 12px; padding: 10px 12px; margin-bottom: 10px;">
-            <div style="font-size: 11px; font-weight: 800; color: #92400e; text-transform: uppercase;">👩‍💼 Shafana (Raja Mohamed)</div>
-            <div style="font-size: 13.5px; font-weight: 900; color: #0f172a; margin-top: 3px;">🧾 Bill to Pay: ₹{sf_bill_due:,.0f}</div>
-            <div style="font-size: 11.5px; font-weight: 700; color: #047857; margin-top: 2px;">Earned: +₹{(sf_open_cb + sf_cb_earned):,.0f} • Used: -₹{sf_cb_used:,.0f}</div>
-            <div style="font-size: 13px; font-weight: 900; color: #065f46; margin-top: 3px;">🎁 Cashback Left: {'-' if sf_net_kitty < 0 else ''}₹{abs(sf_net_kitty):,.0f}</div>
-        </div>
-        """, unsafe_allow_html=True)
-
-        btn_label_side = "✖️ Close Shafana Page" if st.session_state.show_shafana_tracker else "🎁 Open Shafana Page"
-        if st.button(btn_label_side, use_container_width=True, type="primary", key="side_toggle_shafana"):
-            st.session_state.show_shafana_tracker = not st.session_state.show_shafana_tracker
-            st.session_state.active_special_view = "shafana" if st.session_state.show_shafana_tracker else None
-            st.rerun()
-
-        new_cb_used = st.number_input(
-            "➖ Cashback Used by Shafana (₹)",
-            min_value=0.0,
-            value=float(sf_cb_used),
-            step=10.0,
-            help="Type any cashback amount she used manually",
-            key="side_sf_cb_used"
-        )
-        if st.button("💾 Save Cashback Used", use_container_width=True, key="side_save_cb_used"):
-            shared_sf["manualCbUsed"] = float(new_cb_used)
-            update_shared_shafana_store(shared_sf)
-            st.session_state.show_shafana_tracker = True
-            st.rerun()
-
-        st.markdown("<div style='font-size:11px;font-weight:800;color:#475569;margin-top:6px;'>➕ Add New Order for Shafana:</div>", unsafe_allow_html=True)
-        q_sf_amt = st.number_input("Order Bill Amount (₹)", min_value=0.0, step=50.0, key="side_sf_amt")
-        if st.button("➕ Add Order (+5% Cashback)", use_container_width=True, key="side_add_sf_entry"):
-            if q_sf_amt > 0:
-                import math as _math
-                ist_now = datetime.now(tz=timezone(timedelta(hours=5, minutes=30))).strftime("%d %b %Y")
-                cb_calc = float(_math.floor(q_sf_amt * 0.05))
-                shared_sf.setdefault("entries", []).insert(0, {
-                    "id": f"ord_{int(time.time())}_{q_sf_amt:.2f}",
-                    "method": "Amazon Pay Credit Card",
-                    "description": "Amazon Order — Delivering to Raja Mohamed",
-                    "amount": float(q_sf_amt),
-                    "cashback_earned": cb_calc,
-                    "date_time": ist_now,
-                    "role": "shafana_order",
-                    "recipient": "Raja Mohamed",
-                    "address": "8 Puduthurai Main Road, Karaikal 609602",
-                    "arriving_by": "",
-                    "source_file": "Manual Entry"
-                })
-                update_shared_shafana_store(shared_sf)
-                st.session_state.show_shafana_tracker = True
-                st.rerun()
-
-    shared_ky = get_shared_kayal_store()
-    ky_entries = shared_ky.get("entries", [])
-    ky_active = sum(1 for e in ky_entries if e.get("shift", "OFF").upper() != "OFF")
-    ky_off = sum(1 for e in ky_entries if e.get("shift", "OFF").upper() == "OFF")
-
-    with st.expander("🩺💖 Dr. Kayalvizhi Duty Roster", expanded=True):
-        st.caption("💖 Romantic duty schedule for your wife (CHC Thirunallar). Upload a roster photo anytime to extract & share on WhatsApp!")
-        st.markdown(f"""
-        <div style="background: linear-gradient(135deg, #fff1f2 0%, #ffe4e6 100%); border: 1.5px solid #fb7185; border-radius: 12px; padding: 10px 12px; margin-bottom: 10px;">
-            <div style="font-size: 11px; font-weight: 800; color: #9f1239; text-transform: uppercase;">🩺💖 My Forever Doctor</div>
-            <div style="font-size: 13.5px; font-weight: 900; color: #881337; margin-top: 3px;">Dr. Kayalvizhi ({shared_ky.get('period', '01–22 Nov 2026')})</div>
-            <div style="font-size: 11.5px; font-weight: 700; color: #be123c; margin-top: 2px;">🩺 {ky_active} Active Shifts • 💞 {ky_off} Days Together</div>
-        </div>
-        """, unsafe_allow_html=True)
-
-        btn_ky_side = "✖️ Close Dr. Kayalvizhi's Roster" if st.session_state.show_kayal_roster else "🩺💖 Open Dr. Kayalvizhi's Roster"
-        if st.button(btn_ky_side, use_container_width=True, type="primary", key="side_toggle_kayal"):
-            st.session_state.show_kayal_roster = not st.session_state.show_kayal_roster
-            st.session_state.active_special_view = "kayal" if st.session_state.show_kayal_roster else None
-            st.rerun()
-
-    st.link_button(
-        "📋 Copy Google Sheet Template",
-        unlock_statements.GOOGLE_SHEET_TEMPLATE_URL,
-        use_container_width=True
-    )
-    st.markdown("---")
-    
-    # Comic Disclaimer with Crazy Hand-Drawn Font in Sidebar
-    st.markdown("""
-    <div class="crazy-comic-font" style="
-        background: #f0fdf4;
-        border: 1.5px dashed #4ade80;
-        border-radius: 14px;
-        padding: 10px 12px;
-        font-size: 13px;
-        color: #15803d;
-        line-height: 1.45;
-        transform: rotate(-0.5deg);
-        box-shadow: 0 2px 8px rgba(34, 197, 94, 0.1);
-    ">
-        🔒 100% Zero-Disk Privacy: Statements are processed in RAM & never stored on the server — also I don't have money to buy a server 😜
-    </div>
-    """, unsafe_allow_html=True)
-
-# --- Session State for Uploaded Statements ---
-if "statements_data" not in st.session_state:
-    st.session_state.statements_data = {}
-
-# --- Main Page Header (Zero Gap & Professional Presentation) ---
-st.markdown("<div style='margin-top: 0px; margin-bottom: 4px;'><h1 style='font-size: 26px; font-weight: 800; color: inherit; margin: 0; letter-spacing: -0.02em;'>💳 Smart Bill Segregator</h1></div>", unsafe_allow_html=True)
-st.caption("Automatic statement analysis, installment segregation, and cashback audit.")
-
-with st.container():
-    # Full-Width Upload Bar (Zero Left/Right Wasted Space)
-    uploaded_files = st.file_uploader(
-        "📁 Upload Statement PDF(s), Shafana Screenshot(s), or Dr. Kayalvizhi Duty Roster Photo(s):",
-        type=["pdf", "png", "jpg", "jpeg", "webp"],
-        accept_multiple_files=True,
-        help="Upload your Axis Bank (Scapia), HDFC, ICICI, SBI PDFs, Salary Payslips, Shafana's Amazon Screenshots, or Dr. Kayalvizhi's Duty Roster Photo. Processed strictly in RAM."
-    )
-
-    # 4 Evenly Distributed Feature Cards Directly Below the Upload Bar
-    card_col1, card_col2, card_col3, card_col4 = st.columns(4)
-
-    with card_col1:
-        active_vault_list = []
-        if st.session_state.session_passwords.get("scapia"): active_vault_list.append("Scapia")
-        if st.session_state.session_passwords.get("hdfc"): active_vault_list.append("HDFC")
-        if st.session_state.session_passwords.get("icici"): active_vault_list.append("ICICI")
-        if st.session_state.session_passwords.get("sbi"): active_vault_list.append("SBI")
-        if st.session_state.session_passwords.get("payslip"): active_vault_list.append("Payslip")
-
-        emi_saved_count = len(st.session_state.emi_nicknames)
-        emi_count_text = f" • 🏷️ {emi_saved_count} EMI Tag(s)" if emi_saved_count > 0 else ""
-        if active_vault_list:
-            st.markdown(f"""
-            <div style="background: rgba(240, 253, 244, 0.95); border: 1px solid #86efac; border-radius: 14px; padding: 10px 14px; margin-bottom: 6px; box-shadow: 0 2px 8px rgba(22,101,52,0.06); min-height: 82px;">
-                <div style="font-size: 12px; font-weight: 800; color: #166534; display: flex; align-items: center; gap: 6px;">
-                    <span>🟢</span><span>Vault Active: {', '.join(active_vault_list)}{emi_count_text}</span>
-                </div>
-                <div style="font-size: 11px; color: #15803d; margin-top: 4px; font-weight: 600;">
-                    Statements & EMI nicknames load automatically on this device!
-                </div>
-            </div>
-            """, unsafe_allow_html=True)
-        else:
-            st.markdown("""
-            <div style="background: rgba(248, 250, 252, 0.95); border: 1px solid #cbd5e1; border-radius: 14px; padding: 10px 14px; margin-bottom: 6px; min-height: 82px;">
-                <div style="font-size: 12px; font-weight: 700; color: #475569; display: flex; align-items: center; gap: 6px;">
-                    <span>⚪</span><span>No Device Passwords Saved</span>
-                </div>
-                <div style="font-size: 11px; color: #64748b; margin-top: 4px;">
-                    Configure in Quick Device Passwords or sidebar.
-                </div>
-            </div>
-            """, unsafe_allow_html=True)
-
-        ai_btn_lbl = "✖️ Close Gemini AI" if st.session_state.show_ai_chat else "🤖 Ask Gemini AI"
-        if st.button(ai_btn_lbl, use_container_width=True, type="primary" if not st.session_state.show_ai_chat else "secondary", key="top_btn_ai_chat"):
-            st.session_state.show_ai_chat = not st.session_state.show_ai_chat
-            st.rerun()
-
-    with card_col2:
-        st.markdown(f"""
-        <div style="background: linear-gradient(135deg, rgba(255, 251, 235, 0.98) 0%, rgba(254, 243, 199, 0.95) 100%); border: 1.5px solid #f59e0b; border-radius: 14px; padding: 10px 14px; margin-bottom: 6px; box-shadow: 0 2px 8px rgba(245, 158, 11, 0.12); min-height: 82px;">
-            <div style="font-size: 12px; font-weight: 800; color: #92400e; display: flex; align-items: center; justify-content: space-between; gap: 6px;">
-                <span>🎁 Shafana's Cashback</span>
-                <span style="background: #f59e0b; color: #ffffff; font-size: 9.5px; padding: 1px 6px; border-radius: 999px; text-transform: uppercase;">Web Synced</span>
-            </div>
-            <div style="font-size: 12px; color: #0f172a; margin-top: 4px; font-weight: 900;">
-                🧾 Bill: ₹{sf_bill_due:,.0f} • 🎁 CB Left: {'-' if sf_net_kitty < 0 else ''}₹{abs(sf_net_kitty):,.0f}
-            </div>
-            <div style="font-size: 10.5px; color: #047857; margin-top: 2px; font-weight: 700;">
-                Earned: +₹{(sf_open_cb + sf_cb_earned):,.0f} • Used: -₹{sf_cb_used:,.0f}
-            </div>
-        </div>
-        """, unsafe_allow_html=True)
-
-        main_sf_btn_label = "✖️ Close Shafana Tracker" if st.session_state.show_shafana_tracker else "🎁 Open Shafana Tracker"
-        if st.button(main_sf_btn_label, use_container_width=True, type="primary" if not st.session_state.show_shafana_tracker else "secondary", key="main_btn_open_shafana"):
-            st.session_state.show_shafana_tracker = not st.session_state.show_shafana_tracker
-            st.session_state.active_special_view = "shafana" if st.session_state.show_shafana_tracker else None
-            st.rerun()
-
-    with card_col3:
-        st.markdown(f"""
-        <div style="background: linear-gradient(135deg, rgba(255, 241, 242, 0.98) 0%, rgba(255, 228, 230, 0.95) 100%); border: 1.5px solid #fb7185; border-radius: 14px; padding: 10px 14px; margin-bottom: 6px; box-shadow: 0 2px 8px rgba(244, 63, 94, 0.12); min-height: 82px;">
-            <div style="font-size: 12px; font-weight: 800; color: #9f1239; display: flex; align-items: center; justify-content: space-between; gap: 6px;">
-                <span>🩺💖 Dr. Kayalvizhi</span>
-                <span style="background: #e11d48; color: #ffffff; font-size: 9.5px; padding: 1px 6px; border-radius: 999px; text-transform: uppercase;">CHC Thirunallar</span>
-            </div>
-            <div style="font-size: 12px; color: #881337; margin-top: 4px; font-weight: 900;">
-                🩺 {ky_active} Shifts • 💞 {ky_off} Off Days
-            </div>
-            <div style="font-size: 10.5px; color: #be123c; margin-top: 2px; font-weight: 700;">
-                Upload roster photo → WhatsApp Table
-            </div>
-        </div>
-        """, unsafe_allow_html=True)
-
-        main_ky_btn_label = "✖️ Close Dr. Kayalvizhi" if st.session_state.show_kayal_roster else "🩺💖 Open Dr. Kayalvizhi"
-        if st.button(main_ky_btn_label, use_container_width=True, type="primary" if not st.session_state.show_kayal_roster else "secondary", key="main_btn_open_kayal"):
-            st.session_state.show_kayal_roster = not st.session_state.show_kayal_roster
-            st.session_state.active_special_view = "kayal" if st.session_state.show_kayal_roster else None
-            st.rerun()
-
-    with card_col4:
-        with st.expander("🔑 Quick Device Passwords", expanded=False):
-            st.caption("🔒 Stored in your client browser on this device. Never saved on any server.")
-            q_scapia = st.text_input(
-                "Scapia Axis Password",
-                value=st.session_state.session_passwords.get("scapia", ""),
-                type="password",
-                help="UPPERCASE name (4) + DDMM",
-                key="q_inp_scapia"
-            )
-            q_hdfc = st.text_input(
-                "HDFC Password",
-                value=st.session_state.session_passwords.get("hdfc", ""),
-                type="password",
-                help="UPPERCASE name (4) + DDMM",
-                key="q_inp_hdfc"
-            )
-            q_icici = st.text_input(
-                "ICICI Password",
-                value=st.session_state.session_passwords.get("icici", ""),
-                type="password",
-                help="Lowercase name (4) + DDMM",
-                key="q_inp_icici"
-            )
-            q_sbi = st.text_input(
-                "SBI Password",
-                value=st.session_state.session_passwords.get("sbi", ""),
-                type="password",
-                help="DDMMYYYY + Last 4 digits",
-                key="q_inp_sbi"
-            )
-            q_payslip = st.text_input(
-                "Salary Payslip Password",
-                value=st.session_state.session_passwords.get("payslip", ""),
-                type="password",
-                help="Employee No + PAN last 4 digits (e.g. 115000A)",
-                key="q_inp_payslip"
-            )
-            q_btn_col1, q_btn_col2 = st.columns(2)
-            with q_btn_col1:
-                if st.button("💾 Save Passwords", use_container_width=True, type="primary", key="q_btn_save"):
-                    st.session_state.session_passwords["scapia"] = q_scapia.strip()
-                    st.session_state.session_passwords["icici"] = q_icici.strip()
-                    st.session_state.session_passwords["hdfc"] = q_hdfc.strip()
-                    st.session_state.session_passwords["sbi"] = q_sbi.strip()
-                    st.session_state.session_passwords["payslip"] = q_payslip.strip()
-                    st.session_state["pending_save_vault"] = {
-                        "scapia": q_scapia.strip(),
-                        "icici": q_icici.strip(),
-                        "hdfc": q_hdfc.strip(),
-                        "sbi": q_sbi.strip(),
-                        "payslip": q_payslip.strip(),
-                        "sheets_webhook_url": st.session_state.session_passwords.get("sheets_webhook_url", "")
-                    }
-                    st.session_state["sidebar_toast_until"] = time.time() + 5.0
-                    st.session_state["sidebar_toast_notice"] = {
-                        "type": "success",
-                        "title": "Passwords Saved Locally!",
-                        "desc": "Stored in browser vault for this device."
-                    }
-                    st.rerun()
-            with q_btn_col2:
-                if st.button("🗑️ Forget Passwords", use_container_width=True, key="q_btn_forget"):
-                    forget_browser_passwords()
-                    st.rerun()
-
-# --- Gemini Developer API Assistant (Free Tier, Token-Compact Context) ---
 def _get_gemini_api_key():
     try:
         if "GEMINI_API_KEY" in st.secrets and str(st.secrets["GEMINI_API_KEY"]).strip():
@@ -1215,8 +772,97 @@ def _ask_gemini_api(user_prompt, api_key):
 
     return False, last_err or "No response from Gemini API."
 
+# --- Live Summary Metrics for Header & Segmented Navigation ---
+shared_sf = get_shared_shafana_store()
+sf_entries = [e for e in shared_sf.get("entries", []) if e.get("role") == "shafana_order"]
+sf_open_cb = float(shared_sf.get("openingCb", 0.0) or 0.0)
+sf_cb_used = float(shared_sf.get("manualCbUsed", 0.0) or 0.0)
+sf_bill_due = sum(float(e.get("amount", 0.0)) for e in sf_entries)
+sf_cb_earned = sum(float(e.get("cashback_earned", 0.0)) for e in sf_entries)
+sf_net_kitty = sf_open_cb + sf_cb_earned - sf_cb_used
 
+shared_ky = get_shared_kayal_store()
+ky_entries = shared_ky.get("entries", [])
+ky_active = sum(1 for e in ky_entries if e.get("shift", "OFF").upper() != "OFF")
+ky_off = sum(1 for e in ky_entries if e.get("shift", "OFF").upper() == "OFF")
 
+active_vault_list = [
+    name for key, name in [("scapia", "Scapia"), ("hdfc", "HDFC"), ("icici", "ICICI"), ("sbi", "SBI"), ("payslip", "Payslip")]
+    if st.session_state.session_passwords.get(key)
+]
+vault_status_text = f"Vault ({len(active_vault_list)})" if active_vault_list else "Vault Empty"
+git_info = get_git_last_updated_info()
+
+# --- Sleek Apple / Fintech Top Header Bar ---
+hdr_col1, hdr_col2 = st.columns([5.5, 1.1])
+with hdr_col1:
+    st.markdown(f"""
+    <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px; padding: 4px 0 8px 0;">
+        <div style="display: flex; align-items: center; gap: 12px;">
+            <div style="width: 38px; height: 38px; border-radius: 11px; background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%); display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 14px rgba(99, 102, 241, 0.3);">
+                <svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="#ffffff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg>
+            </div>
+            <div>
+                <div style="font-size: 20px; font-weight: 800; letter-spacing: -0.025em; color: {text_primary}; line-height: 1.15;">Smart Bill Segregator</div>
+                <div style="font-size: 11.5px; font-weight: 500; color: {text_secondary}; margin-top: 2px;">
+                    {vault_status_text} &nbsp;·&nbsp; Kayalvizhi: {ky_active} Shifts / {ky_off} Off &nbsp;·&nbsp; Shafana: ₹{sf_bill_due:,.0f} Due (₹{sf_net_kitty:,.0f} CB) &nbsp;·&nbsp; <span style="font-family: monospace;">#{html_lib.escape(git_info['hash'])}</span>
+                </div>
+            </div>
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+with hdr_col2:
+    theme_btn_label = "Light Mode" if is_dark else "Dark Mode"
+    if st.button(theme_btn_label, use_container_width=True, type="secondary", key="btn_toggle_ui_theme"):
+        st.session_state.ui_theme = "light" if is_dark else "dark"
+        st.rerun()
+
+# --- Single Segmented Top Navigation Bar (5 Clean Tabs) ---
+nav_cols = st.columns(5)
+nav_items = [
+    ("statements", "Statements & EMIs"),
+    ("kayal", f"Dr. Kayalvizhi ({ky_active})"),
+    ("shafana", f"Shafana (₹{sf_bill_due:,.0f})"),
+    ("ai", "Ask Gemini AI"),
+    ("settings", f"Vault & Settings ({len(active_vault_list)})")
+]
+for idx, (nav_key, nav_label) in enumerate(nav_items):
+    is_curr = (st.session_state.active_nav == nav_key)
+    if nav_cols[idx].button(
+        nav_label,
+        use_container_width=True,
+        type="primary" if is_curr else "secondary",
+        key=f"top_seg_nav_{nav_key}"
+    ):
+        st.session_state.active_nav = nav_key
+        if nav_key == "kayal":
+            st.session_state.show_kayal_roster = True
+            st.session_state.show_shafana_tracker = False
+            st.session_state.active_special_view = "kayal"
+        elif nav_key == "shafana":
+            st.session_state.show_shafana_tracker = True
+            st.session_state.show_kayal_roster = False
+            st.session_state.active_special_view = "shafana"
+        elif nav_key == "statements":
+            st.session_state.show_kayal_roster = False
+            st.session_state.show_shafana_tracker = False
+            st.session_state.active_special_view = None
+        elif nav_key == "ai":
+            st.session_state.show_ai_chat = True
+        st.rerun()
+
+st.markdown("<div style='height: 6px;'></div>", unsafe_allow_html=True)
+
+# --- Compact File Uploader (Visible on Statements, Dr. Kayalvizhi, and Shafana views) ---
+if st.session_state.active_nav in ("statements", "kayal", "shafana"):
+    uploaded_files = st.file_uploader(
+        "Drop Statement PDFs, Fold / Shafana Screenshots, or Dr. Kayalvizhi Duty Roster Photo (Processed strictly in RAM)",
+        type=["pdf", "png", "jpg", "jpeg", "webp"],
+        accept_multiple_files=True,
+        key="main_file_uploader"
+    )
+else:
+    uploaded_files = None
 
 # --- Process Uploaded Files Strictly in RAM (Zero Disk Writes!) ---
 st.session_state.statements_data = {}
@@ -1346,14 +992,14 @@ if uploaded_files:
                 _save_statement_summary_to_bill_names(slot_key, rdata)
                 if rdata.get("payslip_meta", {}).get("is_payslip"):
                     pm = rdata["payslip_meta"]
-                    st.success(f"✅ Salary Payslip Loaded: {up_file.name} ({pm.get('pay_period')}) — Net Pay {pm.get('net_pay')} • Full 30-Day Rate: ₹{pm.get('full_month_gross', 0):,.2f}/mo (₹{pm.get('per_day_rate', 0):,.2f}/day)")
+                    st.success(f"Salary Payslip Loaded: {up_file.name} ({pm.get('pay_period')}) — Net Pay {pm.get('net_pay')} • Full 30-Day Rate: ₹{pm.get('full_month_gross', 0):,.2f}/mo (₹{pm.get('per_day_rate', 0):,.2f}/day)")
                 else:
-                    st.success(f"✅ Unlocked in memory: {up_file.name} ({rdata.get('bank_name')}) — {len(rdata.get('date_groups', {}))} date groups found")
+                    st.success(f"Unlocked in memory: {up_file.name} ({rdata.get('bank_name')}) — {len(rdata.get('date_groups', {}))} date groups found")
             if rdata.get("unlocked_pdf_b64"):
                 try:
                     _pdf_raw = base64.b64decode(rdata["unlocked_pdf_b64"])
                     st.download_button(
-                        label=f"🔓 Open / Download Unlocked PDF ({up_file.name})",
+                        label=f"Download Unlocked PDF ({up_file.name})",
                         data=_pdf_raw,
                         file_name=f"Unlocked_{up_file.name}",
                         mime="application/pdf",
@@ -1402,7 +1048,7 @@ if uploaded_files:
 
                     st.caption(f"🔑 Password pattern: **{hint_desc}**")
                     inline_pwd = st.text_input(f"Enter {selected_bank} password:", type="password", key=f"inp_{up_file.name}")
-                    if st.form_submit_button("🔓 Unlock & Save in Browser", use_container_width=True):
+                    if st.form_submit_button("Unlock & Save to Device Vault", use_container_width=True):
                         if inline_pwd.strip():
                             st.session_state.session_passwords[bank_key] = inline_pwd.strip()
                             st.session_state["pending_save_vault"] = dict(st.session_state.session_passwords)
@@ -1414,30 +1060,37 @@ if uploaded_files:
                             }
                             st.rerun()
 
-# Always include Web-Synced Shafana Cashback Tracker when toggled open OR when an ICICI statement is uploaded for cross-verification
+# Keep special views synchronized with active_nav
 has_icici_loaded = any("icici" in k.lower() for k in st.session_state.statements_data.keys())
-if st.session_state.show_kayal_roster and "Kayal_Duty_Roster" not in st.session_state.statements_data:
+if (st.session_state.active_nav == "kayal" or st.session_state.show_kayal_roster) and "Kayal_Duty_Roster" not in st.session_state.statements_data:
     st.session_state.statements_data["Kayal_Duty_Roster"] = unlock_statements.build_kayal_statement_from_roster(get_shared_kayal_store())
-if (st.session_state.show_shafana_tracker or has_icici_loaded) and "Shafana_Cashback" not in st.session_state.statements_data:
+if (st.session_state.active_nav == "shafana" or st.session_state.show_shafana_tracker or has_icici_loaded) and "Shafana_Cashback" not in st.session_state.statements_data:
     st.session_state.statements_data["Shafana_Cashback"] = unlock_statements.build_shafana_statement_from_ledger(get_shared_shafana_store())
 
-with st.expander("🤖 Ask Gemini AI Assistant (Duty Roster, Bills, EMIs & Cashback)", expanded=bool(st.session_state.show_ai_chat or st.session_state.ai_chat_history)):
+# ==============================================================================
+# VIEW 1: ASK GEMINI AI ASSISTANT
+# ==============================================================================
+if st.session_state.active_nav == "ai":
+    st.markdown(f"""
+    <div style="background: {bg_surface}; border: 1px solid {border_subtle}; border-radius: 18px; padding: 18px 20px; margin-bottom: 14px; backdrop-filter: blur(20px) saturate(180%);">
+        <div style="font-size: 16px; font-weight: 700; letter-spacing: -0.02em; color: {text_primary};">Gemini AI Assistant</div>
+        <div style="font-size: 12.5px; color: {text_secondary}; margin-top: 2px;">Connected to Dr. Kayalvizhi's full CHC Thirunallar roster &amp; relief combinations, ICICI/HDFC paid &amp; unpaid bill cards, ongoing EMIs, and Shafana's cashback ledger.</div>
+    </div>
+    """, unsafe_allow_html=True)
+
     gemini_key = _get_gemini_api_key()
     if not gemini_key:
-        st.info(
-            "🔑 Add your free **Gemini API Key** from [Google AI Studio](https://aistudio.google.com/docs/api-key) "
-            "either in **Streamlit Cloud Secrets (`GEMINI_API_KEY`)** or in the sidebar under **🔑 Device Stored Passwords**."
-        )
+        st.info("Add your Gemini API Key in Streamlit Cloud Secrets (`GEMINI_API_KEY`) or open the **Vault & Settings** tab above.")
     else:
-        q_cols = st.columns([1, 1, 1, 0.7])
+        q_cols = st.columns([1.2, 1.2, 1.1, 0.7])
         quick_prompt = None
-        if q_cols[0].button("🩺 Kayalvizhi's next off day?", use_container_width=True, key="ai_q1"):
-            quick_prompt = "When is Dr. Kayalvizhi's next off day and what is her schedule this week?"
-        if q_cols[1].button("💳 Summarize my bills & EMIs", use_container_width=True, key="ai_q2"):
-            quick_prompt = "Summarize my loaded credit card bills, EMIs, and saved SmartEMI plans."
-        if q_cols[2].button("🎁 Shafana cashback balance", use_container_width=True, key="ai_q3"):
-            quick_prompt = "What is Shafana's total bill due and cashback balance left?"
-        if q_cols[3].button("🗑️ Clear Chat", use_container_width=True, key="ai_clr"):
+        if q_cols[0].button("Kayalvizhi's relief combos & next off", use_container_width=True, key="ai_q1"):
+            quick_prompt = "Which doctor relieves Dr. Kayalvizhi the most, what is her highest doctor combo, and when is her next off day?"
+        if q_cols[1].button("Unpaid ICICI & HDFC bills", use_container_width=True, key="ai_q2"):
+            quick_prompt = "Which bills and EMIs are unpaid in ICICI Amazon and HDFC, and what are their amounts?"
+        if q_cols[2].button("Shafana cashback summary", use_container_width=True, key="ai_q3"):
+            quick_prompt = "What is Shafana's total bill due and remaining cashback balance?"
+        if q_cols[3].button("Clear History", use_container_width=True, key="ai_clr"):
             st.session_state.ai_chat_history = []
             st.rerun()
 
@@ -1445,593 +1098,482 @@ with st.expander("🤖 Ask Gemini AI Assistant (Duty Roster, Bills, EMIs & Cashb
             with st.chat_message(msg["role"]):
                 st.markdown(msg["content"])
 
-        typed_prompt = st.chat_input("Ask about Kayalvizhi's duty, your bills, EMIs, or Shafana's cashback...", key="gemini_chat_inp")
+        typed_prompt = st.chat_input("Ask about Kayalvizhi's duty combos, unpaid ICICI/HDFC bills, EMIs, or Shafana's cashback...", key="gemini_chat_inp")
         final_prompt = quick_prompt or typed_prompt
         if final_prompt:
             st.session_state.ai_chat_history.append({"role": "user", "content": final_prompt})
-            with st.spinner("Asking Gemini..."):
+            with st.spinner("Analyzing ledger & roster context..."):
                 ok_ai, ans_ai = _ask_gemini_api(final_prompt, gemini_key)
-            reply_txt = ans_ai if ok_ai else f"⚠️ Gemini API Error: {ans_ai}"
+            reply_txt = ans_ai if ok_ai else f"Gemini API Error: {ans_ai}"
             st.session_state.ai_chat_history.append({"role": "assistant", "content": reply_txt})
             st.rerun()
 
-# --- Active Statements Controls & Clear State ---
-if st.session_state.statements_data:
-    status_cols = st.columns([3, 1.2, 1, 1])
-    with status_cols[0]:
-        badge_html = " ".join([
-            f'<span style="background-color: rgba(241, 245, 249, 0.15); color: inherit; padding: 4px 12px; border-radius: 12px; font-size: 12px; font-weight: 800; border: 1px solid rgba(203, 213, 225, 0.3); margin-right: 8px;">🏛️ {s.get("bank_name", k)} ({len(s.get("date_groups", {}))} date groups)</span>'
-            for k, s in st.session_state.statements_data.items()
-        ])
-        st.markdown(f"<div style='margin-bottom: 12px; display: flex; align-items: center; flex-wrap: wrap; gap: 6px;'><span style='font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em;'>Active Session Statements:</span> {badge_html}</div>", unsafe_allow_html=True)
-    with status_cols[1]:
-        if st.button("☁️ Push to Sheets", use_container_width=True, type="primary", help="Sync loaded bills & friend EMIs to your Google Sheets Web App URL"):
-            webhook_url = st.session_state.session_passwords.get("sheets_webhook_url", "").strip()
-            if not webhook_url:
-                st.warning("Paste your Google Sheets Web App URL in the Sidebar (🔑 Device Stored Passwords) first!")
-            else:
-                import urllib.request
-                bills, reimbursements = [], []
-                seen_loan_ids = set()
-                for k_st, rdata in st.session_state.statements_data.items():
-                    if (rdata.get("shafana_meta") or {}).get("is_shafana") or (rdata.get("kayal_meta") or {}).get("is_kayal"):
-                        continue
-                    emis = rdata.get("ongoing_emis", [])
-                    bills.append({
-                        "month": rdata.get("statement_month", ""),
-                        "bank": rdata.get("bank_short", ""),
-                        "total_due": rdata.get("total_due", ""),
-                        "due_date": rdata.get("due_date", ""),
-                        "cashback_summary": rdata.get("reward_points", ""),
-                        "notes": f"{len(emis)} ongoing EMI(s) tracked"
-                    })
-                    for emi in emis:
-                        lid = str(emi.get("loan_id", ""))
-                        if lid:
-                            seen_loan_ids.add(lid)
-                        ename = st.session_state.emi_nicknames.get(lid) or emi.get("custom_name") or lid
-                        reimbursements.append({
+# ==============================================================================
+# VIEW 2: VAULT & SETTINGS (IN-PAGE DRAWER REPLACING BULKY LEFT SIDEBAR)
+# ==============================================================================
+elif st.session_state.active_nav == "settings":
+    set_col1, set_col2 = st.columns(2)
+    with set_col1:
+        st.markdown(f"""
+        <div style="background: {bg_surface}; border: 1px solid {border_subtle}; border-radius: 16px; padding: 16px 18px; margin-bottom: 12px;">
+            <div style="font-size: 15px; font-weight: 700; color: {text_primary}; letter-spacing: -0.015em;">Device Password Vault</div>
+            <div style="font-size: 12px; color: {text_secondary}; margin-top: 2px;">Stored strictly in your browser's localStorage on this device. Never transmitted to or stored on any server disk.</div>
+        </div>
+        """, unsafe_allow_html=True)
+
+        scapia_val = st.text_input("Axis Bank (Scapia) Password", value=st.session_state.session_passwords.get("scapia", ""), type="password", help="UPPERCASE name (4) + DDMM", key="input_scapia_pwd")
+        hdfc_val = st.text_input("HDFC Bank Password", value=st.session_state.session_passwords.get("hdfc", ""), type="password", help="UPPERCASE name (4) + DDMM or Name(4)+CardLast4 for SmartEMI", key="input_hdfc_pwd")
+        icici_val = st.text_input("ICICI Bank Password", value=st.session_state.session_passwords.get("icici", ""), type="password", help="Lowercase name (4) + DDMM", key="input_icici_pwd")
+        sbi_val = st.text_input("SBI SimplyCLICK Password", value=st.session_state.session_passwords.get("sbi", ""), type="password", help="DDMMYYYY + Last 4 digits of card", key="input_sbi_pwd")
+        payslip_val = st.text_input("Salary Payslip Password", value=st.session_state.session_passwords.get("payslip", ""), type="password", help="Employee No + PAN last 4 digits (e.g. 115000A)", key="input_payslip_pwd")
+
+        v_b1, v_b2 = st.columns(2)
+        if v_b1.button("Save Vault on This Device", use_container_width=True, type="primary", key="btn_save_vault_main"):
+            st.session_state.session_passwords["scapia"] = scapia_val.strip()
+            st.session_state.session_passwords["hdfc"] = hdfc_val.strip()
+            st.session_state.session_passwords["icici"] = icici_val.strip()
+            st.session_state.session_passwords["sbi"] = sbi_val.strip()
+            st.session_state.session_passwords["payslip"] = payslip_val.strip()
+            st.session_state["pending_save_vault"] = dict(st.session_state.session_passwords)
+            st.success("Passwords saved to browser localStorage on this device.")
+            st.rerun()
+        if v_b2.button("Clear Saved Passwords", use_container_width=True, type="secondary", key="btn_forget_vault_main"):
+            forget_browser_passwords()
+            st.rerun()
+
+    with set_col2:
+        st.markdown(f"""
+        <div style="background: {bg_surface}; border: 1px solid {border_subtle}; border-radius: 16px; padding: 16px 18px; margin-bottom: 12px;">
+            <div style="font-size: 15px; font-weight: 700; color: {text_primary}; letter-spacing: -0.015em;">EMI Nicknames &amp; Cloud Sync</div>
+            <div style="font-size: 12px; color: {text_secondary}; margin-top: 2px;">Assign friend names &amp; WhatsApp numbers to EMI loans, or configure Google Sheets &amp; Gemini API keys.</div>
+        </div>
+        """, unsafe_allow_html=True)
+
+        if st.session_state.emi_nicknames:
+            for lid, lname in list(st.session_state.emi_nicknames.items()):
+                lphone = st.session_state.emi_phones.get(lid) or st.session_state.emi_phones.get(lname, "")
+                phone_badge = f" · +{lphone}" if lphone else ""
+                st.markdown(
+                    f"<div style='background:{bg_elevated};border:1px solid {border_subtle};border-radius:10px;padding:8px 12px;margin-bottom:6px;font-size:12px;color:{text_primary};display:flex;justify-content:space-between;'>"
+                    f"<b>{html_lib.escape(lname)}</b> <span style='font-family:monospace;color:{text_secondary};'>{html_lib.escape(lid)}{html_lib.escape(phone_badge)}</span>"
+                    f"</div>",
+                    unsafe_allow_html=True
+                )
+
+        emi_loan_key = st.text_input("Loan ID / EMI Key", placeholder="e.g. 146608745 or 28/09/2026_44370.00", key="side_emi_key")
+        emi_friend_name = st.text_input("Friend / Item Nickname", placeholder="e.g. Naveen S25 Edge", key="side_emi_name")
+        emi_friend_phone = st.text_input("Friend WhatsApp No. (Optional)", placeholder="10-digit mobile", key="side_emi_phone")
+        e_b1, e_b2 = st.columns(2)
+        if e_b1.button("Save EMI Nickname", use_container_width=True, type="primary", key="btn_save_emi_side"):
+            if emi_loan_key.strip() and emi_friend_name.strip():
+                k_clean = emi_loan_key.strip()
+                n_clean = emi_friend_name.strip()
+                p_digits = "".join(ch for ch in emi_friend_phone.strip() if ch.isdigit())
+                if len(p_digits) == 10:
+                    p_digits = "91" + p_digits
+                st.session_state.emi_nicknames[k_clean] = n_clean
+                if p_digits:
+                    st.session_state.emi_phones[k_clean] = p_digits
+                    st.session_state.emi_phones[n_clean] = p_digits
+                st.session_state["pending_save_emi_vault"] = {
+                    "names": dict(st.session_state.emi_nicknames),
+                    "phones": dict(st.session_state.emi_phones)
+                }
+                meta_bn = unlock_statements.load_bill_names_web()
+                meta_bn.setdefault("bill_names", {})[k_clean] = n_clean
+                unlock_statements.save_bill_names_web(meta_bn)
+                sync_bill_names_to_github(meta_bn, commit_msg=f"Save EMI nickname {n_clean}")
+                st.rerun()
+        if e_b2.button("Clear EMI Nicknames", use_container_width=True, type="secondary", key="btn_clear_emi_side"):
+            st.session_state.emi_nicknames = {}
+            st.session_state.emi_phones = {}
+            st.session_state["pending_clear_emi_vault"] = True
+            st.session_state["emi_vault_cleared_until"] = time.time() + 4.0
+            st.rerun()
+
+        webhook_val = st.text_input("Google Sheets Web App URL", value=st.session_state.session_passwords.get("sheets_webhook_url", ""), key="input_webhook_url")
+        gemini_key_val = st.text_input("Gemini API Key (Optional if set in Streamlit Secrets)", value=st.session_state.session_passwords.get("gemini_api_key", ""), type="password", key="input_gemini_api_key")
+        c_b1, c_b2 = st.columns(2)
+        if c_b1.button("Save Integration Keys", use_container_width=True, type="secondary", key="btn_save_integrations"):
+            st.session_state.session_passwords["sheets_webhook_url"] = webhook_val.strip()
+            st.session_state.session_passwords["gemini_api_key"] = gemini_key_val.strip()
+            st.session_state["pending_save_vault"] = dict(st.session_state.session_passwords)
+            st.success("Integration settings saved.")
+            st.rerun()
+        with c_b2:
+            st.link_button("Google Sheet Template", unlock_statements.GOOGLE_SHEET_TEMPLATE_URL, use_container_width=True)
+
+# ==============================================================================
+# VIEW 3: SHAFANA CASHBACK QUICK CONTROLS + DASHBOARD
+# ==============================================================================
+elif st.session_state.active_nav == "shafana":
+    sf_col1, sf_col2, sf_col3, sf_col4 = st.columns([1.4, 1, 1.4, 1])
+    with sf_col1:
+        new_cb_used = st.number_input("Cashback Used by Shafana (₹)", min_value=0.0, value=float(sf_cb_used), step=10.0, key="side_sf_cb_used")
+    with sf_col2:
+        st.markdown("<div style='height: 27px;'></div>", unsafe_allow_html=True)
+        if st.button("Update Cashback Used", use_container_width=True, type="primary", key="side_save_cb_used"):
+            shared_sf["manualCbUsed"] = float(new_cb_used)
+            update_shared_shafana_store(shared_sf)
+            st.session_state.statements_data["Shafana_Cashback"] = unlock_statements.build_shafana_statement_from_ledger(get_shared_shafana_store())
+            st.rerun()
+    with sf_col3:
+        q_sf_amt = st.number_input("Add New Order Bill Amount (₹)", min_value=0.0, step=50.0, key="side_sf_amt")
+    with sf_col4:
+        st.markdown("<div style='height: 27px;'></div>", unsafe_allow_html=True)
+        if st.button("Add Order (+5% CB)", use_container_width=True, type="secondary", key="side_add_sf_entry"):
+            if q_sf_amt > 0:
+                import math as _math
+                ist_now = datetime.now(tz=timezone(timedelta(hours=5, minutes=30))).strftime("%d %b %Y")
+                cb_calc = float(_math.floor(q_sf_amt * 0.05))
+                shared_sf.setdefault("entries", []).insert(0, {
+                    "id": f"ord_{int(time.time())}_{q_sf_amt:.2f}",
+                    "method": "Amazon Pay Credit Card",
+                    "description": "Amazon Order — Delivering to Raja Mohamed",
+                    "amount": float(q_sf_amt),
+                    "cashback_earned": cb_calc,
+                    "date_time": ist_now,
+                    "role": "shafana_order",
+                    "recipient": "Raja Mohamed",
+                    "address": "8 Puduthurai Main Road, Karaikal 609602",
+                    "arriving_by": "",
+                    "source_file": "Manual Entry"
+                })
+                update_shared_shafana_store(shared_sf)
+                st.session_state.statements_data["Shafana_Cashback"] = unlock_statements.build_shafana_statement_from_ledger(get_shared_shafana_store())
+                st.rerun()
+
+# --- Active Statements Action Bar (When Statements Are Loaded) ---
+if st.session_state.active_nav in ("statements", "kayal", "shafana") and st.session_state.statements_data:
+    real_stmts = [k for k, s in st.session_state.statements_data.items() if not (s.get("shafana_meta") or {}).get("is_shafana") and not (s.get("kayal_meta") or {}).get("is_kayal")]
+    if real_stmts or st.session_state.active_nav == "statements":
+        status_cols = st.columns([3.4, 1.2, 0.9, 0.9])
+        with status_cols[0]:
+            badge_html = " ".join([
+                f'<span style="background: {bg_surface}; color: {text_primary}; padding: 4px 11px; border-radius: 8px; font-size: 11.5px; font-weight: 600; border: 1px solid {border_subtle}; margin-right: 6px;">{s.get("bank_name", k)} ({len(s.get("date_groups", {}))})</span>'
+                for k, s in st.session_state.statements_data.items()
+            ])
+            st.markdown(f"<div style='margin: 6px 0 10px 0; display: flex; align-items: center; flex-wrap: wrap; gap: 6px;'><span style='font-size: 11px; font-weight: 700; color: {text_secondary}; text-transform: uppercase; letter-spacing: 0.05em;'>Loaded:</span> {badge_html}</div>", unsafe_allow_html=True)
+        with status_cols[1]:
+            if st.button("Push to Sheets", use_container_width=True, type="primary", help="Sync loaded bills & friend EMIs to Google Sheets"):
+                webhook_url = st.session_state.session_passwords.get("sheets_webhook_url", "").strip()
+                if not webhook_url:
+                    st.warning("Configure your Google Sheets Web App URL in the Vault & Settings tab first.")
+                else:
+                    import urllib.request
+                    bills, reimbursements = [], []
+                    seen_loan_ids = set()
+                    for k_st, rdata in st.session_state.statements_data.items():
+                        if (rdata.get("shafana_meta") or {}).get("is_shafana") or (rdata.get("kayal_meta") or {}).get("is_kayal"):
+                            continue
+                        emis = rdata.get("ongoing_emis", [])
+                        bills.append({
                             "month": rdata.get("statement_month", ""),
                             "bank": rdata.get("bank_short", ""),
-                            "loan_id": lid,
-                            "friend_name": ename,
-                            "amount": emi.get("total_amount", ""),
-                            "remaining": emi.get("balance_tenure", "-"),
-                            "status": "Pending"
+                            "total_due": rdata.get("total_due", ""),
+                            "due_date": rdata.get("due_date", ""),
+                            "cashback_summary": rdata.get("reward_points", ""),
+                            "notes": f"{len(emis)} ongoing EMI(s) tracked"
                         })
-                # Also include saved SmartEMI Amortization Plans from bill_names.json['emi_plans']
-                for ep in (unlock_statements.load_bill_names_web().get("emi_plans") or []):
-                    lid = str(ep.get("loan_id", ""))
-                    if lid and lid not in seen_loan_ids:
-                        seen_loan_ids.add(lid)
-                        pname = st.session_state.emi_nicknames.get(lid) or ep.get("plan_name") or lid
-                        sched = ep.get("schedule") or []
-                        start_dt = sched[0].get("date", "Upcoming") if sched else "Upcoming"
-                        reimbursements.append({
-                            "month": start_dt,
-                            "bank": ep.get("bank", "HDFC"),
-                            "loan_id": lid,
-                            "friend_name": pname,
-                            "amount": f"₹{float(ep.get('amount', 0)):,.2f}",
-                            "remaining": f"{ep.get('tenure_months', len(sched))} Months",
-                            "status": "Saved Plan"
-                        })
-                try:
-                    req = urllib.request.Request(
-                        webhook_url,
-                        data=json.dumps({"bills": bills, "reimbursements": reimbursements}).encode("utf-8"),
-                        headers={"Content-Type": "application/json", "User-Agent": "SmartBillSegregator/1.0"}
-                    )
-                    with urllib.request.urlopen(req, timeout=12) as resp:
-                        st.success(f"✅ Pushed {len(bills)} bill(s) & {len(reimbursements)} EMI(s) to Google Sheets!")
-                except Exception as ex_sh:
-                    st.error(f"Google Sheets sync failed: {ex_sh}")
-    with status_cols[2]:
-        if st.button("🔄 Refresh View", use_container_width=True):
-            st.rerun()
-    with status_cols[3]:
-        if st.button("🗑️ Clear Session", use_container_width=True, help="Wipe loaded statements from memory"):
-            st.session_state.statements_data = {}
-            st.session_state.show_shafana_tracker = False
-            st.session_state.show_kayal_roster = False
-            st.rerun()
+                        for emi in emis:
+                            lid = str(emi.get("loan_id", ""))
+                            if lid:
+                                seen_loan_ids.add(lid)
+                            ename = st.session_state.emi_nicknames.get(lid) or emi.get("custom_name") or lid
+                            reimbursements.append({
+                                "month": rdata.get("statement_month", ""),
+                                "bank": rdata.get("bank_short", ""),
+                                "loan_id": lid,
+                                "friend_name": ename,
+                                "amount": emi.get("total_amount", ""),
+                                "remaining": emi.get("balance_tenure", "-"),
+                                "status": "Pending"
+                            })
+                    for ep in (unlock_statements.load_bill_names_web().get("emi_plans") or []):
+                        lid = str(ep.get("loan_id", ""))
+                        if lid and lid not in seen_loan_ids:
+                            seen_loan_ids.add(lid)
+                            pname = st.session_state.emi_nicknames.get(lid) or ep.get("plan_name") or lid
+                            sched = ep.get("schedule") or []
+                            start_dt = sched[0].get("date", "Upcoming") if sched else "Upcoming"
+                            reimbursements.append({
+                                "month": start_dt,
+                                "bank": ep.get("bank", "HDFC"),
+                                "loan_id": lid,
+                                "friend_name": pname,
+                                "amount": f"₹{float(ep.get('amount', 0)):,.2f}",
+                                "remaining": f"{ep.get('tenure_months', len(sched))} Months",
+                                "status": "Saved Plan"
+                            })
+                    try:
+                        req = urllib.request.Request(
+                            webhook_url,
+                            data=json.dumps({"bills": bills, "reimbursements": reimbursements}).encode("utf-8"),
+                            headers={"Content-Type": "application/json", "User-Agent": "SmartBillSegregator/1.0"}
+                        )
+                        with urllib.request.urlopen(req, timeout=12) as resp:
+                            st.success(f"Synced {len(bills)} bill(s) & {len(reimbursements)} EMI(s) to Google Sheets.")
+                    except Exception as ex_sh:
+                        st.error(f"Google Sheets sync failed: {ex_sh}")
+        with status_cols[2]:
+            if st.button("Refresh", use_container_width=True):
+                st.rerun()
+        with status_cols[3]:
+            if st.button("Clear", use_container_width=True):
+                st.session_state.statements_data = {}
+                st.session_state.show_shafana_tracker = False
+                st.session_state.show_kayal_roster = False
+                st.session_state.active_nav = "statements"
+                st.rerun()
 
-# --- CARDS SUPPORTED SO FAR: Professional Dual Deck Display with Crazy Comic Disclaimer ---
-def get_card_shuffle_html():
-    # Scapia Dual Travel Editions
+# --- Sleek Apple / Fintech Empty-State Showcase (Adaptive Dark & Light Mode) ---
+def get_card_shuffle_html(dark_mode=True):
     scapia_orange_b64 = unlock_statements.get_card_b64("card-facia-scapia-orange.png")
     scapia_green_b64 = unlock_statements.get_card_b64("card-facia-scapia-green.png")
-
-    # Core Rewards Cards
     swiggy_b64 = unlock_statements.get_card_b64("card-facia-swiggy.jpg")
     amazon_b64 = unlock_statements.get_card_b64("card-facia-amazon.png")
     sbi_b64 = unlock_statements.get_card_b64("simply-click-card-face.png")
+
+    card_bg = "rgba(17, 24, 39, 0.82)" if dark_mode else "rgba(255, 255, 255, 0.94)"
+    card_border = "rgba(148, 163, 184, 0.16)" if dark_mode else "rgba(226, 232, 240, 0.95)"
+    sec_bg = "rgba(15, 23, 42, 0.65)" if dark_mode else "rgba(248, 250, 252, 0.88)"
+    t_prim = "#f8fafc" if dark_mode else "#0f172a"
+    t_sec = "#94a3b8" if dark_mode else "#64748b"
+    pill_bg = "rgba(30, 41, 59, 0.8)" if dark_mode else "#f1f5f9"
+    pill_border = "rgba(148, 163, 184, 0.22)" if dark_mode else "#cbd5e1"
+    pill_txt = "#e2e8f0" if dark_mode else "#334155"
 
     return f"""<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&family=Inter:wght@400;500;600;700;800;900&family=Plus+Jakarta+Sans:wght@500;600;700;800;900&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <style>
-    * {{ box-sizing: border-box; margin: 0; padding: 0; font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }}
-    body {{ background: transparent; display: flex; justify-content: center; align-items: flex-start; padding: 6px 4px 14px 4px; overflow-x: hidden; }}
-    
+    * {{ box-sizing: border-box; margin: 0; padding: 0; font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; }}
+    body {{ background: transparent; display: flex; justify-content: center; align-items: flex-start; padding: 4px 2px 12px 2px; overflow-x: hidden; }}
     .showcase-card {{
       width: 100%;
-      max-width: 980px;
-      background: rgba(255, 255, 255, 0.96);
+      max-width: 1180px;
+      background: {card_bg};
       backdrop-filter: blur(24px) saturate(180%);
       -webkit-backdrop-filter: blur(24px) saturate(180%);
-      border: 1px solid rgba(226, 232, 240, 0.95);
-      border-radius: 26px;
-      padding: 20px 22px 24px 22px;
+      border: 1px solid {card_border};
+      border-radius: 22px;
+      padding: 24px 22px;
       text-align: center;
-      box-shadow: 0 12px 35px -8px rgba(0, 0, 0, 0.08);
       display: flex;
       flex-direction: column;
       align-items: center;
       margin: 0 auto;
     }}
-
-    /* Pixel-aligned Pill Badges with Centered SVG Icons */
     .headline-pill {{
       display: inline-flex;
       align-items: center;
-      justify-content: center;
-      gap: 7px;
-      padding: 6px 15px;
+      gap: 6px;
+      padding: 5px 13px;
       border-radius: 9999px;
-      background: #f1f5f9;
-      border: 1px solid #cbd5e1;
-      color: #1e293b;
-      font-size: 11px;
-      font-weight: 800;
+      background: {pill_bg};
+      border: 1px solid {pill_border};
+      color: {pill_txt};
+      font-size: 10.5px;
+      font-weight: 700;
       text-transform: uppercase;
       letter-spacing: 0.06em;
-      line-height: 1;
-      margin-bottom: 8px;
+      margin-bottom: 10px;
     }}
-
-    .pill-icon {{
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      width: 15px;
-      height: 15px;
-      flex-shrink: 0;
-    }}
-
-    .pill-text {{
-      display: inline-block;
-      line-height: 1;
-      padding-top: 0.5px;
-    }}
-
     .title {{
-      font-size: 20px;
-      font-weight: 800;
-      color: #0f172a;
+      font-size: 19px;
+      font-weight: 700;
+      color: {t_prim};
       letter-spacing: -0.025em;
-      margin-bottom: 4px;
+      margin-bottom: 5px;
     }}
-
     .subtitle {{
       font-size: 12.5px;
-      color: #64748b;
-      max-width: 680px;
-      line-height: 1.45;
-      margin-bottom: 14px;
-      font-weight: 500;
+      color: {t_sec};
+      max-width: 640px;
+      line-height: 1.5;
+      margin-bottom: 18px;
+      font-weight: 400;
     }}
-
-    /* Dual Grid Layout: Stretched Equal-Height Side-by-Side on Desktop, Top/Bottom Stack on Mobile */
     .dual-grid {{
       display: grid;
       grid-template-columns: 1fr 1.25fr;
-      gap: 18px;
+      gap: 16px;
       width: 100%;
       align-items: stretch;
       margin-bottom: 14px;
     }}
-
     .deck-section {{
-      background: rgba(248, 250, 252, 0.85);
-      border: 1px solid rgba(226, 232, 240, 0.95);
-      border-radius: 20px;
-      padding: 16px 14px 18px 14px;
+      background: {sec_bg};
+      border: 1px solid {card_border};
+      border-radius: 18px;
+      padding: 16px 14px;
       display: flex;
       flex-direction: column;
       align-items: center;
       justify-content: space-between;
-      position: relative;
     }}
-
     .section-header-pill {{
       display: inline-flex;
       align-items: center;
-      justify-content: center;
       gap: 6px;
-      padding: 5px 13px;
+      padding: 4px 12px;
       border-radius: 9999px;
-      font-size: 11px;
-      font-weight: 800;
+      font-size: 10.5px;
+      font-weight: 700;
       text-transform: uppercase;
       letter-spacing: 0.05em;
-      line-height: 1;
-      margin-bottom: 10px;
+      background: {pill_bg};
+      border: 1px solid {pill_border};
+      color: {pill_txt};
+      margin-bottom: 8px;
     }}
-    .pill-travel {{ background: #fff7ed; border: 1px solid #fed7aa; color: #c2410c; }}
-    .pill-rewards {{ background: #eff6ff; border: 1px solid #bfdbfe; color: #1e40af; }}
-
-    /* =========================================================
-       SCAPIA SECTION: Dual Travel Editions
-       ========================================================= */
     .travel-stage {{
       perspective: 1200px;
-      perspective-origin: center center;
       width: 100%;
-      max-width: 250px;
-      height: 265px;
+      max-width: 240px;
+      height: 250px;
       position: relative;
       display: flex;
       justify-content: center;
       align-items: center;
       cursor: pointer;
-      margin: 4px 0;
     }}
-
     .card-p {{
-      width: 164px;
-      height: 258px;
-      border-radius: 16px;
-      position: absolute;
-      transform-style: preserve-3d;
-      will-change: transform, opacity;
-      user-select: none;
-      box-shadow: 0 18px 36px -10px rgba(0, 0, 0, 0.32);
-      transition: transform 0.6s cubic-bezier(0.34, 1.3, 0.64, 1), opacity 0.4s ease;
-      background-size: cover !important;
-      background-position: center !important;
-      background-repeat: no-repeat !important;
-    }}
-
-    .card-p::after, .card-l::after {{
-      content: '';
-      position: absolute;
-      inset: 0;
-      border-radius: inherit;
-      border: 1px solid rgba(255, 255, 255, 0.25);
-      pointer-events: none;
-    }}
-
-    .card-glare {{
-      position: absolute;
-      inset: 0;
-      border-radius: inherit;
-      background: linear-gradient(135deg, rgba(255,255,255,0.4) 0%, rgba(255,255,255,0.05) 50%, rgba(0,0,0,0.15) 100%);
-      pointer-events: none;
-    }}
-
-    /* Card 1: Orange Mastercard */
-    #card-p1 {{
-      background-image: url('{scapia_orange_b64}');
-      animation: shufflePortOrange 6s cubic-bezier(0.34, 1.25, 0.64, 1) infinite;
-    }}
-    /* Card 2: Green RuPay */
-    #card-p2 {{
-      background-image: url('{scapia_green_b64}');
-      animation: shufflePortGreen 6s cubic-bezier(0.34, 1.25, 0.64, 1) infinite;
-    }}
-
-    .travel-stage:hover .card-p, .rewards-stage:hover .card-l {{
-      animation-play-state: paused;
-    }}
-
-    @keyframes shufflePortOrange {{
-      0%, 42% {{ transform: translate3d(-6px, 0, 32px) scale(1) rotate(0deg); z-index: 25; opacity: 1; box-shadow: 0 22px 45px -10px rgba(0, 0, 0, 0.38); }}
-      50%, 92% {{ transform: translate3d(26px, -8px, -32px) scale(0.92) rotate(4deg); z-index: 10; opacity: 0.85; box-shadow: 0 12px 24px -8px rgba(0, 0, 0, 0.22); }}
-      100% {{ transform: translate3d(-6px, 0, 32px) scale(1) rotate(0deg); z-index: 25; opacity: 1; }}
-    }}
-
-    @keyframes shufflePortGreen {{
-      0%, 42% {{ transform: translate3d(26px, -8px, -32px) scale(0.92) rotate(4deg); z-index: 10; opacity: 0.85; box-shadow: 0 12px 24px -8px rgba(0, 0, 0, 0.22); }}
-      50%, 92% {{ transform: translate3d(-6px, 0, 32px) scale(1) rotate(0deg); z-index: 25; opacity: 1; box-shadow: 0 22px 45px -10px rgba(0, 0, 0, 0.38); }}
-      100% {{ transform: translate3d(26px, -8px, -32px) scale(0.92) rotate(4deg); z-index: 10; opacity: 0.85; }}
-    }}
-
-    /* =========================================================
-       REWARDS SECTION: Core Cashback Cards (Swiggy, Amazon, SBI)
-       ========================================================= */
-    .rewards-stage {{
-      perspective: 1200px;
-      perspective-origin: center center;
-      width: 100%;
-      max-width: 320px;
-      height: 265px;
-      position: relative;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      cursor: pointer;
-      margin: 4px 0;
-    }}
-
-    .card-l {{
-      width: 255px;
-      height: 160px;
+      width: 156px;
+      height: 244px;
       border-radius: 14px;
       position: absolute;
-      transform-style: preserve-3d;
-      will-change: transform, opacity;
-      user-select: none;
-      box-shadow: 0 18px 36px -10px rgba(0, 0, 0, 0.28);
-      transition: transform 0.6s cubic-bezier(0.34, 1.3, 0.64, 1), opacity 0.4s ease;
+      box-shadow: 0 18px 36px -10px rgba(0, 0, 0, 0.35);
       background-size: cover !important;
       background-position: center !important;
-      background-repeat: no-repeat !important;
     }}
-
-    .embossed-l {{
+    #card-p1 {{ background-image: url('{scapia_orange_b64}'); animation: shufflePortOrange 6s cubic-bezier(0.34, 1.25, 0.64, 1) infinite; }}
+    #card-p2 {{ background-image: url('{scapia_green_b64}'); animation: shufflePortGreen 6s cubic-bezier(0.34, 1.25, 0.64, 1) infinite; }}
+    @keyframes shufflePortOrange {{
+      0%, 42% {{ transform: translate3d(-6px, 0, 32px) scale(1); z-index: 25; opacity: 1; }}
+      50%, 92% {{ transform: translate3d(24px, -8px, -32px) scale(0.92) rotate(4deg); z-index: 10; opacity: 0.82; }}
+      100% {{ transform: translate3d(-6px, 0, 32px) scale(1); z-index: 25; opacity: 1; }}
+    }}
+    @keyframes shufflePortGreen {{
+      0%, 42% {{ transform: translate3d(24px, -8px, -32px) scale(0.92) rotate(4deg); z-index: 10; opacity: 0.82; }}
+      50%, 92% {{ transform: translate3d(-6px, 0, 32px) scale(1); z-index: 25; opacity: 1; }}
+      100% {{ transform: translate3d(24px, -8px, -32px) scale(0.92) rotate(4deg); z-index: 10; opacity: 0.82; }}
+    }}
+    .rewards-stage {{
+      perspective: 1200px;
+      width: 100%;
+      max-width: 310px;
+      height: 250px;
+      position: relative;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      cursor: pointer;
+    }}
+    .card-l {{
+      width: 245px;
+      height: 154px;
+      border-radius: 13px;
       position: absolute;
-      bottom: 10px;
-      left: 12px;
-      font-size: 10px;
-      font-weight: 900;
-      letter-spacing: 0.1em;
-      text-transform: uppercase;
-      font-family: monospace;
-      color: rgba(255,255,255,0.95);
-      text-shadow: 0 1.5px 2px rgba(0,0,0,0.85);
-      pointer-events: none;
+      box-shadow: 0 18px 36px -10px rgba(0, 0, 0, 0.32);
+      background-size: cover !important;
+      background-position: center !important;
     }}
-
     #card-l1 {{ background-image: url('{swiggy_b64}'); animation: shuffleLand1 9s cubic-bezier(0.34, 1.25, 0.64, 1) infinite; }}
     #card-l2 {{ background-image: url('{amazon_b64}'); animation: shuffleLand2 9s cubic-bezier(0.34, 1.25, 0.64, 1) infinite; }}
     #card-l3 {{ background-image: url('{sbi_b64}'); animation: shuffleLand3 9s cubic-bezier(0.34, 1.25, 0.64, 1) infinite; }}
-
     @keyframes shuffleLand1 {{
-      0%, 28% {{ transform: translate3d(0, 4px, 35px) scale(1) rotate(0deg); z-index: 30; opacity: 1; box-shadow: 0 20px 42px -10px rgba(0, 0, 0, 0.32); }}
-      33%, 61% {{ transform: translate3d(30px, -10px, 0px) scale(0.92) rotate(4deg); z-index: 20; opacity: 0.88; }}
-      66%, 95% {{ transform: translate3d(-28px, -14px, -35px) scale(0.85) rotate(-5deg); z-index: 10; opacity: 0.72; }}
-      100% {{ transform: translate3d(0, 4px, 35px) scale(1) rotate(0deg); z-index: 30; opacity: 1; }}
+      0%, 28% {{ transform: translate3d(0, 4px, 35px) scale(1); z-index: 30; opacity: 1; }}
+      33%, 61% {{ transform: translate3d(28px, -10px, 0px) scale(0.92) rotate(4deg); z-index: 20; opacity: 0.86; }}
+      66%, 95% {{ transform: translate3d(-26px, -14px, -35px) scale(0.85) rotate(-5deg); z-index: 10; opacity: 0.7; }}
+      100% {{ transform: translate3d(0, 4px, 35px) scale(1); z-index: 30; opacity: 1; }}
     }}
     @keyframes shuffleLand2 {{
-      0%, 28% {{ transform: translate3d(30px, -10px, 0px) scale(0.92) rotate(4deg); z-index: 20; opacity: 0.88; }}
-      33%, 61% {{ transform: translate3d(-28px, -14px, -35px) scale(0.85) rotate(-5deg); z-index: 10; opacity: 0.72; }}
-      66%, 95% {{ transform: translate3d(0, 4px, 35px) scale(1) rotate(0deg); z-index: 30; opacity: 1; }}
-      100% {{ transform: translate3d(30px, -10px, 0px) scale(0.92) rotate(4deg); z-index: 20; opacity: 0.88; }}
+      0%, 28% {{ transform: translate3d(28px, -10px, 0px) scale(0.92) rotate(4deg); z-index: 20; opacity: 0.86; }}
+      33%, 61% {{ transform: translate3d(-26px, -14px, -35px) scale(0.85) rotate(-5deg); z-index: 10; opacity: 0.7; }}
+      66%, 95% {{ transform: translate3d(0, 4px, 35px) scale(1); z-index: 30; opacity: 1; }}
+      100% {{ transform: translate3d(28px, -10px, 0px) scale(0.92) rotate(4deg); z-index: 20; opacity: 0.86; }}
     }}
     @keyframes shuffleLand3 {{
-      0%, 28% {{ transform: translate3d(-28px, -14px, -35px) scale(0.85) rotate(-5deg); z-index: 10; opacity: 0.72; }}
-      33%, 61% {{ transform: translate3d(0, 4px, 35px) scale(1) rotate(0deg); z-index: 30; opacity: 1; }}
-      66%, 95% {{ transform: translate3d(30px, -10px, 0px) scale(0.92) rotate(4deg); z-index: 20; opacity: 0.88; }}
-      100% {{ transform: translate3d(-28px, -14px, -35px) scale(0.85) rotate(-5deg); z-index: 10; opacity: 0.72; }}
+      0%, 28% {{ transform: translate3d(-26px, -14px, -35px) scale(0.85) rotate(-5deg); z-index: 10; opacity: 0.7; }}
+      33%, 61% {{ transform: translate3d(0, 4px, 35px) scale(1); z-index: 30; opacity: 1; }}
+      66%, 95% {{ transform: translate3d(28px, -10px, 0px) scale(0.92) rotate(4deg); z-index: 20; opacity: 0.86; }}
+      100% {{ transform: translate3d(-26px, -14px, -35px) scale(0.85) rotate(-5deg); z-index: 10; opacity: 0.7; }}
     }}
-
-    /* Badges & Tags Row */
-    .mini-badges {{
-      display: flex;
-      flex-wrap: wrap;
-      justify-content: center;
-      gap: 6px;
-      margin-top: 10px;
-    }}
+    .mini-badges {{ display: flex; flex-wrap: wrap; justify-content: center; gap: 6px; margin-top: 8px; }}
     .mini-badge {{
       font-size: 10.5px;
-      font-weight: 700;
+      font-weight: 600;
       padding: 4px 10px;
       border-radius: 8px;
-      background: #ffffff;
-      border: 1px solid rgba(203, 213, 225, 0.85);
-      color: #334155;
-      line-height: 1.2;
+      background: {pill_bg};
+      border: 1px solid {pill_border};
+      color: {pill_txt};
     }}
-
-    /* Crazy Comic Font Disclaimer */
-    .comic-disclaimer-box {{
-      font-family: 'Fredoka', 'Comic Sans MS', cursive, sans-serif !important;
-        font-weight: 600 !important;
-      letter-spacing: 0.025em;
-      font-size: 13.5px;
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      gap: 8px;
-      padding: 9px 18px;
+    .security-note {{
+      font-size: 11.5px;
+      font-weight: 500;
+      color: {t_sec};
+      padding: 8px 16px;
       border-radius: 9999px;
-      background: #f0fdf4;
-      border: 1.5px dashed #4ade80;
-      color: #15803d;
+      background: {sec_bg};
+      border: 1px solid {card_border};
       margin-top: 4px;
-      transform: rotate(-0.5deg);
-      box-shadow: 0 2px 8px rgba(34, 197, 94, 0.12);
-      transition: transform 0.2s ease;
     }}
-    .comic-disclaimer-box:hover {{
-      transform: rotate(0.5deg) scale(1.02);
-    }}
-
-    /* Mobile Responsive Stacking: TOP = Scapia, BOTTOM = SBI / ICICI / HDFC with Full Padding & Zero Clipping */
     @media (max-width: 859px) {{
-      .showcase-card {{
-        padding: 18px 14px 24px 14px;
-        border-radius: 22px;
-      }}
-      .dual-grid {{
-        display: flex;
-        flex-direction: column;
-        gap: 16px;
-        margin-bottom: 14px;
-      }}
-      .deck-section-travel {{
-        order: 1 !important;
-        width: 100%;
-        padding: 16px 12px 18px 12px;
-      }}
-      .deck-section-rewards {{
-        order: 2 !important;
-        width: 100%;
-        padding: 16px 12px 18px 12px;
-      }}
-      .travel-stage {{
-        height: 230px;
-        margin: 6px 0 8px 0;
-      }}
-      .card-p {{
-        width: 142px;
-        height: 222px;
-      }}
-      .rewards-stage {{
-        height: 176px;
-        margin: 8px 0 10px 0;
-      }}
-      .card-l {{
-        width: 224px;
-        height: 140px;
-      }}
-      .comic-disclaimer-box {{
-        font-size: 12px;
-        padding: 8px 14px;
-        border-radius: 16px;
-      }}
-    }}
-
-    /* Samsung Galaxy S24 Ultra (412px CSS viewport) precision fit */
-    @media (max-width: 450px) {{
-      .showcase-card {{
-        padding: 16px 10px 22px 10px;
-      }}
-      .deck-section {{
-        overflow: hidden;
-      }}
-      .travel-stage {{
-        height: 224px;
-      }}
-      .card-p {{
-        width: 136px;
-        height: 212px;
-      }}
-      .rewards-stage {{
-        height: 170px;
-      }}
-      .card-l {{
-        width: 208px;
-        height: 131px;
-      }}
-      .title {{
-        font-size: 18px;
-      }}
-      .subtitle {{
-        font-size: 11.5px;
-      }}
+      .dual-grid {{ display: flex; flex-direction: column; gap: 14px; }}
+      .travel-stage {{ height: 220px; }}
+      .card-p {{ width: 138px; height: 214px; }}
+      .rewards-stage {{ height: 170px; }}
+      .card-l {{ width: 215px; height: 135px; }}
     }}
   </style>
 </head>
 <body>
   <div class="showcase-card" id="main-showcase-card">
-    <div class="headline-pill">
-      <span class="pill-icon">
-        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="#2563eb" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg>
-      </span>
-      <span class="pill-text">Cards Supported So Far</span>
-    </div>
-    <h2 class="title">No Statement Loaded in Current Session</h2>
+    <div class="headline-pill">Supported Instruments</div>
+    <h2 class="title">Ready for Statement Decryption &amp; EMI Audit</h2>
     <p class="subtitle">
-      Upload your <b>Axis Bank (Scapia)</b>, <b>HDFC Bank (Swiggy)</b>, <b>ICICI Bank (Amazon Pay)</b>, or <b>SBI Card (SimplyCLICK)</b> monthly e-statement PDF above to securely decrypt, segregate friend EMIs, and reconcile your billing summary.
+      Drop your <b>Axis Bank Scapia</b>, <b>HDFC Swiggy</b>, <b>ICICI Amazon Pay</b>, <b>SBI SimplyCLICK</b>, <b>SmartEMI Schedule</b>, or <b>Duty Roster</b> above to segregate installments and track date-wise payments.
     </p>
-
-    <!-- Side-by-Side Dual Deck Grid (Top = Scapia Travel, Bottom = Core Rewards on Mobile) -->
     <div class="dual-grid">
-      
-      <!-- TOP ON MOBILE / LEFT ON DESKTOP: Scapia Travel Editions (Orange & Green) -->
-      <div class="deck-section deck-section-travel" onclick="cyclePortraitDeck()" title="Click to flip Scapia editions">
-        <span class="section-header-pill pill-travel">
-          <span class="pill-icon">
-            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="#c2410c" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M17.8 19.2 16 11l3.5-3.5C21 6 21.5 4 21 3c-1-.5-3 0-4.5 1.5L13 8 4.8 6.2c-.5-.1-.9.1-1.1.5l-.3.5c-.2.5-.1 1 .3 1.3L9 12l-2 3H4l-1 1 3 2 2 3 1-1v-3l3-2 3.5 5.3c.3.4.8.5 1.3.3l.5-.2c.4-.3.6-.7.5-1.2z"/></svg>
-          </span>
-          <span class="pill-text">Axis Bank Scapia Editions</span>
-        </span>
-        <div class="travel-stage" id="travel-stage">
-          <div id="card-p1" class="card-p">
-            <div class="card-glare"></div>
-          </div>
-          <div id="card-p2" class="card-p">
-            <div class="card-glare"></div>
-          </div>
+      <div class="deck-section">
+        <span class="section-header-pill">Axis Bank Scapia</span>
+        <div class="travel-stage">
+          <div id="card-p1" class="card-p"></div>
+          <div id="card-p2" class="card-p"></div>
         </div>
         <div class="mini-badges">
-          <span class="mini-badge" style="color: #ea580c; border-color: #fed7aa; background: #fff7ed;">Scapia Mastercard (Orange)</span>
-          <span class="mini-badge" style="color: #16a34a; border-color: #bbf7d0; background: #f0fdf4;">Scapia RuPay (Green)</span>
+          <span class="mini-badge">Scapia Mastercard</span>
+          <span class="mini-badge">Scapia RuPay</span>
         </div>
       </div>
-
-      <!-- BOTTOM ON MOBILE / RIGHT ON DESKTOP: Daily Rewards Cards (Swiggy, Amazon, SBI) -->
-      <div class="deck-section deck-section-rewards" onclick="cycleLandscapeDeck()" title="Click to cycle rewards cards">
-        <span class="section-header-pill pill-rewards">
-          <span class="pill-icon">
-            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="#1e40af" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg>
-          </span>
-          <span class="pill-text">Daily Rewards & Cashback Cards</span>
-        </span>
-        <div class="rewards-stage" id="rewards-stage">
-          <div id="card-l1" class="card-l">
-            <div class="card-glare"></div>
-            <div class="embossed-l">SWIGGY HDFC</div>
-          </div>
-          <div id="card-l2" class="card-l">
-            <div class="card-glare"></div>
-            <div class="embossed-l" style="color: #fde68a;">AMAZON PAY ICICI</div>
-          </div>
-          <div id="card-l3" class="card-l">
-            <div class="card-glare"></div>
-            <div class="embossed-l">SBI SIMPLYCLICK</div>
-          </div>
+      <div class="deck-section">
+        <span class="section-header-pill">Cashback &amp; Rewards</span>
+        <div class="rewards-stage">
+          <div id="card-l1" class="card-l"></div>
+          <div id="card-l2" class="card-l"></div>
+          <div id="card-l3" class="card-l"></div>
         </div>
         <div class="mini-badges">
-          <span class="mini-badge" style="color: #c2410c; background: #fff7ed;">Swiggy HDFC (10% Food)</span>
-          <span class="mini-badge" style="color: #b45309; background: #fefce8;">Amazon Pay (5% Shop)</span>
-          <span class="mini-badge" style="color: #882438; background: #fff1f2;">SBI SimplyCLICK (10X)</span>
+          <span class="mini-badge">Swiggy HDFC</span>
+          <span class="mini-badge">Amazon Pay ICICI</span>
+          <span class="mini-badge">SBI SimplyCLICK</span>
         </div>
       </div>
-
     </div>
-
-    <!-- Privacy Disclaimer with Readable Funky Font -->
-    <div class="comic-disclaimer-box">
-      <span>🔒 100% Zero-Disk Privacy: Statements are processed in RAM & never stored on the server — also I don't have money to buy a server 😜</span>
+    <div class="security-note">
+      Zero-Disk Architecture · All statements are decrypted strictly in volatile RAM and never stored on server storage.
     </div>
   </div>
-
   <script>
-    let isFlipped = false;
-    function cyclePortraitDeck() {{
-      isFlipped = !isFlipped;
-      const p1 = document.getElementById('card-p1');
-      const p2 = document.getElementById('card-p2');
-      if (!p1 || !p2) return;
-      p1.style.animation = isFlipped ? 'shufflePortGreen 6s cubic-bezier(0.34, 1.25, 0.64, 1) infinite' : 'shufflePortOrange 6s cubic-bezier(0.34, 1.25, 0.64, 1) infinite';
-      p2.style.animation = isFlipped ? 'shufflePortOrange 6s cubic-bezier(0.34, 1.25, 0.64, 1) infinite' : 'shufflePortGreen 6s cubic-bezier(0.34, 1.25, 0.64, 1) infinite';
-    }}
-
-    function cycleLandscapeDeck() {{
-      const l1 = document.getElementById('card-l1');
-      const l2 = document.getElementById('card-l2');
-      const l3 = document.getElementById('card-l3');
-      if (!l1 || !l2 || !l3) return;
-      const b1 = l1.style.backgroundImage || getComputedStyle(l1).backgroundImage;
-      const b2 = l2.style.backgroundImage || getComputedStyle(l2).backgroundImage;
-      const b3 = l3.style.backgroundImage || getComputedStyle(l3).backgroundImage;
-      l1.style.backgroundImage = b2;
-      l2.style.backgroundImage = b3;
-      l3.style.backgroundImage = b1;
-    }}
-
-    /* Auto-resize parent Streamlit iframe height so mobile never clips the 2nd section or bottom padding */
     function syncShowcaseHeight() {{
       const card = document.getElementById('main-showcase-card');
       if (!card) return;
-      const h = Math.ceil(card.getBoundingClientRect().height) + 44;
+      const h = Math.ceil(card.getBoundingClientRect().height) + 28;
       try {{
         if (window.frameElement) {{
           window.frameElement.style.height = h + 'px';
@@ -2043,32 +1585,24 @@ def get_card_shuffle_html():
     window.addEventListener('resize', syncShowcaseHeight);
     setTimeout(syncShowcaseHeight, 100);
     setTimeout(syncShowcaseHeight, 400);
-    setTimeout(syncShowcaseHeight, 900);
   </script>
 </body>
 </html>"""
 
-# --- Render Web Dashboard Strictly in RAM ---
-if st.session_state.statements_data:
-    ordered_items = list(st.session_state.statements_data.items())
-    if st.session_state.get("active_special_view") == "kayal":
-        ordered_items.sort(key=lambda kv: 0 if kv[0] == "Kayal_Duty_Roster" else 1)
-    elif st.session_state.get("active_special_view") == "shafana":
-        ordered_items.sort(key=lambda kv: 0 if kv[0] == "Shafana_Cashback" else 1)
-    dashboard_html = unlock_statements.generate_modern_dashboard_html(
-        [v for _, v in ordered_items],
-        output_dir=".",
-        write_to_disk=False,
-        github_token=_get_github_token()
-    )
-    components.html(dashboard_html, height=1450, scrolling=True)
-else:
-    # Initial height 920 + JS auto-resizer ensures zero clipping on Mobile and tight fit on Desktop
-    components.html(get_card_shuffle_html(), height=920, scrolling=False)
-
-# --- Friendly Footer ---
-st.markdown("""
-<div style="text-align: center; max-width: 720px; margin: 28px auto 0 auto; padding: 16px 18px 72px 18px; border-top: 1px solid rgba(226, 232, 240, 0.3); color: #94a3b8; font-size: 13px; font-weight: 600; line-height: 1.55;">
-    Made with ❤️ for friends — because splitting EMIs shouldn't ruin friendships (or give you a migraine) 🍕💳
-</div>
-""", unsafe_allow_html=True)
+# --- Render Main View Content ---
+if st.session_state.active_nav in ("statements", "kayal", "shafana"):
+    if st.session_state.statements_data:
+        ordered_items = list(st.session_state.statements_data.items())
+        if st.session_state.active_nav == "kayal" or st.session_state.get("active_special_view") == "kayal":
+            ordered_items.sort(key=lambda kv: 0 if kv[0] == "Kayal_Duty_Roster" else 1)
+        elif st.session_state.active_nav == "shafana" or st.session_state.get("active_special_view") == "shafana":
+            ordered_items.sort(key=lambda kv: 0 if kv[0] == "Shafana_Cashback" else 1)
+        dashboard_html = unlock_statements.generate_modern_dashboard_html(
+            [v for _, v in ordered_items],
+            output_dir=".",
+            write_to_disk=False,
+            github_token=_get_github_token()
+        )
+        components.html(dashboard_html, height=1450, scrolling=True)
+    else:
+        components.html(get_card_shuffle_html(dark_mode=is_dark), height=760, scrolling=False)

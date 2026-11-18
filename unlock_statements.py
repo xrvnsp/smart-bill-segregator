@@ -2752,19 +2752,21 @@ def generate_modern_dashboard_html(results_list, output_dir=".", write_to_disk=T
 </head>
 <body class="bg-slate-50 text-slate-900 min-h-screen">
 
-  <header id="top-app-header" class="bg-slate-900 border-b border-slate-800 text-white sticky top-0 z-50 shadow-md">
-    <div class="max-w-7xl mx-auto px-6 py-4 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+  <header id="top-app-header" class="bg-slate-950/90 backdrop-blur-xl border-b border-slate-800/80 text-white sticky top-0 z-50">
+    <div class="max-w-7xl mx-auto px-6 py-3.5 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
       <div class="flex items-center gap-3">
-        <div class="w-10 h-10 rounded-xl bg-blue-600 flex items-center justify-center font-bold text-xl shadow-lg shadow-blue-500/30">💳</div>
+        <div class="w-9 h-9 rounded-xl bg-indigo-600/90 border border-indigo-400/30 flex items-center justify-center shadow-sm">
+          <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg>
+        </div>
         <div>
-          <h1 class="text-xl font-bold tracking-tight">Statement Analytics Dashboard</h1>
-          <p class="text-xs text-slate-400">Total Bill Breakdown • EMI Receipt Highlighting • Date Segregation</p>
+          <h1 class="text-base font-bold tracking-tight text-slate-100">Statement Analytics</h1>
+          <p class="text-[11px] text-slate-400 font-medium">Bill Breakdown · EMI Segregation · Date Ledger</p>
         </div>
       </div>
-      <div class="flex items-center gap-3 w-full sm:w-auto">
-        <a href="{GOOGLE_SHEET_TEMPLATE_URL}" target="_blank" class="px-3.5 py-2 text-xs font-semibold bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg transition shadow-md flex items-center gap-1.5 no-print">📊 Copy Google Sheet Template</a>
-        <button onclick="window.print()" class="px-4 py-2 text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-lg transition border border-slate-700">🖨️ Print / Save</button>
-        <button onclick="exportCSV()" class="px-4 py-2 text-xs font-semibold bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg shadow-lg shadow-emerald-600/20 transition">📊 Download CSV</button>
+      <div class="flex items-center gap-2.5 w-full sm:w-auto">
+        <a href="{GOOGLE_SHEET_TEMPLATE_URL}" target="_blank" class="px-3 py-1.5 text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-lg transition border border-slate-700 no-print">Sheet Template</a>
+        <button onclick="window.print()" class="px-3 py-1.5 text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-lg transition border border-slate-700">Print / PDF</button>
+        <button onclick="exportCSV()" class="px-3.5 py-1.5 text-xs font-semibold bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg transition">Export CSV</button>
       </div>
     </div>
   </header>
@@ -2797,21 +2799,21 @@ def generate_modern_dashboard_html(results_list, output_dir=".", write_to_disk=T
 
       <!-- Quick Filter Pills: All Activity | EMI Receipts | Regular Spends | Credits -->
       <div class="flex items-center gap-2 flex-wrap pt-3 border-t border-slate-100" id="filter-pills-bar">
-        <span class="text-xs font-bold text-slate-400 uppercase tracking-wider mr-1">View Filter:</span>
-        <button onclick="setFilterCategory('all')" id="pill-filter-all" class="filter-pill active px-3.5 py-1.5 rounded-xl text-xs font-bold bg-slate-900 text-white shadow-sm transition cursor-pointer">🔘 All Activity</button>
-        <button onclick="setFilterCategory('emi')" id="pill-filter-emi" class="filter-pill px-3.5 py-1.5 rounded-xl text-xs font-bold bg-purple-50 text-purple-700 border border-purple-200 hover:bg-purple-100 transition cursor-pointer">🏷️ EMI Receipts Only</button>
-        <button onclick="setFilterCategory('regular')" id="pill-filter-regular" class="filter-pill px-3.5 py-1.5 rounded-xl text-xs font-bold bg-slate-50 text-slate-700 border border-slate-200 hover:bg-slate-100 transition cursor-pointer">💳 Regular Card Spends</button>
-        <button onclick="setFilterCategory('credit')" id="pill-filter-credit" class="filter-pill px-3.5 py-1.5 rounded-xl text-xs font-bold bg-blue-50 text-blue-700 border border-blue-200 hover:bg-blue-100 transition cursor-pointer">⚡ Pre-EMI & Credits</button>
+        <span class="text-[11px] font-bold text-slate-400 uppercase tracking-wider mr-1">Filter:</span>
+        <button onclick="setFilterCategory('all')" id="pill-filter-all" class="filter-pill active px-3.5 py-1.5 rounded-xl text-xs font-semibold bg-slate-900 text-white shadow-sm transition cursor-pointer">All Activity</button>
+        <button onclick="setFilterCategory('emi')" id="pill-filter-emi" class="filter-pill px-3.5 py-1.5 rounded-xl text-xs font-semibold bg-slate-100 text-slate-700 border border-slate-200 hover:bg-slate-200 transition cursor-pointer">EMI Receipts</button>
+        <button onclick="setFilterCategory('regular')" id="pill-filter-regular" class="filter-pill px-3.5 py-1.5 rounded-xl text-xs font-semibold bg-slate-100 text-slate-700 border border-slate-200 hover:bg-slate-200 transition cursor-pointer">Regular Spends</button>
+        <button onclick="setFilterCategory('credit')" id="pill-filter-credit" class="filter-pill px-3.5 py-1.5 rounded-xl text-xs font-semibold bg-slate-100 text-slate-700 border border-slate-200 hover:bg-slate-200 transition cursor-pointer">Credits &amp; Pre-EMI</button>
       </div>
     </div>
 
     <!-- Date-Wise Segregated Breakdown -->
     <div class="space-y-5" id="date-breakdown-container"></div>
 
-    <!-- Friendly Footer -->
-    <footer class="mt-14 pt-6 pb-8 border-t border-slate-200/80 text-center text-xs font-semibold text-slate-500 flex flex-col items-center gap-1.5">
-      <div>Made with ❤️ for friends — because splitting EMIs shouldn't ruin friendships (or give you a migraine) 🍕💳</div>
-      <div class="text-[11px] text-slate-400">🔒 100% Zero-Disk Privacy: Statements are processed in RAM & never stored on the server — also I don't have money to buy a server 😜</div>
+    <!-- Minimal Security Footer -->
+    <footer class="mt-12 pt-6 pb-8 border-t border-slate-200/70 text-center text-xs font-medium text-slate-400 flex flex-col items-center gap-1">
+      <div class="tracking-tight text-slate-500 font-semibold">Smart Bill Segregator · Automated Statement &amp; EMI Reconciliation</div>
+      <div class="text-[11px] text-slate-400">Zero-Disk Privacy Architecture · Statements are decrypted strictly in volatile RAM and never stored on any server.</div>
     </footer>
 
   </main>
