@@ -1,3 +1,4 @@
+import io
 import base64
 import os
 def get_card_b64(fname, base_dir=None):

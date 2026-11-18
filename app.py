@@ -317,10 +317,12 @@ def get_shared_kayal_store():
 
 def update_shared_kayal_store(new_roster, gh_token=""):
     """Updates the shared server store, writes kayal_duty.json, and optionally pushes to GitHub."""
+    import copy
+    snapshot = copy.deepcopy(dict(new_roster))
     store = get_shared_kayal_store()
     store.clear()
-    store.update(new_roster)
-    unlock_statements.save_kayal_web_roster(store)
+    store.update(snapshot)
+    unlock_statements.save_kayal_web_roster(snapshot)
     token = _get_github_token(gh_token)
     if token:
         try:
@@ -349,17 +351,15 @@ def update_shared_kayal_store(new_roster, gh_token=""):
     return store
 
 @st.cache_resource
-def _cached_expenses_store(_mtime):
+def get_shared_expenses_store():
     return unlock_statements.load_expenses_web_ledger()
 
-def get_shared_expenses_store():
-    mtime = os.path.getmtime(unlock_statements.EXPENSES_WEB_FILE) if os.path.exists(unlock_statements.EXPENSES_WEB_FILE) else 0
-    return _cached_expenses_store(mtime)
-
 def update_shared_expenses_store(new_ledger, commit_msg="Sync Expense Calculator ledger"):
+    import copy
+    snapshot = copy.deepcopy(dict(new_ledger))
     store = get_shared_expenses_store()
     store.clear()
-    store.update(new_ledger)
+    store.update(snapshot)
     unlock_statements.save_expenses_web_ledger(store)
     token = _get_github_token()
     if token:
@@ -435,9 +435,11 @@ def sync_bill_names_to_github(meta_obj=None, commit_msg="Sync bill_names.json fr
 
 def update_shared_shafana_store(new_ledger, gh_token=""):
     """Updates the shared server store, writes shafana_cashback.json, and optionally pushes to GitHub."""
+    import copy
+    snapshot = copy.deepcopy(dict(new_ledger))
     store = get_shared_shafana_store()
     store.clear()
-    store.update(new_ledger)
+    store.update(snapshot)
     unlock_statements.save_shafana_web_ledger(store)
     token = _get_github_token(gh_token)
     if token:
@@ -952,7 +954,7 @@ for idx, (nav_key, nav_label) in enumerate(nav_items):
 st.markdown("<div style='height: 6px;'></div>", unsafe_allow_html=True)
 
 # --- Compact File Uploader (Visible on Statements, Dr. Kayalvizhi, and Shafana views) ---
-if st.session_state.active_nav in ("statements", "expenses", "kayal", "shafana"):
+if st.session_state.active_nav in ("statements", "kayal", "shafana"):
     uploaded_files = st.file_uploader(
         "Drop Statement PDFs, Fold / Shafana Screenshots, or Dr. Kayalvizhi Duty Roster Photo (Processed strictly in RAM)",
         type=["pdf", "png", "jpg", "jpeg", "webp"],
@@ -1978,9 +1980,7 @@ def get_card_shuffle_html(dark_mode=True):
     <div class="security-note">
       🔒 Zero-Disk Architecture · Statements are decrypted strictly in volatile RAM and never stored on server storage.
     </div>
-    <div style="margin-top: 10px; font-size: 12.5px; font-weight: 600; color: {t_sec};">
-      Made with ❤️ for friends — because splitting EMIs shouldn't ruin friendships (or give you a migraine) 🍕💳
-    </div>
+
   </div>
   <script>
     function syncShowcaseHeight() {{
