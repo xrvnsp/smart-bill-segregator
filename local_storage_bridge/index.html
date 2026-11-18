@@ -86,6 +86,43 @@
       return { names, phones };
     }
 
+    
+    function readMergedBillMeta() {
+      const bill_names = {};
+      const paid_cards = {};
+      const targets = getStorageTargets();
+      targets.forEach(store => {
+        try {
+          const rawMeta = store.getItem("smartbill_synced_bill_meta");
+          if (rawMeta) {
+            const p = JSON.parse(rawMeta);
+            if (p && typeof p === "object") {
+              if (p.bill_names && typeof p.bill_names === "object") Object.assign(bill_names, p.bill_names);
+              if (p.paid_cards && typeof p.paid_cards === "object") Object.assign(paid_cards, p.paid_cards);
+            }
+          }
+        } catch (e) {}
+        try {
+          for (let i = 0; i < store.length; i++) {
+            const k = store.key(i);
+            if (!k) continue;
+            if (k.startsWith("bill_name_")) {
+              const id = k.substring("bill_name_".length);
+              const val = store.getItem(k);
+              if (id && val && val.trim()) bill_names[id] = val.trim();
+            } else if (k.startsWith("paid_status_")) {
+              const id = k.substring("paid_status_".length);
+              const val = store.getItem(k);
+              if (id && val) {
+                try { paid_cards[id] = JSON.parse(val); } catch (e) { paid_cards[id] = { isPaid: val === "true" }; }
+              }
+            }
+          }
+        } catch (e) {}
+      });
+      return { bill_names, paid_cards };
+    }
+
     function onRender(event) {
       const args = (event.data && event.data.args) ? event.data.args : {};
       const targets = getStorageTargets();
@@ -166,6 +203,9 @@
       const emiVault = readMergedEmiVault();
       stored.emi_names = emiVault.names;
       stored.emi_phones = emiVault.phones;
+      const billMeta = readMergedBillMeta();
+      stored.bill_names = billMeta.bill_names;
+      stored.paid_cards = billMeta.paid_cards;
 
       // 4. Return stored credentials & EMI nicknames back to Streamlit session
       setComponentValue(stored || {});

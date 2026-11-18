@@ -11,133 +11,265 @@
       "date": "01-11-2026",
       "day": "Sun",
       "shift": "OFF",
-      "note": "Sunday Rest Day"
+      "note": "Sunday Rest Day (OPD: Dr. Regha | Eve: Dr. Anand | Night: Dr. Regha)",
+      "opd_doctors": "Dr. Regha",
+      "relieving_doctors": "-",
+      "evening_doctors": "Dr. Anand",
+      "night_doctors": "Dr. Regha",
+      "kayal_relieves": "-",
+      "kayal_relieved_by": "-"
     },
     {
       "date": "02-11-2026",
       "day": "Mon",
       "shift": "NIGHT",
-      "note": "Solo Night Duty"
+      "note": "Solo Night Duty (Relieves Dr. Anand at 8 PM; Relieved by Dr. Regha + Dr. Divya at 8 AM)",
+      "opd_doctors": "Dr. Sarath",
+      "relieving_doctors": "-",
+      "evening_doctors": "Dr. Anand",
+      "night_doctors": "Dr. Kayalvizhi",
+      "kayal_relieves": "Dr. Anand (at 8:00 PM)",
+      "kayal_relieved_by": "Dr. Regha + Dr. Divya (on 03-11 at 8:00 AM)"
     },
     {
       "date": "03-11-2026",
       "day": "Tue",
       "shift": "OFF",
-      "note": "Post-Night Rest"
+      "note": "Post-Night Rest (Morning handover to Dr. Regha + Dr. Divya)",
+      "opd_doctors": "Dr. Regha + Dr. Divya",
+      "relieving_doctors": "-",
+      "evening_doctors": "Dr. Sarath",
+      "night_doctors": "Dr. Anand",
+      "kayal_relieves": "-",
+      "kayal_relieved_by": "Dr. Regha + Dr. Divya (8:00 AM morning handover)"
     },
     {
       "date": "04-11-2026",
       "day": "Wed",
       "shift": "EVENING",
-      "note": "Solo Evening Duty"
+      "note": "Solo Evening Duty (Relieves Dr. Regha + Dr. Divya at 2 PM; Relieved by Dr. Sarath at 8 PM)",
+      "opd_doctors": "Dr. Regha + Dr. Divya",
+      "relieving_doctors": "-",
+      "evening_doctors": "Dr. Kayalvizhi",
+      "night_doctors": "Dr. Sarath",
+      "kayal_relieves": "Dr. Regha + Dr. Divya (at 2:00 PM)",
+      "kayal_relieved_by": "Dr. Sarath (at 8:00 PM)"
     },
     {
       "date": "05-11-2026",
       "day": "Thu",
       "shift": "NIGHT",
-      "note": "Solo Night Duty"
+      "note": "Solo Night Duty (Relieves Dr. Regha at 8 PM; Relieved by Dr. Anand at 8 AM)",
+      "opd_doctors": "Dr. Anand + Dr. Divya",
+      "relieving_doctors": "-",
+      "evening_doctors": "Dr. Regha",
+      "night_doctors": "Dr. Kayalvizhi",
+      "kayal_relieves": "Dr. Regha (at 8:00 PM)",
+      "kayal_relieved_by": "Dr. Anand (on 06-11 at 8:00 AM)"
     },
     {
       "date": "06-11-2026",
       "day": "Fri",
       "shift": "OFF",
-      "note": "Post-Night Rest"
+      "note": "Post-Night Rest (Morning handover to Dr. Anand)",
+      "opd_doctors": "Dr. Anand",
+      "relieving_doctors": "-",
+      "evening_doctors": "Dr. Sanjeevitha (PHC Varichikudi)",
+      "night_doctors": "Dr. Sanjeevitha (PHC Varichikudi)",
+      "kayal_relieves": "-",
+      "kayal_relieved_by": "Dr. Anand (8:00 AM morning handover)"
     },
     {
       "date": "07-11-2026",
       "day": "Sat",
       "shift": "OPD",
-      "note": "Solo OPD (Morning)"
+      "note": "Solo OPD (Relieves Dr. Sanjeevitha at 8 AM; Relieved by Dr. Jency at 2 PM)",
+      "opd_doctors": "Dr. Kayalvizhi",
+      "relieving_doctors": "-",
+      "evening_doctors": "Dr. Jency (PHC Vizhithiur)",
+      "night_doctors": "Dr. Jency (PHC Vizhithiur)",
+      "kayal_relieves": "Dr. Sanjeevitha (PHC Varichikudi) (at 8:00 AM)",
+      "kayal_relieved_by": "Dr. Jency (PHC Vizhithiur) (at 2:00 PM)"
     },
     {
       "date": "08-11-2026",
       "day": "Sun",
       "shift": "OFF",
-      "note": "Sunday Off"
+      "note": "Sunday Off (OPD: Dr. Anand | Eve: Dr. Sarath | Night: Dr. Regha)",
+      "opd_doctors": "Dr. Anand",
+      "relieving_doctors": "-",
+      "evening_doctors": "Dr. Sarath",
+      "night_doctors": "Dr. Regha",
+      "kayal_relieves": "-",
+      "kayal_relieved_by": "-"
     },
     {
       "date": "09-11-2026",
       "day": "Mon",
       "shift": "EVENING",
-      "note": "Solo Evening Duty"
+      "note": "Solo Evening Duty (Relieves Dr. Sarath at 2 PM; Relieved by Dr. Anand at 8 PM)",
+      "opd_doctors": "Dr. Sarath",
+      "relieving_doctors": "-",
+      "evening_doctors": "Dr. Kayalvizhi",
+      "night_doctors": "Dr. Anand",
+      "kayal_relieves": "Dr. Sarath (at 2:00 PM)",
+      "kayal_relieved_by": "Dr. Anand (at 8:00 PM)"
     },
     {
       "date": "10-11-2026",
       "day": "Tue",
       "shift": "OPD",
-      "note": "Solo OPD (Morning)"
+      "note": "Solo OPD (Relieves Dr. Anand at 8 AM; Relieved by Dr. Regha at 2 PM)",
+      "opd_doctors": "Dr. Kayalvizhi",
+      "relieving_doctors": "-",
+      "evening_doctors": "Dr. Regha",
+      "night_doctors": "Dr. Sarath",
+      "kayal_relieves": "Dr. Anand (at 8:00 AM)",
+      "kayal_relieved_by": "Dr. Regha (at 2:00 PM)"
     },
     {
       "date": "11-11-2026",
       "day": "Wed",
       "shift": "OPD",
-      "note": "With Dr. Regha"
+      "note": "Joint OPD with Dr. Regha (Relieves Dr. Sarath at 8 AM; Relieved by Dr. Sanjeevitha at 2 PM)",
+      "opd_doctors": "Dr. Regha + Dr. Kayalvizhi",
+      "relieving_doctors": "-",
+      "evening_doctors": "Dr. Sanjeevitha (PHC Varichikudi)",
+      "night_doctors": "Dr. Sanjeevitha (PHC Varichikudi)",
+      "kayal_relieves": "Dr. Sarath (at 8:00 AM, Joint OPD with Dr. Regha)",
+      "kayal_relieved_by": "Dr. Sanjeevitha (PHC Varichikudi) (at 2:00 PM)"
     },
     {
       "date": "12-11-2026",
       "day": "Thu",
       "shift": "OFF",
-      "note": "Off Day Together"
+      "note": "Off Day Together (OPD: Dr. Sarath + Dr. Anand | Eve/Night: Dr. Kesavaraj)",
+      "opd_doctors": "Dr. Sarath + Dr. Anand",
+      "relieving_doctors": "-",
+      "evening_doctors": "Dr. Kesavaraj (PHC Kovilpathu)",
+      "night_doctors": "Dr. Kesavaraj (PHC Kovilpathu)",
+      "kayal_relieves": "-",
+      "kayal_relieved_by": "-"
     },
     {
       "date": "13-11-2026",
       "day": "Fri",
       "shift": "NIGHT",
-      "note": "Solo Night Duty"
+      "note": "Solo Night Duty (Relieves Dr. Vaikumathi at 8 PM; Relieved by Dr. Regha at 8 AM)",
+      "opd_doctors": "Dr. Regha",
+      "relieving_doctors": "Dr. Anand (NCD)",
+      "evening_doctors": "Dr. Vaikumathi (Neravy)",
+      "night_doctors": "Dr. Kayalvizhi",
+      "kayal_relieves": "Dr. Vaikumathi (Neravy) (at 8:00 PM)",
+      "kayal_relieved_by": "Dr. Regha (on 14-11 at 8:00 AM)"
     },
     {
       "date": "14-11-2026",
       "day": "Sat",
       "shift": "OFF",
-      "note": "Post-Night Rest"
+      "note": "Post-Night Rest (Morning handover to Dr. Regha)",
+      "opd_doctors": "Dr. Regha",
+      "relieving_doctors": "-",
+      "evening_doctors": "Dr. Sarath",
+      "night_doctors": "Dr. Anand",
+      "kayal_relieves": "-",
+      "kayal_relieved_by": "Dr. Regha (8:00 AM morning handover)"
     },
     {
       "date": "15-11-2026",
       "day": "Sun",
       "shift": "EVENING",
-      "note": "Solo Evening Duty"
+      "note": "Solo Evening Duty (Relieves Dr. Sarath at 2 PM; Relieved by Dr. Regha at 8 PM)",
+      "opd_doctors": "Dr. Sarath",
+      "relieving_doctors": "-",
+      "evening_doctors": "Dr. Kayalvizhi",
+      "night_doctors": "Dr. Regha",
+      "kayal_relieves": "Dr. Sarath (at 2:00 PM)",
+      "kayal_relieved_by": "Dr. Regha (at 8:00 PM)"
     },
     {
       "date": "16-11-2026",
       "day": "Mon",
       "shift": "OFF",
-      "note": "Off (Dr. Sarath + Dr. Anand OPD / Dr. Arvind Eve-Night)"
+      "note": "Off (OPD: Dr. Sarath + Dr. Anand NCD | Eve/Night: Dr. Arvind)",
+      "opd_doctors": "Dr. Sarath + Dr. Anand (NCD)",
+      "relieving_doctors": "-",
+      "evening_doctors": "Dr. Arvind (PHC Ambagarathur)",
+      "night_doctors": "Dr. Arvind (PHC Ambagarathur)",
+      "kayal_relieves": "-",
+      "kayal_relieved_by": "-"
     },
     {
       "date": "17-11-2026",
       "day": "Tue",
       "shift": "OPD",
-      "note": "With Dr. Regha"
+      "note": "Joint OPD with Dr. Regha (Relieves Dr. Arvind at 8 AM; Relieved by Dr. Anand at 2 PM)",
+      "opd_doctors": "Dr. Kayalvizhi + Dr. Regha (NCD)",
+      "relieving_doctors": "-",
+      "evening_doctors": "Dr. Anand",
+      "night_doctors": "Dr. Sarath",
+      "kayal_relieves": "Dr. Arvind (PHC Ambagarathur) (at 8:00 AM, Joint OPD with Dr. Regha)",
+      "kayal_relieved_by": "Dr. Anand (at 2:00 PM)"
     },
     {
       "date": "18-11-2026",
       "day": "Wed",
       "shift": "OPD",
-      "note": "Solo OPD (Morning)"
+      "note": "Solo OPD (Relieves Dr. Sarath at 8 AM; Relieved by Dr. Anand at 2 PM)",
+      "opd_doctors": "Dr. Kayalvizhi",
+      "relieving_doctors": "-",
+      "evening_doctors": "Dr. Anand",
+      "night_doctors": "Dr. Regha",
+      "kayal_relieves": "Dr. Sarath (at 8:00 AM)",
+      "kayal_relieved_by": "Dr. Anand (at 2:00 PM)"
     },
     {
       "date": "19-11-2026",
       "day": "Thu",
       "shift": "EVENING",
-      "note": "Solo Evening Duty"
+      "note": "Solo Evening Duty (Relieves Dr. Anand + Dr. Sarath at 2 PM; Relieved by Dr. Vaikumathi at 8 PM)",
+      "opd_doctors": "Dr. Anand + Dr. Sarath",
+      "relieving_doctors": "-",
+      "evening_doctors": "Dr. Kayalvizhi",
+      "night_doctors": "Dr. Vaikumathi (Neravy)",
+      "kayal_relieves": "Dr. Anand + Dr. Sarath (at 2:00 PM)",
+      "kayal_relieved_by": "Dr. Vaikumathi (Neravy) (at 8:00 PM)"
     },
     {
       "date": "20-11-2026",
       "day": "Fri",
       "shift": "OPD",
-      "note": "Solo OPD (Morning)"
+      "note": "Solo OPD (Relieves Dr. Vaikumathi at 8 AM; Relieved by Dr. Regha at 2 PM)",
+      "opd_doctors": "Dr. Kayalvizhi",
+      "relieving_doctors": "-",
+      "evening_doctors": "Dr. Regha",
+      "night_doctors": "Dr. Anand",
+      "kayal_relieves": "Dr. Vaikumathi (Neravy) (at 8:00 AM)",
+      "kayal_relieved_by": "Dr. Regha (at 2:00 PM)"
     },
     {
       "date": "21-11-2026",
       "day": "Sat",
       "shift": "OPD",
-      "note": "Solo OPD (Morning)"
+      "note": "Solo OPD (Relieves Dr. Anand at 8 AM; Relieved by Dr. Jency at 2 PM)",
+      "opd_doctors": "Dr. Kayalvizhi",
+      "relieving_doctors": "-",
+      "evening_doctors": "Dr. Jency (PHC Vizhithiur)",
+      "night_doctors": "Dr. Jency (PHC Vizhithiur)",
+      "kayal_relieves": "Dr. Anand (at 8:00 AM)",
+      "kayal_relieved_by": "Dr. Jency (PHC Vizhithiur) (at 2:00 PM)"
     },
     {
       "date": "22-11-2026",
       "day": "Sun",
       "shift": "EVENING",
-      "note": "Solo Evening Duty (Holiday)"
+      "note": "Solo Evening Duty (Relieves Dr. Regha at 2 PM; Relieved by Dr. Sarath at 8 PM)",
+      "opd_doctors": "Dr. Regha",
+      "relieving_doctors": "-",
+      "evening_doctors": "Dr. Kayalvizhi",
+      "night_doctors": "Dr. Sarath",
+      "kayal_relieves": "Dr. Regha (at 2:00 PM)",
+      "kayal_relieved_by": "Dr. Sarath (at 8:00 PM)"
     }
   ],
   "weekly_doctor_summary": [
@@ -324,5 +456,141 @@
         }
       ]
     }
-  ]
+  ],
+  "relief_combinations": {
+    "who_relieves_kayal_most": [
+      {
+        "doctor": "Dr. Regha",
+        "count": 5,
+        "dates": [
+          "03-11-2026 8 AM (after 02-11 Night, w/ Dr. Divya)",
+          "10-11-2026 2 PM (after OPD)",
+          "14-11-2026 8 AM (after 13-11 Night)",
+          "15-11-2026 8 PM (after Evening)",
+          "20-11-2026 2 PM (after OPD)"
+        ]
+      },
+      {
+        "doctor": "Dr. Anand",
+        "count": 4,
+        "dates": [
+          "06-11-2026 8 AM (after 05-11 Night)",
+          "09-11-2026 8 PM (after Evening)",
+          "17-11-2026 2 PM (after OPD)",
+          "18-11-2026 2 PM (after OPD)"
+        ]
+      },
+      {
+        "doctor": "Dr. Sarath",
+        "count": 2,
+        "dates": [
+          "04-11-2026 8 PM (after Evening)",
+          "22-11-2026 8 PM (after Evening)"
+        ]
+      },
+      {
+        "doctor": "Dr. Jency (PHC Vizhithiur)",
+        "count": 2,
+        "dates": [
+          "07-11-2026 2 PM (after OPD)",
+          "21-11-2026 2 PM (after OPD)"
+        ]
+      },
+      {
+        "doctor": "Dr. Sanjeevitha (PHC Varichikudi)",
+        "count": 1,
+        "dates": [
+          "11-11-2026 2 PM (after OPD)"
+        ]
+      },
+      {
+        "doctor": "Dr. Vaikumathi (Neravy)",
+        "count": 1,
+        "dates": [
+          "19-11-2026 8 PM (after Evening)"
+        ]
+      }
+    ],
+    "whom_kayal_relieves_most": [
+      {
+        "doctor": "Dr. Sarath",
+        "count": 5,
+        "dates": [
+          "09-11-2026 2 PM",
+          "11-11-2026 8 AM",
+          "15-11-2026 2 PM",
+          "18-11-2026 8 AM",
+          "19-11-2026 2 PM (w/ Dr. Anand)"
+        ]
+      },
+      {
+        "doctor": "Dr. Anand",
+        "count": 4,
+        "dates": [
+          "02-11-2026 8 PM",
+          "10-11-2026 8 AM",
+          "19-11-2026 2 PM (w/ Dr. Sarath)",
+          "21-11-2026 8 AM"
+        ]
+      },
+      {
+        "doctor": "Dr. Regha",
+        "count": 3,
+        "dates": [
+          "04-11-2026 2 PM (w/ Dr. Divya)",
+          "05-11-2026 8 PM",
+          "22-11-2026 2 PM"
+        ]
+      },
+      {
+        "doctor": "Dr. Vaikumathi (Neravy)",
+        "count": 2,
+        "dates": [
+          "13-11-2026 8 PM",
+          "20-11-2026 8 AM"
+        ]
+      },
+      {
+        "doctor": "Dr. Sanjeevitha (PHC Varichikudi)",
+        "count": 1,
+        "dates": [
+          "07-11-2026 8 AM"
+        ]
+      },
+      {
+        "doctor": "Dr. Arvind (PHC Ambagarathur)",
+        "count": 1,
+        "dates": [
+          "17-11-2026 8 AM"
+        ]
+      }
+    ],
+    "joint_opd_with_kayal": [
+      {
+        "doctor": "Dr. Regha",
+        "count": 2,
+        "dates": [
+          "11-11-2026 (OPD)",
+          "17-11-2026 (OPD w/ NCD)"
+        ]
+      }
+    ],
+    "overall_combo_ranking": [
+      {
+        "combo": "Dr. Kayalvizhi + Dr. Regha",
+        "total_interactions": 10,
+        "breakdown": "Regha relieves Kayal 5 times (highest), Kayal relieves Regha 3 times, Joint OPD 2 times"
+      },
+      {
+        "combo": "Dr. Kayalvizhi + Dr. Anand",
+        "total_interactions": 8,
+        "breakdown": "Anand relieves Kayal 4 times, Kayal relieves Anand 4 times"
+      },
+      {
+        "combo": "Dr. Kayalvizhi + Dr. Sarath",
+        "total_interactions": 7,
+        "breakdown": "Sarath relieves Kayal 2 times, Kayal relieves Sarath 5 times"
+      }
+    ]
+  }
 }

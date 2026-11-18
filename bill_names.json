@@ -1,6 +1,10 @@
 {
   "bill_names": {
-    "148456196": "Galaxy watch 8 classic Saravana"
+    "148456196": "Galaxy watch 8 classic Saravana",
+    "09/03/2026_28663.00": "Felix GO Pro",
+    "28/09/2026_44370.00": "Naveen S25 Edge",
+    "21/10/2026_49264.00": "Surya Senior S25 FE",
+    "146608745": "Vasanth LG Tv"
   },
   "paid_cards": {},
   "fold_tags": [
@@ -28,7 +32,7 @@
       "tenure_months": 6,
       "processing_fee": 299.0,
       "source_file": "Galaxy watch 8 classic Saravana.pdf",
-      "saved_at": "2026-11-17T15:05:45+05:30",
+      "saved_at": "2026-11-18T14:32:26+05:30",
       "schedule": [
         {
           "inst": 1,
@@ -81,5 +85,152 @@
       ]
     }
   ],
-  "updated_at": "2026-11-17T15:05:45+05:30"
+  "updated_at": "2026-11-18T14:32:26+05:30",
+  "statement_summaries": {
+    "ICICI_Amazon_October_2026": {
+      "bank_short": "ICICI Amazon",
+      "statement_month": "October 2026",
+      "total_due": "₹26,045.89 (Latest Nov/Oct Cycle) / ₹12,194.06 (Oct Statement)",
+      "due_date": "November 30, 2026 / October 30, 2026",
+      "ongoing_emis": [
+        {
+          "loan_id": "09/03/2026_28663.00",
+          "name": "Felix GO Pro",
+          "total_amount": "₹28,663.00",
+          "monthly_emi": "₹2,630.46",
+          "balance_tenure": "3 Months left"
+        },
+        {
+          "loan_id": "28/09/2026_44370.00",
+          "name": "Naveen S25 Edge",
+          "total_amount": "₹44,370.00",
+          "monthly_emi": "₹5,723.50",
+          "balance_tenure": "7 Months left"
+        },
+        {
+          "loan_id": "21/10/2026_49264.00",
+          "name": "Surya Senior S25 FE",
+          "total_amount": "₹49,264.00",
+          "monthly_emi": "₹8,560.00",
+          "balance_tenure": "5 Months left"
+        }
+      ],
+      "date_cards": [
+        {
+          "date": "19/09/2026",
+          "bill_key": "date_ICICI_Amazon_October_2026_19_09_2026",
+          "total": 972.0,
+          "items": [
+            "AMAZON PAY IN RECHARGE BANGALORE IN (₹972.00)"
+          ]
+        },
+        {
+          "date": "28/09/2026",
+          "bill_key": "28/09/2026_44370.00",
+          "fallback_key": "Naveen S25 Edge",
+          "custom_name": "Naveen S25 Edge (EMI 1/9 + Processing Fee)",
+          "total": 5723.5,
+          "items": [
+            "EZ TRADERS CHENNAI IN Principal + Interest + Fee <1/9> (₹5,723.50)"
+          ]
+        },
+        {
+          "date": "07/10/2026",
+          "bill_key": "date_ICICI_Amazon_October_2026_07_10_2026",
+          "total": 1282.1,
+          "items": [
+            "RELIANCE RETAIL LIMITED MUMBAI IN (₹1,282.10)"
+          ]
+        },
+        {
+          "date": "08/10/2026",
+          "bill_key": "date_ICICI_Amazon_October_2026_08_10_2026",
+          "total": 1586.0,
+          "items": [
+            "AMAZON PAY IN E COMMERC BANGALORE IN (₹1,586.00)"
+          ]
+        },
+        {
+          "date": "09/10/2026",
+          "bill_key": "09/03/2026_28663.00",
+          "fallback_key": "Felix GO Pro",
+          "custom_name": "Felix GO Pro (Flipkart EMI 8/12)",
+          "total": 2630.46,
+          "items": [
+            "Flipkart Internet PVT LTD Principal + Interest + IGST <8/12> (₹2,630.46)"
+          ]
+        },
+        {
+          "date": "21/10/2026",
+          "bill_key": "21/10/2026_49264.00",
+          "fallback_key": "Surya Senior S25 FE",
+          "custom_name": "Surya Senior S25 FE (EMI)",
+          "total": 8560.0,
+          "items": [
+            "Surya Senior S25 FE Merchant EMI (₹49,264.00 principal, 5 Months left)"
+          ]
+        },
+        {
+          "date": "17/11/2026",
+          "bill_key": "date_ICICI_Amazon_November_2026_17_11_2026",
+          "custom_name": "shafana 17 nov 860 (Fold Tagged)",
+          "total": 904.0,
+          "items": [
+            "Amazon Swipe on Card **0004 (₹904.00 / Shafana Order ₹860.00)"
+          ]
+        }
+      ]
+    },
+    "HDFC_October_2026": {
+      "bank_short": "HDFC",
+      "statement_month": "October 2026",
+      "total_due": "₹4,361.00",
+      "due_date": "08 Nov 2026",
+      "ongoing_emis": [
+        {
+          "loan_id": "146608745",
+          "name": "Vasanth LG Tv",
+          "total_amount": "₹24,598.00",
+          "monthly_emi": "₹4,270.00 (+ ₹598.80 fee in Month 1 = ₹4,868.80)",
+          "balance_tenure": "5 Months left"
+        }
+      ],
+      "date_cards": [
+        {
+          "date": "19/09/2026",
+          "bill_key": "date_HDFC_October_2026_19_09_2026",
+          "total": 22.5,
+          "items": [
+            "CGST + SGST (₹22.50)"
+          ]
+        },
+        {
+          "date": "28/09/2026",
+          "bill_key": "date_HDFC_October_2026_28_09_2026",
+          "total": 279.0,
+          "items": [
+            "RSP*SWIGGY PVT LTD BENGALURU (₹279.00)"
+          ]
+        },
+        {
+          "date": "08/10/2026",
+          "bill_key": "date_HDFC_October_2026_08_10_2026",
+          "total": 472.0,
+          "items": [
+            "PTM*Myntra Bangalore (₹472.00)"
+          ]
+        },
+        {
+          "date": "13/10/2026 & 19/10/2026",
+          "bill_key": "146608745",
+          "fallback_key": "Vasanth LG Tv",
+          "custom_name": "Vasanth LG Tv (SmartEMI #146608745 Inst 1/6 + Fee)",
+          "total": 4868.8,
+          "items": [
+            "OFFUS EMI Processing Fee + GST (₹598.80) + Inst 1/6 Principal & Interest (₹4,270.00)"
+          ]
+        }
+      ]
+    }
+  }
 }

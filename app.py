@@ -392,6 +392,23 @@ if client_vault and isinstance(client_vault, dict):
             for k, v in vault_emi_phones.items():
                 if k and v and str(v).strip():
                     st.session_state.emi_phones[str(k).strip()] = str(v).strip()
+        vault_bn = client_vault.get("bill_names")
+        vault_pc = client_vault.get("paid_cards")
+        if isinstance(vault_bn, dict) or isinstance(vault_pc, dict):
+            meta_bn_sync = unlock_statements.load_bill_names_web()
+            changed_bn = False
+            if isinstance(vault_bn, dict):
+                for k, v in vault_bn.items():
+                    if k and v and meta_bn_sync.setdefault("bill_names", {}).get(k) != v:
+                        meta_bn_sync["bill_names"][k] = v
+                        changed_bn = True
+            if isinstance(vault_pc, dict):
+                for k, v in vault_pc.items():
+                    if k and meta_bn_sync.setdefault("paid_cards", {}).get(k) != v:
+                        meta_bn_sync["paid_cards"][k] = v
+                        changed_bn = True
+            if changed_bn:
+                unlock_statements.save_bill_names_web(meta_bn_sync)
 
 # --- Sidebar Controls ---
 with st.sidebar:
@@ -899,17 +916,105 @@ def _get_gemini_api_key():
         return env_k
     return st.session_state.session_passwords.get("gemini_api_key", "").strip()
 
+def _is_card_paid(paid_cards_dict, *keys):
+    for k in keys:
+        if not k:
+            continue
+        val = paid_cards_dict.get(k)
+        if isinstance(val, dict) and val.get("isPaid"):
+            return True, val.get("paidDate", "")
+        if val is True or val == "true":
+            return True, ""
+    return False, ""
+
+def _save_statement_summary_to_bill_names(slot_key, rdata):
+    if not rdata or (rdata.get("shafana_meta") or {}).get("is_shafana") or (rdata.get("kayal_meta") or {}).get("is_kayal") or (rdata.get("payslip_meta") or {}).get("is_payslip"):
+        return
+    bn = unlock_statements.load_bill_names_web()
+    b_short = rdata.get("bank_short", "")
+    s_month = rdata.get("statement_month", "")
+    if not b_short:
+        return
+    sum_key = re.sub(r"[^a-zA-Z0-9_]", "_", f"{b_short}_{s_month}")
+    emis_out = []
+    for e in rdata.get("ongoing_emis", []):
+        lid = str(e.get("loan_id", ""))
+        ename = st.session_state.emi_nicknames.get(lid) or bn.get("bill_names", {}).get(lid) or e.get("custom_name") or lid
+        emis_out.append({
+            "loan_id": lid,
+            "name": ename,
+            "total_amount": e.get("total_amount", ""),
+            "monthly_emi": e.get("monthly_emi", ""),
+            "balance_tenure": e.get("balance_tenure", "")
+        })
+    date_cards_out = []
+    for dt_str, grp in (rdata.get("date_groups") or {}).items():
+        tot = float(grp.get("total", 0.0) or 0.0)
+        if tot <= 0:
+            continue
+        d_key = re.sub(r"[^a-zA-Z0-9_]", "_", f"date_{b_short}_{s_month}_{dt_str}")
+        items_desc = [f"{it.get('description', '')} (₹{float(it.get('amount', 0)):,.2f})" for it in (grp.get("items") or []) if not it.get("is_credit")]
+        date_cards_out.append({
+            "date": dt_str,
+            "bill_key": d_key,
+            "total": tot,
+            "items": items_desc[:6]
+        })
+    summary_obj = {
+        "bank_short": b_short,
+        "statement_month": s_month,
+        "total_due": rdata.get("total_due", ""),
+        "due_date": rdata.get("due_date", ""),
+        "ongoing_emis": emis_out,
+        "date_cards": date_cards_out
+    }
+    if bn.setdefault("statement_summaries", {}).get(sum_key) != summary_obj:
+        bn["statement_summaries"][sum_key] = summary_obj
+        unlock_statements.save_bill_names_web(bn)
+        sync_bill_names_to_github(bn, commit_msg=f"Auto-sync {b_short} {s_month} summary")
+
 def _build_compact_ai_context():
     ist_tz = timezone(timedelta(hours=5, minutes=30))
     now_ist = datetime.now(tz=ist_tz).strftime("%d %b %Y, %I:%M %p IST (%A)")
 
-    # 1. Dr. Kayalvizhi Duty Roster
+    # 1. Dr. Kayalvizhi Duty Roster (Full Daily Lineup + Relief Combinations)
     ky = get_shared_kayal_store()
-    ky_lines = [f"- {e.get('date')} ({e.get('day')}): {e.get('shift')} — {e.get('note', '')}" for e in ky.get("entries", [])]
+    ky_lines = []
+    for e in ky.get("entries", []):
+        opd_d = e.get("opd_doctors", "")
+        eve_d = e.get("evening_doctors", "")
+        ngt_d = e.get("night_doctors", "")
+        rel_from = e.get("kayal_relieves", "-")
+        rel_by = e.get("kayal_relieved_by", "-")
+        extra_roster = ""
+        if opd_d or eve_d or ngt_d:
+            extra_roster = f" | Roster [OPD: {opd_d}; Eve: {eve_d}; Night: {ngt_d}] | Kayal Relieves: {rel_from} | Relieved By: {rel_by}"
+        ky_lines.append(f"- {e.get('date')} ({e.get('day')}): Kayal={e.get('shift')} ({e.get('note', '')}){extra_roster}")
+
     wk_lines = []
     for wk in ky.get("weekly_doctor_summary", []):
         drs = ", ".join(f"{d['name']}: {d['total']} (OPD {d['opd']}, Rel {d['rel']}, Eve {d['eve']}, Night {d['night']})" for d in wk.get("doctors", []))
         wk_lines.append(f"  * {wk.get('week')}: {drs}")
+
+    combo_lines = []
+    rc = ky.get("relief_combinations") or {}
+    if rc:
+        if rc.get("who_relieves_kayal_most"):
+            combo_lines.append("  * Who Relieves Dr. Kayalvizhi Most (Across Her 15 Shifts):")
+            for item in rc["who_relieves_kayal_most"]:
+                combo_lines.append(f"    - {item['doctor']}: {item['count']} times ({'; '.join(item.get('dates', []))})")
+        if rc.get("whom_kayal_relieves_most"):
+            combo_lines.append("  * Whom Dr. Kayalvizhi Relieves Most:")
+            for item in rc["whom_kayal_relieves_most"]:
+                combo_lines.append(f"    - {item['doctor']}: {item['count']} times ({'; '.join(item.get('dates', []))})")
+        if rc.get("joint_opd_with_kayal"):
+            combo_lines.append("  * Joint OPD Shifts Together:")
+            for item in rc["joint_opd_with_kayal"]:
+                combo_lines.append(f"    - {item['doctor']}: {item['count']} times ({'; '.join(item.get('dates', []))})")
+        if rc.get("overall_combo_ranking"):
+            combo_lines.append("  * Overall Highest Doctor Combo with Dr. Kayalvizhi:")
+            for item in rc["overall_combo_ranking"]:
+                combo_lines.append(f"    - {item['combo']}: {item['total_interactions']} total interactions ({item['breakdown']})")
 
     # 2. Shafana Cashback
     sf = get_shared_shafana_store()
@@ -919,30 +1024,82 @@ def _build_compact_ai_context():
     sf_used = float(sf.get("manualCbUsed", 0) or 0)
     sf_left = sf_earned - sf_used
 
-    # 3. Saved SmartEMI Plans & Fold Tags
+    # 3. Saved SmartEMI Plans, Fold Tags & Bill Names/Paid Status
     bn = unlock_statements.load_bill_names_web()
+    custom_names_map = dict(bn.get("bill_names") or {})
+    custom_names_map.update(st.session_state.emi_nicknames)
+    paid_cards_map = dict(bn.get("paid_cards") or {})
+
     emi_plan_lines = [
-        f"- Loan #{p.get('loan_id')} ({p.get('plan_name')}): ₹{p.get('amount', 0):,.2f}, {p.get('tenure_months')} mos, fee ₹{p.get('processing_fee', 0):,.0f}"
+        f"- Loan #{p.get('loan_id')} ({custom_names_map.get(str(p.get('loan_id')), p.get('plan_name'))}): ₹{p.get('amount', 0):,.2f}, {p.get('tenure_months')} mos, fee ₹{p.get('processing_fee', 0):,.0f}"
         for p in bn.get("emi_plans", [])
     ]
     fold_lines = [
-        f"- {ft.get('date')}: Card **{ft.get('card_last4')} ₹{ft.get('amount', 0):,.0f} ({ft.get('paid_to')}) -> Note: {ft.get('note')}"
+        f"- {ft.get('date')}: Card **{ft.get('card_last4')} ({ft.get('bank_short', 'ICICI Amazon')}) ₹{ft.get('amount', 0):,.0f} ({ft.get('paid_to')}) -> Note: {ft.get('note')}"
         for ft in bn.get("fold_tags", [])[:15]
     ]
 
-    # 4. Loaded Session Statements (in RAM)
+    # 4. Credit Card Statements & Date-Wise Paid/Unpaid Bills (Live Session + Persisted Summaries)
     stmt_lines = []
+    seen_banks = set()
     for k_st, rdata in st.session_state.statements_data.items():
         if (rdata.get("shafana_meta") or {}).get("is_shafana") or (rdata.get("kayal_meta") or {}).get("is_kayal"):
             continue
+        b_short = rdata.get("bank_short", "")
+        s_month = rdata.get("statement_month", "")
+        seen_banks.add(f"{b_short}_{s_month}")
         emis = rdata.get("ongoing_emis", [])
-        emi_str = "; ".join(f"{st.session_state.emi_nicknames.get(str(e.get('loan_id', '')), e.get('custom_name') or e.get('loan_id'))}: {e.get('total_amount')} ({e.get('balance_tenure')})" for e in emis)
-        top_dates = list((rdata.get("date_groups") or {}).items())[:25]
-        dg_str = "; ".join(f"{d}: ₹{g.get('total', 0):,.2f} ({len(g.get('items', []))} items)" for d, g in top_dates)
+        emi_parts = []
+        for e in emis:
+            lid = str(e.get("loan_id", ""))
+            ename = custom_names_map.get(lid) or e.get("custom_name") or lid
+            is_p, p_dt = _is_card_paid(paid_cards_map, lid, ename)
+            status_lbl = f"PAID {p_dt}".strip() if is_p else "UNPAID"
+            emi_parts.append(f"{ename} (Loan {lid}): {e.get('total_amount')}, Monthly EMI {e.get('monthly_emi', '-')}, {e.get('balance_tenure')} [{status_lbl}]")
+        card_parts = []
+        for dt_str, g in (rdata.get("date_groups") or {}).items():
+            tot = float(g.get("total", 0) or 0)
+            if tot <= 0:
+                continue
+            d_key = re.sub(r"[^a-zA-Z0-9_]", "_", f"date_{b_short}_{s_month}_{dt_str}")
+            c_name = custom_names_map.get(d_key, "")
+            is_p, p_dt = _is_card_paid(paid_cards_map, d_key, c_name)
+            status_lbl = f"PAID {p_dt}".strip() if is_p else "UNPAID"
+            it_str = ", ".join(f"{it.get('description', '')} ₹{float(it.get('amount', 0)):,.2f}" for it in (g.get("items") or []) if not it.get("is_credit"))
+            lbl_str = f" [{c_name}]" if c_name else ""
+            card_parts.append(f"  - {dt_str}{lbl_str}: ₹{tot:,.2f} [{status_lbl}] — {it_str}")
         stmt_lines.append(
-            f"* {rdata.get('bank_short')} ({rdata.get('statement_month')}): Total Due {rdata.get('total_due')}, Due Date {rdata.get('due_date')}, Rewards {rdata.get('reward_points', '')}"
-            + (f" | EMIs: {emi_str}" if emi_str else "")
-            + (f" | Date Groups: {dg_str}" if dg_str else "")
+            f"* {b_short} ({s_month}): Total Due {rdata.get('total_due')}, Due Date {rdata.get('due_date')}\n"
+            + (f"  Ongoing EMIs: {'; '.join(emi_parts)}\n" if emi_parts else "")
+            + ("  Date-Wise Bill Cards:\n" + "\n".join(card_parts) if card_parts else "")
+        )
+
+    for s_key, s_obj in (bn.get("statement_summaries") or {}).items():
+        b_short = s_obj.get("bank_short", "")
+        s_month = s_obj.get("statement_month", "")
+        if f"{b_short}_{s_month}" in seen_banks:
+            continue
+        emi_parts = []
+        for e in s_obj.get("ongoing_emis", []):
+            lid = str(e.get("loan_id", ""))
+            ename = custom_names_map.get(lid) or e.get("name") or lid
+            is_p, p_dt = _is_card_paid(paid_cards_map, lid, ename)
+            status_lbl = f"PAID {p_dt}".strip() if is_p else "UNPAID"
+            emi_parts.append(f"{ename} (Loan {lid}): {e.get('total_amount')}, Monthly EMI {e.get('monthly_emi', '-')}, {e.get('balance_tenure')} [{status_lbl}]")
+        card_parts = []
+        for dc in s_obj.get("date_cards", []):
+            d_key = dc.get("bill_key", "")
+            fb_key = dc.get("fallback_key", "")
+            c_name = custom_names_map.get(d_key) or custom_names_map.get(fb_key) or dc.get("custom_name", "")
+            is_p, p_dt = _is_card_paid(paid_cards_map, d_key, fb_key, c_name)
+            status_lbl = f"PAID {p_dt}".strip() if is_p else "UNPAID"
+            lbl_str = f" [{c_name}]" if c_name else ""
+            it_str = ", ".join(dc.get("items") or [])
+            card_parts.append(f"  - {dc.get('date')}{lbl_str}: ₹{float(dc.get('total', 0)):,.2f} [{status_lbl}] — {it_str}")
+        stmt_lines.append(
+            f"* {b_short} ({s_month}): Total Due {s_obj.get('total_due')}, Due Date {s_obj.get('due_date')}\n"
+            + (f"  Ongoing EMIs: {'; '.join(emi_parts)}\n" if emi_parts else "")
+            + ("  Date-Wise Bill Cards:\n" + "\n".join(card_parts) if card_parts else "")
         )
 
     return (
@@ -950,10 +1107,11 @@ def _build_compact_ai_context():
         f"[DR. KAYALVIZHI DUTY ROSTER ({ky.get('center_name', 'CHC Thirunallar')}, {ky.get('period', '')})]\n"
         + "\n".join(ky_lines) + "\n"
         + ("Weekly Doctor Totals:\n" + "\n".join(wk_lines) + "\n" if wk_lines else "")
+        + ("Doctor Relief & Combination Analysis:\n" + "\n".join(combo_lines) + "\n" if combo_lines else "")
         + f"\n[SHAFANA CASHBACK]\nBill Due: ₹{sf_bill:,.2f}, Earned: ₹{sf_earned:,.2f}, Used: ₹{sf_used:,.2f}, Left: ₹{sf_left:,.2f}\n"
         + ("\n[SAVED SMARTEMI PLANS]\n" + "\n".join(emi_plan_lines) + "\n" if emi_plan_lines else "")
         + ("\n[SAVED FOLD TAGS]\n" + "\n".join(fold_lines) + "\n" if fold_lines else "")
-        + ("\n[LOADED STATEMENTS IN CURRENT SESSION]\n" + "\n".join(stmt_lines) if stmt_lines else "\n[LOADED STATEMENTS]\nNone uploaded in current session yet.")
+        + ("\n[CREDIT CARD STATEMENTS, EMIS & DATE-WISE PAID/UNPAID BILLS]\n" + "\n".join(stmt_lines) if stmt_lines else "\n[CREDIT CARD STATEMENTS]\nNone available.")
     )
 
 def _ask_gemini_api(user_prompt, api_key):
@@ -1057,39 +1215,7 @@ def _ask_gemini_api(user_prompt, api_key):
 
     return False, last_err or "No response from Gemini API."
 
-with st.expander("🤖 Ask Gemini AI Assistant (Duty Roster, Bills, EMIs & Cashback)", expanded=bool(st.session_state.show_ai_chat or st.session_state.ai_chat_history)):
-    gemini_key = _get_gemini_api_key()
-    if not gemini_key:
-        st.info(
-            "🔑 Add your free **Gemini API Key** from [Google AI Studio](https://aistudio.google.com/docs/api-key) "
-            "either in **Streamlit Cloud Secrets (`GEMINI_API_KEY`)** or in the sidebar under **🔑 Device Stored Passwords**."
-        )
-    else:
-        q_cols = st.columns([1, 1, 1, 0.7])
-        quick_prompt = None
-        if q_cols[0].button("🩺 Kayalvizhi's next off day?", use_container_width=True, key="ai_q1"):
-            quick_prompt = "When is Dr. Kayalvizhi's next off day and what is her schedule this week?"
-        if q_cols[1].button("💳 Summarize my bills & EMIs", use_container_width=True, key="ai_q2"):
-            quick_prompt = "Summarize my loaded credit card bills, EMIs, and saved SmartEMI plans."
-        if q_cols[2].button("🎁 Shafana cashback balance", use_container_width=True, key="ai_q3"):
-            quick_prompt = "What is Shafana's total bill due and cashback balance left?"
-        if q_cols[3].button("🗑️ Clear Chat", use_container_width=True, key="ai_clr"):
-            st.session_state.ai_chat_history = []
-            st.rerun()
 
-        for msg in st.session_state.ai_chat_history:
-            with st.chat_message(msg["role"]):
-                st.markdown(msg["content"])
-
-        typed_prompt = st.chat_input("Ask about Kayalvizhi's duty, your bills, EMIs, or Shafana's cashback...", key="gemini_chat_inp")
-        final_prompt = quick_prompt or typed_prompt
-        if final_prompt:
-            st.session_state.ai_chat_history.append({"role": "user", "content": final_prompt})
-            with st.spinner("Asking Gemini..."):
-                ok_ai, ans_ai = _ask_gemini_api(final_prompt, gemini_key)
-            reply_txt = ans_ai if ok_ai else f"⚠️ Gemini API Error: {ans_ai}"
-            st.session_state.ai_chat_history.append({"role": "assistant", "content": reply_txt})
-            st.rerun()
 
 
 # --- Process Uploaded Files Strictly in RAM (Zero Disk Writes!) ---
@@ -1217,6 +1343,7 @@ if uploaded_files:
                                 st.success(f"🏷️ Saved Loan #{lid} as '{clean_n}' for future splits!")
             else:
                 st.session_state.statements_data[slot_key] = rdata
+                _save_statement_summary_to_bill_names(slot_key, rdata)
                 if rdata.get("payslip_meta", {}).get("is_payslip"):
                     pm = rdata["payslip_meta"]
                     st.success(f"✅ Salary Payslip Loaded: {up_file.name} ({pm.get('pay_period')}) — Net Pay {pm.get('net_pay')} • Full 30-Day Rate: ₹{pm.get('full_month_gross', 0):,.2f}/mo (₹{pm.get('per_day_rate', 0):,.2f}/day)")
@@ -1293,6 +1420,40 @@ if st.session_state.show_kayal_roster and "Kayal_Duty_Roster" not in st.session_
     st.session_state.statements_data["Kayal_Duty_Roster"] = unlock_statements.build_kayal_statement_from_roster(get_shared_kayal_store())
 if (st.session_state.show_shafana_tracker or has_icici_loaded) and "Shafana_Cashback" not in st.session_state.statements_data:
     st.session_state.statements_data["Shafana_Cashback"] = unlock_statements.build_shafana_statement_from_ledger(get_shared_shafana_store())
+
+with st.expander("🤖 Ask Gemini AI Assistant (Duty Roster, Bills, EMIs & Cashback)", expanded=bool(st.session_state.show_ai_chat or st.session_state.ai_chat_history)):
+    gemini_key = _get_gemini_api_key()
+    if not gemini_key:
+        st.info(
+            "🔑 Add your free **Gemini API Key** from [Google AI Studio](https://aistudio.google.com/docs/api-key) "
+            "either in **Streamlit Cloud Secrets (`GEMINI_API_KEY`)** or in the sidebar under **🔑 Device Stored Passwords**."
+        )
+    else:
+        q_cols = st.columns([1, 1, 1, 0.7])
+        quick_prompt = None
+        if q_cols[0].button("🩺 Kayalvizhi's next off day?", use_container_width=True, key="ai_q1"):
+            quick_prompt = "When is Dr. Kayalvizhi's next off day and what is her schedule this week?"
+        if q_cols[1].button("💳 Summarize my bills & EMIs", use_container_width=True, key="ai_q2"):
+            quick_prompt = "Summarize my loaded credit card bills, EMIs, and saved SmartEMI plans."
+        if q_cols[2].button("🎁 Shafana cashback balance", use_container_width=True, key="ai_q3"):
+            quick_prompt = "What is Shafana's total bill due and cashback balance left?"
+        if q_cols[3].button("🗑️ Clear Chat", use_container_width=True, key="ai_clr"):
+            st.session_state.ai_chat_history = []
+            st.rerun()
+
+        for msg in st.session_state.ai_chat_history:
+            with st.chat_message(msg["role"]):
+                st.markdown(msg["content"])
+
+        typed_prompt = st.chat_input("Ask about Kayalvizhi's duty, your bills, EMIs, or Shafana's cashback...", key="gemini_chat_inp")
+        final_prompt = quick_prompt or typed_prompt
+        if final_prompt:
+            st.session_state.ai_chat_history.append({"role": "user", "content": final_prompt})
+            with st.spinner("Asking Gemini..."):
+                ok_ai, ans_ai = _ask_gemini_api(final_prompt, gemini_key)
+            reply_txt = ans_ai if ok_ai else f"⚠️ Gemini API Error: {ans_ai}"
+            st.session_state.ai_chat_history.append({"role": "assistant", "content": reply_txt})
+            st.rerun()
 
 # --- Active Statements Controls & Clear State ---
 if st.session_state.statements_data:
@@ -1897,7 +2058,8 @@ if st.session_state.statements_data:
     dashboard_html = unlock_statements.generate_modern_dashboard_html(
         [v for _, v in ordered_items],
         output_dir=".",
-        write_to_disk=False
+        write_to_disk=False,
+        github_token=_get_github_token()
     )
     components.html(dashboard_html, height=1450, scrolling=True)
 else:

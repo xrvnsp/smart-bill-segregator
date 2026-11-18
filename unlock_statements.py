@@ -2279,7 +2279,7 @@ def process_statement_file(file_path, base_downloads_dir=None, custom_passwords=
 BILL_NAMES_WEB_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "bill_names.json")
 
 def load_bill_names_web():
-  """Loads non-sensitive custom card/date bill names, paid statuses, and Fold transaction tags from bill_names.json."""
+  """Loads non-sensitive custom card/date bill names, paid statuses, Fold tags, EMI plans, and statement summaries from bill_names.json."""
   if os.path.exists(BILL_NAMES_WEB_FILE):
     try:
       with open(BILL_NAMES_WEB_FILE, "r", encoding="utf-8") as f:
@@ -2290,11 +2290,12 @@ def load_bill_names_web():
             "paid_cards": data.get("paid_cards", {}) if isinstance(data.get("paid_cards"), dict) else {},
             "fold_tags": data.get("fold_tags", []) if isinstance(data.get("fold_tags"), list) else [],
             "emi_plans": data.get("emi_plans", []) if isinstance(data.get("emi_plans"), list) else [],
+            "statement_summaries": data.get("statement_summaries", {}) if isinstance(data.get("statement_summaries"), dict) else {},
             "updated_at": data.get("updated_at", "")
         }
     except Exception:
       pass
-  return {"bill_names": {}, "paid_cards": {}, "fold_tags": [], "emi_plans": [], "updated_at": ""}
+  return {"bill_names": {}, "paid_cards": {}, "fold_tags": [], "emi_plans": [], "statement_summaries": {}, "updated_at": ""}
 
 def save_bill_names_web(meta):
   """Saves custom bill names, paid statuses, and Fold transaction tags to bill_names.json."""
@@ -2436,12 +2437,13 @@ def process_fold_screenshots(image_items):
 
   return True, "Success", {"extracted": extracted, "shafana_data": shafana_data}
 
-def generate_modern_dashboard_html(results_list, output_dir=".", write_to_disk=True):
+def generate_modern_dashboard_html(results_list, output_dir=".", write_to_disk=True, github_token=""):
   """Generates a high-quality modern interactive HTML dashboard with EMI receipt highlighting."""
   import base64
   html_path = os.path.join(output_dir, "Statement_Dashboard.html")
   data_json = json.dumps(results_list)
   web_bill_names_json = json.dumps(load_bill_names_web())
+  server_gh_token_json = json.dumps(github_token or "")
 
   swiggy_card_b64 = ""
   amazon_card_b64 = ""
@@ -2818,6 +2820,7 @@ def generate_modern_dashboard_html(results_list, output_dir=".", write_to_disk=T
     const CARD_IMAGES = {{ swiggy: "{swiggy_card_b64}", amazon: "{amazon_card_b64}", sbi: "{sbi_card_b64}", scapia_orange: "{scapia_orange_b64}", scapia_green: "{scapia_green_b64}" }};
     const statements = {data_json};
     const WEB_BILL_NAMES = {web_bill_names_json};
+    const SERVER_GH_TOKEN = {server_gh_token_json};
     let activeIndex = 0;
 
     function getVaultStores() {{
@@ -2951,7 +2954,7 @@ def generate_modern_dashboard_html(results_list, output_dir=".", write_to_disk=T
     }}
 
     async function syncBillNamesToWeb(meta) {{
-      const ghToken = vaultGetItem("s24_github_pat") || "";
+      const ghToken = vaultGetItem("s24_github_pat") || (typeof SERVER_GH_TOKEN === "string" ? SERVER_GH_TOKEN : "") || "";
       if (!ghToken || ghToken.trim().length < 10) return;
       try {{
         const apiUrl = "https://api.github.com/repos/xrvnsp/smart-bill-segregator/contents/bill_names.json";
@@ -2960,13 +2963,19 @@ def generate_modern_dashboard_html(results_list, output_dir=".", write_to_disk=T
           cache: "no-store"
         }});
         let sha = undefined;
+        let existingRemote = {{}};
         if (getRes.ok) {{
           const gj = await getRes.json();
           sha = gj.sha;
+          try {{ existingRemote = JSON.parse(decodeURIComponent(escape(atob((gj.content || "").replace(/\s/g, ""))))); }} catch (e) {{}}
         }}
+        const baseObj = (typeof WEB_BILL_NAMES === "object" && WEB_BILL_NAMES) ? WEB_BILL_NAMES : {{}};
         const payload = {{
-          bill_names: meta.bill_names || {{}},
+          bill_names: Object.assign({{}}, baseObj.bill_names || {{}}, existingRemote.bill_names || {{}}, meta.bill_names || {{}}),
           paid_cards: meta.paid_cards || {{}},
+          fold_tags: existingRemote.fold_tags || baseObj.fold_tags || [],
+          emi_plans: existingRemote.emi_plans || baseObj.emi_plans || [],
+          statement_summaries: existingRemote.statement_summaries || baseObj.statement_summaries || {{}},
           updated_at: new Date().toISOString()
         }};
         const b64Content = btoa(unescape(encodeURIComponent(JSON.stringify(payload, null, 2))));
