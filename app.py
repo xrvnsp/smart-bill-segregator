@@ -572,6 +572,50 @@ if client_vault and isinstance(client_vault, dict):
                 unlock_statements.save_bill_names_web(meta_bn_sync)
 
 
+def _get_sheets_webhook_url():
+    url = st.session_state.session_passwords.get("sheets_webhook_url", "").strip()
+    if url:
+        return url
+    try:
+        if "SHEETS_WEBHOOK_URL" in st.secrets and str(st.secrets["SHEETS_WEBHOOK_URL"]).strip():
+            return str(st.secrets["SHEETS_WEBHOOK_URL"]).strip()
+    except Exception:
+        pass
+    return os.environ.get("SHEETS_WEBHOOK_URL", "").strip()
+
+def _post_to_apps_script(webhook_url, payload_dict):
+    url = (webhook_url or "").strip()
+    if not url:
+        return False, {}, "Google Sheets Web App URL is empty. Add it in the Vault tab."
+    if "/dev" in url and not url.endswith("/exec"):
+        return False, {}, "You pasted the '/dev' test URL. Please use the '/exec' URL from Deploy -> Manage deployments."
+    raw_txt = ""
+    try:
+        import requests
+        r = requests.post(url, json=payload_dict, allow_redirects=True, timeout=25)
+        raw_txt = (r.text or "").strip()
+        if r.status_code >= 400:
+            return False, {}, f"HTTP {r.status_code}: {raw_txt[:220]}"
+    except ImportError:
+        import urllib.request
+        req = urllib.request.Request(
+            url,
+            data=json.dumps(payload_dict).encode("utf-8"),
+            headers={"Content-Type": "application/json", "User-Agent": "SmartBillSegregator/1.0"}
+        )
+        with urllib.request.urlopen(req, timeout=25) as resp:
+            raw_txt = resp.read().decode("utf-8", errors="ignore").strip()
+    try:
+        rj = json.loads(raw_txt)
+        if isinstance(rj, dict) and rj.get("status") == "ok":
+            return True, rj, raw_txt
+        return False, rj if isinstance(rj, dict) else {}, f"Unexpected JSON: {raw_txt[:220]}"
+    except Exception:
+        return False, {}, (
+            "Apps Script returned an HTML page instead of JSON (likely needs authorization or 'Who has access: Anyone'). "
+            f"Preview: {raw_txt[:180]}"
+        )
+
 def _get_gemini_api_key():
     try:
         if "GEMINI_API_KEY" in st.secrets and str(st.secrets["GEMINI_API_KEY"]).strip():
@@ -1535,11 +1579,12 @@ elif st.session_state.active_nav == "expenses":
         )
     with ex_col2:
         if st.button("☁️ Push Expenses to Google Sheets", use_container_width=True, type="primary", key="push_expenses_gsheet"):
-            webhook_url = st.session_state.session_passwords.get("sheets_webhook_url", "").strip()
+            webhook_url = _get_sheets_webhook_url()
             if not webhook_url:
                 st.warning("Add your Google Sheets Web App URL in the Vault tab first.")
+            elif not entries_list:
+                st.warning("No expense entries to push yet — upload a screenshot or add an expense first.")
             else:
-                import urllib.request
                 exp_rows = [
                     {
                         "month": e.get("date_time", ""),
@@ -1556,31 +1601,18 @@ elif st.session_state.active_nav == "expenses":
                     }
                     for e in entries_list
                 ]
-                try:
-                    req = urllib.request.Request(
-                        webhook_url,
-                        data=json.dumps({"bills": [], "reimbursements": [], "expenses": exp_rows}).encode("utf-8"),
-                        headers={"Content-Type": "application/json", "User-Agent": "SmartBillSegregator/1.0"}
-                    )
-                    with urllib.request.urlopen(req, timeout=20) as resp:
-                        resp_txt = resp.read().decode("utf-8", errors="ignore").strip()
-                    try:
-                        resp_json = json.loads(resp_txt)
-                    except Exception:
-                        resp_json = {}
-                    if resp_json.get("status") == "ok":
-                        added_cnt = resp_json.get("expenses_added", len(exp_rows))
-                        if added_cnt > 0:
-                            st.success(f"✅ Verified! Pushed {added_cnt} expense(s) to the 'Expenses & Receipts' tab in Google Sheets.")
-                        else:
-                            st.warning("⚠️ Apps Script responded OK, but 'expenses_added' was 0 — make sure you clicked Deploy → Manage deployments → Edit → Version: New version after pasting Google_Sheets_Apps_Script.gs!")
+                ok_sh, rj_sh, msg_sh = _post_to_apps_script(webhook_url, {"bills": [], "reimbursements": [], "expenses": exp_rows})
+                if ok_sh:
+                    added_cnt = rj_sh.get("expenses_added", 0)
+                    if added_cnt > 0:
+                        st.success(f"✅ Verified! Pushed {added_cnt} expense(s) with receipt thumbnails to the 'Expenses & Receipts' tab in Google Sheets.")
                     else:
-                        st.error(
-                            "⚠️ Google Apps Script returned an HTML/Error page instead of JSON (so nothing was written). "
-                            "In Apps Script, click Run → testPermissions once to authorize Drive & Sheets, then Deploy → Manage deployments → Edit → Version: New version (Who has access: Anyone)."
+                        st.warning(
+                            "⚠️ Apps Script responded OK, but 'expenses_added' was 0. "
+                            "In Google Apps Script, make sure you clicked Deploy → Manage deployments → Edit (pencil) → Version: New version → Deploy!"
                         )
-                except Exception as ex_err:
-                    st.error(f"Google Sheets push failed: {ex_err}")
+                else:
+                    st.error(f"⚠️ Google Sheets push failed: {msg_sh}")
     with ex_col3:
         if entries_list and st.button("🗑️ Clear All Expenses", use_container_width=True, type="secondary", key="clr_all_expenses"):
             exp_ledger["entries"] = []
