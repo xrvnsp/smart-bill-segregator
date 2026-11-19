@@ -1562,8 +1562,23 @@ elif st.session_state.active_nav == "expenses":
                         data=json.dumps({"bills": [], "reimbursements": [], "expenses": exp_rows}).encode("utf-8"),
                         headers={"Content-Type": "application/json", "User-Agent": "SmartBillSegregator/1.0"}
                     )
-                    with urllib.request.urlopen(req, timeout=12) as resp:
-                        st.success(f"Pushed {len(exp_rows)} expense record(s) to Google Sheets!")
+                    with urllib.request.urlopen(req, timeout=20) as resp:
+                        resp_txt = resp.read().decode("utf-8", errors="ignore").strip()
+                    try:
+                        resp_json = json.loads(resp_txt)
+                    except Exception:
+                        resp_json = {}
+                    if resp_json.get("status") == "ok":
+                        added_cnt = resp_json.get("expenses_added", len(exp_rows))
+                        if added_cnt > 0:
+                            st.success(f"✅ Verified! Pushed {added_cnt} expense(s) to the 'Expenses & Receipts' tab in Google Sheets.")
+                        else:
+                            st.warning("⚠️ Apps Script responded OK, but 'expenses_added' was 0 — make sure you clicked Deploy → Manage deployments → Edit → Version: New version after pasting Google_Sheets_Apps_Script.gs!")
+                    else:
+                        st.error(
+                            "⚠️ Google Apps Script returned an HTML/Error page instead of JSON (so nothing was written). "
+                            "In Apps Script, click Run → testPermissions once to authorize Drive & Sheets, then Deploy → Manage deployments → Edit → Version: New version (Who has access: Anyone)."
+                        )
                 except Exception as ex_err:
                     st.error(f"Google Sheets push failed: {ex_err}")
     with ex_col3:
