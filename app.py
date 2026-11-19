@@ -376,6 +376,8 @@ def get_shared_expenses_store():
 def update_shared_expenses_store(new_ledger, commit_msg="Sync Expense Calculator ledger"):
     import copy
     snapshot = copy.deepcopy(dict(new_ledger))
+    for _ent in snapshot.get("entries", []):
+        _ent.pop("full_b64", None)
     store = get_shared_expenses_store()
     store.clear()
     store.update(snapshot)
@@ -1483,6 +1485,8 @@ elif st.session_state.active_nav == "expenses":
             raw_ef = ef.getvalue()
             sig_ef = f"ded_{ef.name}_{len(raw_ef)}"
             parsed_ef = unlock_statements.parse_expense_screenshot(raw_ef, ef.name)
+            if parsed_ef.get("full_b64"):
+                st.session_state.setdefault("full_receipt_images", {})[parsed_ef["id"]] = parsed_ef["full_b64"]
             if sig_ef not in seen_ded:
                 seen_ded.add(sig_ef)
                 exp_ledger_now["entries"] = [x for x in exp_ledger_now.get("entries", []) if x.get("id") != parsed_ef["id"]]
@@ -1510,7 +1514,7 @@ elif st.session_state.active_nav == "expenses":
                         "remaining": x.get("payee_upi") or "-",
                         "status": "Paid Expense",
                         "source_file": x.get("source_file", "receipt.webp"),
-                        "thumb_b64": x.get("thumb_b64", "")
+                        "thumb_b64": x.get("full_b64") or st.session_state.get("full_receipt_images", {}).get(x.get("id", "")) or x.get("thumb_b64", "")
                     }
                     for x in newly_added_objs
                 ]
@@ -1681,7 +1685,7 @@ elif st.session_state.active_nav == "expenses":
                         "remaining": e.get("payee_upi") or "-",
                         "status": "Paid Expense",
                         "source_file": e.get("source_file", "receipt.webp"),
-                        "thumb_b64": e.get("thumb_b64", "")
+                        "thumb_b64": st.session_state.get("full_receipt_images", {}).get(e.get("id", "")) or e.get("full_b64") or e.get("thumb_b64", "")
                     }
                     for e in entries_list
                 ]

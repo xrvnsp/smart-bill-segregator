@@ -2400,6 +2400,7 @@ def parse_expense_screenshot(img_bytes, filename="receipt.jpg"):
   ist_tz = timezone(timedelta(hours=5, minutes=30))
   now_dt_str = datetime.now(tz=ist_tz).strftime("%d %b %Y, %I:%M %p")
   thumb_b64 = ""
+  full_b64 = ""
   txt = ""
   amount = 0.0
   date_time_str = ""
@@ -2416,10 +2417,16 @@ def parse_expense_screenshot(img_bytes, filename="receipt.jpg"):
     import numpy as np
     from PIL import Image, ImageOps
     im = Image.open(io.BytesIO(img_bytes))
+    # Full original-resolution Lossless WebP (zero downscaling, pixel-perfect quality for Google Drive / Sheets)
+    full_buf = io.BytesIO()
+    im.save(full_buf, format="WEBP", lossless=True, quality=100, method=4)
+    full_b64 = "data:image/webp;base64," + base64.b64encode(full_buf.getvalue()).decode("ascii")
+
+    # Compact thumbnail only for lightweight GitHub JSON table preview
     thumb_im = im.convert("RGB")
-    thumb_im.thumbnail((360, 720), Image.Resampling.LANCZOS)
+    thumb_im.thumbnail((280, 560), Image.Resampling.LANCZOS)
     buf = io.BytesIO()
-    thumb_im.save(buf, format="WEBP", lossless=True, quality=100, method=6)
+    thumb_im.save(buf, format="WEBP", lossless=True, quality=100, method=4)
     thumb_b64 = "data:image/webp;base64," + base64.b64encode(buf.getvalue()).decode("ascii")
 
     gray = ImageOps.grayscale(im)
@@ -2604,7 +2611,8 @@ def parse_expense_screenshot(img_bytes, filename="receipt.jpg"):
     "transaction_id": txn_id,
     "notes": notes or "UPI",
     "source_file": filename,
-    "thumb_b64": thumb_b64
+    "thumb_b64": thumb_b64,
+    "full_b64": full_b64
   }
 
 BILL_NAMES_WEB_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "bill_names.json")
