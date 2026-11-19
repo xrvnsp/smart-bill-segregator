@@ -1513,7 +1513,7 @@ elif st.session_state.active_nav == "expenses":
                         "amount_num": float(x.get("amount", 0)),
                         "remaining": x.get("payee_upi") or "-",
                         "status": "Paid Expense",
-                        "source_file": x.get("source_file", "receipt.webp"),
+                        "source_file": x.get("source_file", "receipt.png"),
                         "thumb_b64": x.get("full_b64") or st.session_state.get("full_receipt_images", {}).get(x.get("id", "")) or x.get("thumb_b64", "")
                     }
                     for x in newly_added_objs
@@ -1684,7 +1684,7 @@ elif st.session_state.active_nav == "expenses":
                         "amount_num": float(e.get("amount", 0)),
                         "remaining": e.get("payee_upi") or "-",
                         "status": "Paid Expense",
-                        "source_file": e.get("source_file", "receipt.webp"),
+                        "source_file": e.get("source_file", "receipt.png"),
                         "thumb_b64": st.session_state.get("full_receipt_images", {}).get(e.get("id", "")) or e.get("full_b64") or e.get("thumb_b64", "")
                     }
                     for e in entries_list
@@ -1695,7 +1695,7 @@ elif st.session_state.active_nav == "expenses":
                     skipped_cnt = rj_sh.get("expenses_skipped", 0)
                     if added_cnt > 0 or skipped_cnt > 0:
                         skip_note = f" ({skipped_cnt} duplicate(s) automatically skipped)" if skipped_cnt else ""
-                        st.success(f"✅ Verified! Pushed {added_cnt} new expense(s) with Lossless WebP receipts to 'Expenses & Receipts'{skip_note}.")
+                        st.success(f"✅ Verified! Pushed {added_cnt} new expense(s) with Original PNG receipts to 'Expenses & Receipts'{skip_note}.")
                     else:
                         st.warning(
                             f"⚠️ Apps Script responded OK, but 'expenses_added' was 0. Raw response: `{msg_sh[:220]}` — "

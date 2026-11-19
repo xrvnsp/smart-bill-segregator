@@ -2417,10 +2417,10 @@ def parse_expense_screenshot(img_bytes, filename="receipt.jpg"):
     import numpy as np
     from PIL import Image, ImageOps
     im = Image.open(io.BytesIO(img_bytes))
-    # Full original-resolution Lossless WebP (zero downscaling, pixel-perfect quality for Google Drive / Sheets)
+    # Full original-resolution Lossless PNG (zero downscaling, universal compatibility for Google Drive & Sheets =IMAGE())
     full_buf = io.BytesIO()
-    im.save(full_buf, format="WEBP", lossless=True, quality=100, method=4)
-    full_b64 = "data:image/webp;base64," + base64.b64encode(full_buf.getvalue()).decode("ascii")
+    im.save(full_buf, format="PNG", optimize=True)
+    full_b64 = "data:image/png;base64," + base64.b64encode(full_buf.getvalue()).decode("ascii")
 
     # Compact thumbnail only for lightweight GitHub JSON table preview
     thumb_im = im.convert("RGB")
@@ -2448,7 +2448,7 @@ def parse_expense_screenshot(img_bytes, filename="receipt.jpg"):
       if top < img_h * 0.07:
         continue
       w_clean = w_raw.replace(",", "")
-      m = re.match(r"^[₹27zZ]?(\d+(?:\.\d{1,2})?)$", w_clean)
+      m = re.match(r"^([^0-9a-zA-Z]|[₹zZFE€£¥%&#*?!~@¢§]|[27])?(\d+(?:\.\d{1,2})?)$", w_clean)
       if not m:
         continue
       if re.match(r"^20\d{2}$", w_clean) and h < img_h * 0.03:
@@ -2466,7 +2466,7 @@ def parse_expense_screenshot(img_bytes, filename="receipt.jpg"):
 
       bbox = (data["left"][i], top, data["width"][i], h)
       val = None
-      if w_clean[0] in ("₹", "z", "Z"):
+      if not w_clean[0].isdigit():
         val = float(w_clean[1:])
       elif w_clean[0] in ("2", "7") and len(w_clean.split(".")[0]) >= 2 and _is_rupee_glyph_misread(gray, bbox):
         val = float(w_clean[1:])
@@ -2522,7 +2522,7 @@ def parse_expense_screenshot(img_bytes, filename="receipt.jpg"):
     # 3. Detect Payment App
     low = txt.lower()
     fn_l = (filename or "").lower()
-    if "samsung wallet" in low:
+    if "samsung wallet" in low or ("raise query" in low and "share receipt" in low):
       app_name = "Samsung Wallet"
     elif "google pay" in low or "gpay" in low or "gpay" in fn_l or ("pay again" in low and ("was debited" in low or "sent to" in low)):
       app_name = "Google Pay"
@@ -2577,6 +2577,8 @@ def parse_expense_screenshot(img_bytes, filename="receipt.jpg"):
       m_to = re.search(r"(?:Paid\s+to|Sent\s+to|To)[:\s]+([A-Za-z][A-Za-z0-9 .&-]{1,40})", txt, flags=re.IGNORECASE)
       if m_to:
         paid_to = m_to.group(1).strip()
+    if paid_to:
+      paid_to = re.sub(r"\s+[0-9@©®™✓✔]$", "", paid_to).strip()
 
     if not payee_upi:
       m_bank = re.search(r"([A-Za-z]+\s+Bank\s+\d{4})", txt, flags=re.IGNORECASE)
