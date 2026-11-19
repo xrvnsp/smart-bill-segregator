@@ -590,9 +590,16 @@ def _post_to_apps_script(webhook_url, payload_dict):
     if "/dev" in url and not url.endswith("/exec"):
         return False, {}, "You pasted the '/dev' test URL. Please use the '/exec' URL from Deploy -> Manage deployments."
     raw_txt = ""
+    payload_bytes = json.dumps(payload_dict).encode("utf-8")
     try:
         import requests
-        r = requests.post(url, json=payload_dict, allow_redirects=True, timeout=25)
+        r = requests.post(
+            url,
+            data=payload_bytes,
+            headers={"Content-Type": "text/plain; charset=utf-8"},
+            allow_redirects=True,
+            timeout=25
+        )
         raw_txt = (r.text or "").strip()
         if r.status_code >= 400:
             return False, {}, f"HTTP {r.status_code}: {raw_txt[:220]}"
@@ -600,8 +607,8 @@ def _post_to_apps_script(webhook_url, payload_dict):
         import urllib.request
         req = urllib.request.Request(
             url,
-            data=json.dumps(payload_dict).encode("utf-8"),
-            headers={"Content-Type": "application/json", "User-Agent": "SmartBillSegregator/1.0"}
+            data=payload_bytes,
+            headers={"Content-Type": "text/plain; charset=utf-8", "User-Agent": "SmartBillSegregator/1.0"}
         )
         with urllib.request.urlopen(req, timeout=25) as resp:
             raw_txt = resp.read().decode("utf-8", errors="ignore").strip()
@@ -609,10 +616,10 @@ def _post_to_apps_script(webhook_url, payload_dict):
         rj = json.loads(raw_txt)
         if isinstance(rj, dict) and rj.get("status") == "ok":
             return True, rj, raw_txt
-        return False, rj if isinstance(rj, dict) else {}, f"Unexpected JSON: {raw_txt[:220]}"
+        return False, rj if isinstance(rj, dict) else {}, f"Response: {raw_txt[:240]}"
     except Exception:
         return False, {}, (
-            "Apps Script returned an HTML page instead of JSON (likely needs authorization or 'Who has access: Anyone'). "
+            "Apps Script returned an HTML page instead of JSON (check 'Who has access: Anyone'). "
             f"Preview: {raw_txt[:180]}"
         )
 
@@ -1608,8 +1615,8 @@ elif st.session_state.active_nav == "expenses":
                         st.success(f"✅ Verified! Pushed {added_cnt} expense(s) with receipt thumbnails to the 'Expenses & Receipts' tab in Google Sheets.")
                     else:
                         st.warning(
-                            "⚠️ Apps Script responded OK, but 'expenses_added' was 0. "
-                            "In Google Apps Script, make sure you clicked Deploy → Manage deployments → Edit (pencil) → Version: New version → Deploy!"
+                            f"⚠️ Apps Script responded OK, but 'expenses_added' was 0. Raw response: `{msg_sh[:220]}` — "
+                            "Check that you replaced Code.gs (no duplicate doPost function in another file), clicked Deploy → Manage deployments → Edit → New version, and pasted the exact /exec URL in Vault → Save Integration Keys."
                         )
                 else:
                     st.error(f"⚠️ Google Sheets push failed: {msg_sh}")
