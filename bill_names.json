@@ -6,7 +6,28 @@
     "21/10/2026_49264.00": "Surya Senior S25 FE",
     "146608745": "Vasanth LG Tv"
   },
-  "paid_cards": {},
+  "paid_cards": {
+    "21/10/2026_49264.00": {
+      "isPaid": true,
+      "paidDate": "Nov 14",
+      "amount": "₹9,068.8"
+    },
+    "28/09/2026_44370.00": {
+      "isPaid": true,
+      "paidDate": "Nov 14",
+      "amount": "₹5,359.47"
+    },
+    "Surya senior": {
+      "isPaid": true,
+      "paidDate": "Nov 14",
+      "amount": "₹9,068.8"
+    },
+    "Naveen s25 edge": {
+      "isPaid": true,
+      "paidDate": "Nov 14",
+      "amount": "₹5,359.47"
+    }
+  },
   "fold_tags": [
     {
       "id": "fold_0004_17_Nov_2026_904",
@@ -85,7 +106,6 @@
       ]
     }
   ],
-  "updated_at": "2026-11-18T14:32:26+05:30",
   "statement_summaries": {
     "ICICI_Amazon_October_2026": {
       "bank_short": "ICICI Amazon",
@@ -232,5 +252,9 @@
         }
       ]
     }
-  }
+  },
+  "sheets_webhook_url": "",
+  "sync_sheets_url_mobile": true,
+  "auto_push_expenses_sheets": true,
+  "updated_at": "2026-11-19T10:39:53+05:30"
 }
