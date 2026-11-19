@@ -2622,11 +2622,14 @@ def load_bill_names_web():
             "fold_tags": data.get("fold_tags", []) if isinstance(data.get("fold_tags"), list) else [],
             "emi_plans": data.get("emi_plans", []) if isinstance(data.get("emi_plans"), list) else [],
             "statement_summaries": data.get("statement_summaries", {}) if isinstance(data.get("statement_summaries"), dict) else {},
+            "sheets_webhook_url": str(data.get("sheets_webhook_url", "") or "").strip(),
+            "sync_sheets_url_mobile": bool(data.get("sync_sheets_url_mobile", True)),
+            "auto_push_expenses_sheets": bool(data.get("auto_push_expenses_sheets", False)),
             "updated_at": data.get("updated_at", "")
         }
     except Exception:
       pass
-  return {"bill_names": {}, "paid_cards": {}, "fold_tags": [], "emi_plans": [], "statement_summaries": {}, "updated_at": ""}
+  return {"bill_names": {}, "paid_cards": {}, "fold_tags": [], "emi_plans": [], "statement_summaries": {}, "sheets_webhook_url": "", "sync_sheets_url_mobile": True, "auto_push_expenses_sheets": False, "updated_at": ""}
 
 def save_bill_names_web(meta):
   """Saves custom bill names, paid statuses, and Fold transaction tags to bill_names.json."""

@@ -573,6 +573,9 @@ if client_vault and isinstance(client_vault, dict):
 
 
 def _get_sheets_webhook_url():
+    bn = unlock_statements.load_bill_names_web()
+    if bn.get("sync_sheets_url_mobile") and bn.get("sheets_webhook_url"):
+        return str(bn.get("sheets_webhook_url")).strip()
     url = st.session_state.session_passwords.get("sheets_webhook_url", "").strip()
     if url:
         return url
@@ -1389,14 +1392,34 @@ elif st.session_state.active_nav == "settings":
             st.session_state["emi_vault_cleared_until"] = time.time() + 4.0
             st.rerun()
 
-        webhook_val = st.text_input("Google Sheets Web App URL", value=st.session_state.session_passwords.get("sheets_webhook_url", ""), key="input_webhook_url")
+        bn_int = unlock_statements.load_bill_names_web()
+        default_wh_url = bn_int.get("sheets_webhook_url") or st.session_state.session_passwords.get("sheets_webhook_url", "")
+        webhook_val = st.text_input("Google Sheets Web App URL (/exec)", value=default_wh_url, key="input_webhook_url")
+        sync_wh_mobile = st.toggle(
+            "📱 Sync Apps Script URL across PC & Mobile (GitHub)",
+            value=bool(bn_int.get("sync_sheets_url_mobile", True)),
+            help="Automatically syncs this Google Sheets Web App URL to your S24 Ultra via bill_names.json so you never have to paste it twice.",
+            key="tog_sync_sheets_mobile"
+        )
+        auto_push_exp = st.toggle(
+            "☁️ Auto-Push New Expense Screenshots to Google Sheets",
+            value=bool(bn_int.get("auto_push_expenses_sheets", False)),
+            help="When enabled, every UPI screenshot you upload is automatically pushed to Google Sheets with its Drive thumbnail.",
+            key="tog_auto_push_exp_vault"
+        )
         gemini_key_val = st.text_input("Gemini API Key (Optional if set in Streamlit Secrets)", value=st.session_state.session_passwords.get("gemini_api_key", ""), type="password", key="input_gemini_api_key")
         c_b1, c_b2 = st.columns(2)
-        if c_b1.button("Save Integration Keys", use_container_width=True, type="secondary", key="btn_save_integrations"):
-            st.session_state.session_passwords["sheets_webhook_url"] = webhook_val.strip()
+        if c_b1.button("Save & Sync Integration Keys", use_container_width=True, type="primary", key="btn_save_integrations"):
+            clean_wh = webhook_val.strip()
+            st.session_state.session_passwords["sheets_webhook_url"] = clean_wh
             st.session_state.session_passwords["gemini_api_key"] = gemini_key_val.strip()
             st.session_state["pending_save_vault"] = dict(st.session_state.session_passwords)
-            st.success("Integration settings saved.")
+            bn_int["sync_sheets_url_mobile"] = bool(sync_wh_mobile)
+            bn_int["auto_push_expenses_sheets"] = bool(auto_push_exp)
+            bn_int["sheets_webhook_url"] = clean_wh if sync_wh_mobile else ""
+            unlock_statements.save_bill_names_web(bn_int)
+            sync_bill_names_to_github(bn_int, commit_msg="Sync Google Sheets Apps Script URL & mobile toggle")
+            st.success("Integration settings saved" + (" & synced to Mobile!" if sync_wh_mobile else " locally."))
             st.rerun()
         with c_b2:
             st.link_button("Google Sheet Template", unlock_statements.GOOGLE_SHEET_TEMPLATE_URL, use_container_width=True)
@@ -1472,6 +1495,28 @@ elif st.session_state.active_nav == "expenses":
             )
         if ded_changed:
             update_shared_expenses_store(exp_ledger_now, commit_msg="Auto-parse UPI screenshot into Expense Table")
+            bn_auto = unlock_statements.load_bill_names_web()
+            wh_auto = _get_sheets_webhook_url()
+            if bn_auto.get("auto_push_expenses_sheets") and wh_auto:
+                new_rows = [
+                    {
+                        "month": x.get("date_time", ""),
+                        "bank": f"{x.get('app_name', 'UPI')} ({x.get('category', 'Expense')})",
+                        "loan_id": x.get("transaction_id") or x.get("id", ""),
+                        "friend_name": x.get("paid_to", ""),
+                        "notes": x.get("notes", "UPI"),
+                        "amount": f"₹{float(x.get('amount', 0)):,.2f}",
+                        "amount_num": float(x.get("amount", 0)),
+                        "remaining": x.get("payee_upi") or "-",
+                        "status": "Paid Expense",
+                        "source_file": x.get("source_file", "receipt.webp"),
+                        "thumb_b64": x.get("thumb_b64", "")
+                    }
+                    for x in exp_ledger_now.get("entries", [])[:len(exp_up_files)]
+                ]
+                ok_a, rj_a, msg_a = _post_to_apps_script(wh_auto, {"bills": [], "reimbursements": [], "expenses": new_rows})
+                if ok_a and rj_a.get("expenses_added", 0) > 0:
+                    st.toast(f"☁️ Auto-pushed {rj_a['expenses_added']} receipt(s) to Google Sheets!", icon="☁️")
 
     exp_ledger = get_shared_expenses_store()
     entries_list = exp_ledger.get("entries", [])
@@ -1552,6 +1597,38 @@ elif st.session_state.active_nav == "expenses":
                     st.rerun()
                 else:
                     st.warning("Please enter an Amount (₹) greater than 0.")
+
+    # Quick Toggle Bar for Apps Script Mobile Sync & Auto-Push
+    bn_exp_tog = unlock_statements.load_bill_names_web()
+    tg_c1, tg_c2 = st.columns(2)
+    with tg_c1:
+        cur_mob_sync = bool(bn_exp_tog.get("sync_sheets_url_mobile", True))
+        new_mob_sync = st.toggle(
+            "📱 Sync Apps Script URL with Mobile",
+            value=cur_mob_sync,
+            key="exp_tab_tog_mob_sync"
+        )
+        if new_mob_sync != cur_mob_sync:
+            bn_exp_tog["sync_sheets_url_mobile"] = new_mob_sync
+            if new_mob_sync and not bn_exp_tog.get("sheets_webhook_url"):
+                bn_exp_tog["sheets_webhook_url"] = _get_sheets_webhook_url()
+            elif not new_mob_sync:
+                bn_exp_tog["sheets_webhook_url"] = ""
+            unlock_statements.save_bill_names_web(bn_exp_tog)
+            sync_bill_names_to_github(bn_exp_tog, commit_msg="Toggle Apps Script mobile sync")
+            st.rerun()
+    with tg_c2:
+        cur_auto_sh = bool(bn_exp_tog.get("auto_push_expenses_sheets", False))
+        new_auto_sh = st.toggle(
+            "☁️ Auto-Push Screenshots to Google Sheets",
+            value=cur_auto_sh,
+            key="exp_tab_tog_auto_push"
+        )
+        if new_auto_sh != cur_auto_sh:
+            bn_exp_tog["auto_push_expenses_sheets"] = new_auto_sh
+            unlock_statements.save_bill_names_web(bn_exp_tog)
+            sync_bill_names_to_github(bn_exp_tog, commit_msg="Toggle auto-push expenses to Google Sheets")
+            st.rerun()
 
     # Export as Sheet (.CSV for Excel / Google Sheets) & Cloud Push Bar
     ex_col1, ex_col2, ex_col3 = st.columns([1.6, 1.6, 1])
@@ -1743,7 +1820,7 @@ if st.session_state.active_nav in ("statements", "kayal", "shafana") and st.sess
             st.markdown(f"<div style='margin: 6px 0 10px 0; display: flex; align-items: center; flex-wrap: wrap; gap: 6px;'><span style='font-size: 11px; font-weight: 700; color: {text_secondary}; text-transform: uppercase; letter-spacing: 0.05em;'>Loaded:</span> {badge_html}</div>", unsafe_allow_html=True)
         with status_cols[1]:
             if st.button("Push to Sheets", use_container_width=True, type="primary", help="Sync loaded bills & friend EMIs to Google Sheets"):
-                webhook_url = st.session_state.session_passwords.get("sheets_webhook_url", "").strip()
+                webhook_url = _get_sheets_webhook_url()
                 if not webhook_url:
                     st.warning("Configure your Google Sheets Web App URL in the Vault & Settings tab first.")
                 else:
