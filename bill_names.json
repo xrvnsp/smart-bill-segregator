@@ -4,12 +4,19 @@
     "09/03/2026_28663.00": "Felix GO Pro",
     "28/09/2026_44370.00": "Naveen S25 Edge",
     "21/10/2026_49264.00": "Surya Senior S25 FE",
-    "146608745": "Vasanth LG Tv"
+    "146608745": "Vasanth LG Tv",
+    "date_ICICI_Amazon_October_2026_26_10_2026": "jeans",
+    "date_ICICI_Amazon_October_2026_27_10_2026": "pizza",
+    "date_ICICI_Amazon_October_2026_24_10_2026": "appa rc",
+    "date_ICICI_Amazon_October_2026_20_10_2026": "bsnl +amma",
+    "date_ICICI_Amazon_October_2026_05_11_2026": "bus + shafana",
+    "date_ICICI_Amazon_October_2026_06_11_2026": "bus",
+    "date_ICICI_Amazon_October_2026_11_11_2026": "watch case"
   },
   "paid_cards": {
     "21/10/2026_49264.00": {
       "isPaid": true,
-      "paidDate": "Nov 14",
+      "paidDate": "Nov 16",
       "amount": "₹9,068.8"
     },
     "28/09/2026_44370.00": {
@@ -26,6 +33,61 @@
       "isPaid": true,
       "paidDate": "Nov 14",
       "amount": "₹5,359.47"
+    },
+    "date_ICICI_Amazon_October_2026_20_10_2026": {
+      "isPaid": true,
+      "paidDate": "Nov 16",
+      "amount": "₹1,601.00"
+    },
+    "date_ICICI_Amazon_October_2026_05_11_2026": {
+      "isPaid": true,
+      "paidDate": "Nov 16",
+      "amount": "₹1,933.95"
+    },
+    "Flipkart Payments": {
+      "isPaid": true,
+      "paidDate": "Nov 16",
+      "amount": "₹9,068.8"
+    },
+    "date_ICICI_Amazon_October_2026_11_11_2026": {
+      "isPaid": true,
+      "paidDate": "Nov 16",
+      "amount": "₹453.00"
+    },
+    "date_ICICI_Amazon_October_2026_26_10_2026": {
+      "isPaid": true,
+      "paidDate": "Nov 16",
+      "amount": "₹1,004.00"
+    },
+    "date_ICICI_Amazon_October_2026_27_10_2026": {
+      "isPaid": true,
+      "paidDate": "Nov 16",
+      "amount": "₹399.00"
+    },
+    "date_ICICI_Amazon_October_2026_24_10_2026": {
+      "isPaid": true,
+      "paidDate": "Nov 16",
+      "amount": "₹185.00"
+    },
+    "date_ICICI_Amazon_October_2026_06_11_2026": {
+      "isPaid": true,
+      "paidDate": "Nov 16",
+      "amount": "₹949.05"
+    },
+    "date_ICICI_Amazon_October_2026_08_11_2026": {
+      "isPaid": true,
+      "paidDate": "Nov 16",
+      "amount": "₹2,468.00"
+    },
+    "Vasanth": {
+      "isPaid": true,
+      "paidDate": "Nov 2",
+      "amount": "₹4,868.8"
+    },
+    "Naveen S25 Edge": {
+      "isPaid": true,
+      "paidDate": "Nov 2",
+      "amount": "₹5,723.5"
     }
   },
   "fold_tags": [
@@ -253,8 +315,8 @@
       ]
     }
   },
-  "sheets_webhook_url": "",
+  "sheets_webhook_url": "https://script.google.com/macros/s/AKfycbxEo6GTYzJG7lufBmxo02yTO48x_gBmHER5Cf7rT1CxEvyrUcO6AdDe99LM0d7SbdJm/exec",
   "sync_sheets_url_mobile": true,
   "auto_push_expenses_sheets": true,
-  "updated_at": "2026-11-19T10:39:53+05:30"
+  "updated_at": "2026-11-19T10:40:34+05:30"
 }
