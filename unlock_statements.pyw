@@ -2417,9 +2417,9 @@ def parse_expense_screenshot(img_bytes, filename="receipt.jpg"):
     from PIL import Image, ImageOps
     im = Image.open(io.BytesIO(img_bytes))
     thumb_im = im.convert("RGB")
-    thumb_im.thumbnail((260, 520), Image.Resampling.LANCZOS)
+    thumb_im.thumbnail((360, 720), Image.Resampling.LANCZOS)
     buf = io.BytesIO()
-    thumb_im.save(buf, format="WEBP", quality=75)
+    thumb_im.save(buf, format="WEBP", lossless=True, quality=100, method=6)
     thumb_b64 = "data:image/webp;base64," + base64.b64encode(buf.getvalue()).decode("ascii")
 
     gray = ImageOps.grayscale(im)

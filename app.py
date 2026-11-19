@@ -1478,7 +1478,7 @@ elif st.session_state.active_nav == "expenses":
     if exp_up_files:
         exp_ledger_now = get_shared_expenses_store()
         seen_ded = st.session_state.setdefault("processed_ded_exp_hashes", set())
-        ded_changed = False
+        newly_added_objs = []
         for ef in exp_up_files:
             raw_ef = ef.getvalue()
             sig_ef = f"ded_{ef.name}_{len(raw_ef)}"
@@ -1487,13 +1487,13 @@ elif st.session_state.active_nav == "expenses":
                 seen_ded.add(sig_ef)
                 exp_ledger_now["entries"] = [x for x in exp_ledger_now.get("entries", []) if x.get("id") != parsed_ef["id"]]
                 exp_ledger_now["entries"].insert(0, parsed_ef)
-                ded_changed = True
+                newly_added_objs.append(parsed_ef)
             st.success(
                 f"✅ Added to View Table ({ef.name}): ₹{parsed_ef['amount']:,.2f} · Paid to: {parsed_ef['paid_to']} · "
                 f"Date & Time: {parsed_ef['date_time']} · Notes: {parsed_ef.get('notes', 'UPI')} · "
                 f"Txn ID: {parsed_ef.get('transaction_id') or '-'}"
             )
-        if ded_changed:
+        if newly_added_objs:
             update_shared_expenses_store(exp_ledger_now, commit_msg="Auto-parse UPI screenshot into Expense Table")
             bn_auto = unlock_statements.load_bill_names_web()
             wh_auto = _get_sheets_webhook_url()
@@ -1512,11 +1512,11 @@ elif st.session_state.active_nav == "expenses":
                         "source_file": x.get("source_file", "receipt.webp"),
                         "thumb_b64": x.get("thumb_b64", "")
                     }
-                    for x in exp_ledger_now.get("entries", [])[:len(exp_up_files)]
+                    for x in newly_added_objs
                 ]
                 ok_a, rj_a, msg_a = _post_to_apps_script(wh_auto, {"bills": [], "reimbursements": [], "expenses": new_rows})
                 if ok_a and rj_a.get("expenses_added", 0) > 0:
-                    st.toast(f"☁️ Auto-pushed {rj_a['expenses_added']} receipt(s) to Google Sheets!", icon="☁️")
+                    st.toast(f"☁️ Auto-pushed {rj_a['expenses_added']} new receipt(s) to Google Sheets!", icon="☁️")
 
     exp_ledger = get_shared_expenses_store()
     entries_list = exp_ledger.get("entries", [])
@@ -1688,8 +1688,10 @@ elif st.session_state.active_nav == "expenses":
                 ok_sh, rj_sh, msg_sh = _post_to_apps_script(webhook_url, {"bills": [], "reimbursements": [], "expenses": exp_rows})
                 if ok_sh:
                     added_cnt = rj_sh.get("expenses_added", 0)
-                    if added_cnt > 0:
-                        st.success(f"✅ Verified! Pushed {added_cnt} expense(s) with receipt thumbnails to the 'Expenses & Receipts' tab in Google Sheets.")
+                    skipped_cnt = rj_sh.get("expenses_skipped", 0)
+                    if added_cnt > 0 or skipped_cnt > 0:
+                        skip_note = f" ({skipped_cnt} duplicate(s) automatically skipped)" if skipped_cnt else ""
+                        st.success(f"✅ Verified! Pushed {added_cnt} new expense(s) with Lossless WebP receipts to 'Expenses & Receipts'{skip_note}.")
                     else:
                         st.warning(
                             f"⚠️ Apps Script responded OK, but 'expenses_added' was 0. Raw response: `{msg_sh[:220]}` — "
