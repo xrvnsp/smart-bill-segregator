@@ -8,6 +8,7 @@ Strict Zero-Disk Security Architecture:
 """
 
 import io
+import re
 import os
 import sys
 import time
