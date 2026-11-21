@@ -3107,7 +3107,8 @@ def generate_modern_dashboard_html(results_list, output_dir=".", write_to_disk=T
           <p class="text-[11px] text-slate-400 font-medium">Bill Breakdown · EMI Segregation · Date Ledger</p>
         </div>
       </div>
-      <div class="flex items-center gap-2.5 w-full sm:w-auto">
+      <div class="flex items-center gap-2 flex-wrap w-full sm:w-auto">
+        <button id="btn-save-unlocked-pdf-hdr" onclick="downloadActiveUnlockedPdf()" class="px-3 py-1.5 text-xs font-semibold bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg transition shadow-sm no-print">🔓 Save Unlocked PDF</button>
         <a href="{GOOGLE_SHEET_TEMPLATE_URL}" target="_blank" class="px-3 py-1.5 text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-lg transition border border-slate-700 no-print">Sheet Template</a>
         <button onclick="window.print()" class="px-3 py-1.5 text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-lg transition border border-slate-700">Print / PDF</button>
         <button onclick="exportCSV()" class="px-3.5 py-1.5 text-xs font-semibold bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg transition">Export CSV</button>
@@ -4950,6 +4951,117 @@ def generate_modern_dashboard_html(results_list, output_dir=".", write_to_disk=T
           <div class="space-y-3">${{cardsHtml}}</div>
         </div>
       `;
+    }}
+
+
+    window.downloadActiveUnlockedPdf = function() {{
+      const stmt = statements[activeIndex];
+      if (!stmt || !stmt.unlocked_pdf_b64) {{
+        alert("No unlocked PDF is attached to this view.");
+        return;
+      }}
+      try {{
+        const bstr = atob(stmt.unlocked_pdf_b64);
+        const u8 = new Uint8Array(bstr.length);
+        for (let i = 0; i < bstr.length; i++) u8[i] = bstr.charCodeAt(i);
+        const blob = new Blob([u8], {{ type: "application/pdf" }});
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        const safeName = ((stmt.bank_short || "Statement") + "_" + (stmt.statement_month || "")).replace(/[^a-zA-Z0-9_-]/g, "_");
+        link.href = url;
+        link.download = "Unlocked_" + safeName + ".pdf";
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        setTimeout(() => URL.revokeObjectURL(url), 5000);
+      }} catch (e) {{
+        alert("Could not save unlocked PDF: " + e.message);
+      }}
+    }};
+
+    function getLoanDetailsForItem(itm, stmt, refToLoanMap) {{
+      if (!itm || !itm.description) return null;
+      const desc = String(itm.description || '');
+      const descLow = desc.toLowerCase();
+      const refMatch = desc.match(/Ref#\s*(\d+)/i);
+      const refNo = refMatch ? refMatch[1] : '';
+      if (refNo && refToLoanMap && refToLoanMap[refNo]) {{
+        return refToLoanMap[refNo];
+      }}
+      // 1. HDFC Loan ID exact or truncated prefix match (e.g. 00000000001484 -> 148456196, 00000146608745 -> 146608745)
+      const descBeforeRef = desc.split(/\(Ref#/i)[0];
+      const nbMatch = descBeforeRef.match(/(?:NB|NBR):\s*(\d+)/i);
+      const hdfcCurrInst = nbMatch ? String(parseInt(nbMatch[1], 10)) : '';
+      for (const emi of (stmt.ongoing_emis || [])) {{
+        if (!emi.loan_id) continue;
+        const cleanLoanId = String(emi.loan_id).replace(/^0+/, '');
+        if (!cleanLoanId) continue;
+        if (descBeforeRef.includes(emi.loan_id) || descBeforeRef.includes(cleanLoanId)) {{
+          const saved = getSavedName(emi.loan_id, emi.custom_name);
+          const res = {{
+            loanKey: emi.loan_id,
+            loanName: saved || emi.display_name || ('Loan #' + emi.loan_id),
+            loanObj: emi,
+            currInst: hdfcCurrInst
+          }};
+          if (refNo && refToLoanMap) refToLoanMap[refNo] = res;
+          return res;
+        }}
+        const allDigits = descBeforeRef.match(/\d{4,18}/g) || [];
+        for (const num of allDigits) {{
+          const cleanNum = num.replace(/^0+/, '');
+          if (cleanNum.length >= 4 && (cleanLoanId.startsWith(cleanNum) || cleanNum.startsWith(cleanLoanId))) {{
+            const saved = getSavedName(emi.loan_id, emi.custom_name);
+            const res = {{
+              loanKey: emi.loan_id,
+              loanName: saved || emi.display_name || ('Loan #' + emi.loan_id),
+              loanObj: emi,
+              currInst: hdfcCurrInst
+            }};
+            if (refNo && refToLoanMap) refToLoanMap[refNo] = res;
+            return res;
+          }}
+        }}
+      }}
+      // 2. ICICI <curr/total> Merchant pattern
+      const mInst = desc.match(/<(\d+)\/(\d+)>\s*(.*?)(?:\s+PVT|\s+LTD|\s*$)/i);
+      if (mInst) {{
+        const currInst = mInst[1];
+        const totalTenure = mInst[2];
+        const rawMerchant = mInst[3].trim();
+        const cleanMerchantKey = rawMerchant.replace(/[^a-zA-Z0-9]/g, '_').toLowerCase();
+        let matchedEmi = null;
+        for (const emi of (stmt.ongoing_emis || [])) {{
+          const numMatch = (emi.total_tenure || '').match(/\d+/);
+          const isTenureMatch = numMatch && numMatch[0] === totalTenure;
+          const saved = getSavedName(emi.loan_id, emi.custom_name);
+          const isMerchantMatch = rawMerchant && (
+            (saved && saved.toLowerCase().includes(rawMerchant.toLowerCase())) ||
+            (emi.loan_id && emi.loan_id.toLowerCase().includes(rawMerchant.toLowerCase()))
+          );
+          if (isTenureMatch && isMerchantMatch) {{ matchedEmi = emi; break; }}
+        }}
+        if (!matchedEmi) {{
+          const tenureMatches = (stmt.ongoing_emis || []).filter(e => {{
+            const nm = (e.total_tenure || '').match(/\d+/);
+            return nm && nm[0] === totalTenure;
+          }});
+          if (tenureMatches.length === 1) matchedEmi = tenureMatches[0];
+        }}
+        const loanKey = matchedEmi ? matchedEmi.loan_id : `loan_${{cleanMerchantKey}}_${{totalTenure}}`;
+        const saved = matchedEmi ? getSavedName(matchedEmi.loan_id, matchedEmi.custom_name) : getSavedName(loanKey, '');
+        const res = {{
+          loanKey: loanKey,
+          loanName: saved || rawMerchant || `EMI (<${{currInst}}/${{totalTenure}}>)`,
+          loanObj: matchedEmi,
+          rawMerchant: rawMerchant,
+          currInst: currInst,
+          totalTenure: totalTenure
+        }};
+        if (refNo && refToLoanMap) refToLoanMap[refNo] = res;
+        return res;
+      }}
+      return null;
     }}
 
     function getLoanDetailsForGroup(group, stmt) {{
@@ -7047,6 +7159,88 @@ def generate_modern_dashboard_html(results_list, output_dir=".", write_to_disk=T
       const cardsList = [];
       const namedEmiCardMap = {{}}; // emiName -> cardObj
 
+      const refToLoanMap = {{}};
+
+      function addItemsToNamedLoanCard(loanDetails, dateStr, itemsForLoan) {{
+        const loanKey = loanDetails.loanKey;
+        const emiName = loanDetails.loanName;
+        const sortedItems = enrichAndSortEmiItems(itemsForLoan);
+        const subTotal = itemsForLoan.reduce((acc, it) => acc + (it.is_credit ? 0 : (parseFloat(it.amount) || 0)), 0);
+
+        if (namedEmiCardMap[loanKey]) {{
+          const existingDateEntry = namedEmiCardMap[loanKey].dates.find(d => d.dateStr === dateStr);
+          if (existingDateEntry) {{
+            existingDateEntry.items = enrichAndSortEmiItems(existingDateEntry.items.concat(sortedItems));
+            existingDateEntry.dateTotal += subTotal;
+          }} else {{
+            namedEmiCardMap[loanKey].dates.push({{
+              dateStr: dateStr,
+              items: sortedItems,
+              dateTotal: subTotal
+            }});
+          }}
+          namedEmiCardMap[loanKey].combinedTotal += subTotal;
+          namedEmiCardMap[loanKey].totalItemsCount += itemsForLoan.length;
+          if (loanDetails.currInst && namedEmiCardMap[loanKey].currInstNum === 1 && parseInt(loanDetails.currInst, 10) > 1) {{
+            const cInst = parseInt(loanDetails.currInst, 10);
+            namedEmiCardMap[loanKey].currInstNum = cInst;
+            const totT = namedEmiCardMap[loanKey].totalTenure;
+            const instLbl = totT ? `Installment ${{cInst}} of ${{totT}}` : `Installment #${{cInst}}`;
+            namedEmiCardMap[loanKey].monthInstallmentTitle = `${{stmt.statement_month}} • ${{instLbl}}`;
+          }}
+        }} else {{
+          const foundLoan = loanDetails.loanObj;
+          let foundLoanId = loanDetails.loanKey;
+          let overallLoanAmount = foundLoan ? (foundLoan.total_amount || "") : "";
+          let totalTenure = loanDetails.totalTenure || "";
+          let remainingCount = "";
+
+          if (foundLoan) {{
+            const mTot = (foundLoan.total_tenure || "").match(/\d+/);
+            if (mTot && !totalTenure) totalTenure = mTot[0];
+            const mBal = (foundLoan.balance_tenure || "").match(/\d+/);
+            if (mBal) remainingCount = mBal[0];
+          }}
+
+          let currInstNum = loanDetails.currInst ? parseInt(loanDetails.currInst, 10) : 1;
+          if (!loanDetails.currInst && totalTenure && remainingCount) {{
+            const calc = parseInt(totalTenure, 10) - parseInt(remainingCount, 10);
+            if (calc > 0) currInstNum = calc;
+          }}
+
+          const instLabel = totalTenure ? `Installment ${{currInstNum}} of ${{totalTenure}}` : `Installment #${{currInstNum}}`;
+          const monthInstallmentTitle = `${{stmt.statement_month}} • ${{instLabel}}`;
+          const monthDueLabel = `${{stmt.statement_month}} Due to be Paid`;
+
+          const personName = emiName ? emiName.trim().split(/\s+/)[0] : "";
+          const cheerEmojis = String.fromCodePoint(0x1F60A) + String.fromCodePoint(0x1F44D);
+          const cheerMessage = personName ? `Hi ${{personName}}! Only ${{remainingCount ? remainingCount + ' more to go' : 'almost there'}} ${{cheerEmojis}}` : "";
+
+          const cardObj = {{
+            type: 'named_emi',
+            loanKey: loanKey,
+            emiName: emiName,
+            loanId: foundLoanId,
+            overallLoanAmount: overallLoanAmount,
+            monthInstallmentTitle: monthInstallmentTitle,
+            monthDueLabel: monthDueLabel,
+            currInstNum: currInstNum,
+            totalTenure: totalTenure,
+            remainingCount: remainingCount,
+            cheerMessage: cheerMessage,
+            dates: [{{
+              dateStr: dateStr,
+              items: sortedItems,
+              dateTotal: subTotal
+            }}],
+            combinedTotal: subTotal,
+            totalItemsCount: itemsForLoan.length
+          }};
+          namedEmiCardMap[loanKey] = cardObj;
+          cardsList.push(cardObj);
+        }}
+      }}
+
       Object.entries(stmt.date_groups).forEach(([dateStr, group]) => {{
         const filteredItems = group.items.filter(item => 
           item.description.toLowerCase().includes(filterText.toLowerCase()) ||
@@ -7057,79 +7251,81 @@ def generate_modern_dashboard_html(results_list, output_dir=".", write_to_disk=T
         if (filteredItems.length === 0) return;
         matchedTxnCount += filteredItems.length;
 
-        const loanDetails = group.has_emi ? getLoanDetailsForGroup(group, stmt) : null;
+        // Pass 1: Match each individual item directly to its specific loan ID / truncated prefix / ICICI pattern
+        const itemLoanMatches = new Map();
+        filteredItems.forEach((itm, idx) => {{
+          const ld = getLoanDetailsForItem(itm, stmt, refToLoanMap);
+          if (ld) itemLoanMatches.set(idx, ld);
+        }});
 
-        if (loanDetails) {{
-          const loanKey = loanDetails.loanKey;
-          const emiName = loanDetails.loanName;
-          const sortedItems = enrichAndSortEmiItems(filteredItems);
-
-          if (namedEmiCardMap[loanKey]) {{
-            namedEmiCardMap[loanKey].dates.push({{
-              dateStr: dateStr,
-              items: sortedItems,
-              dateTotal: group.total
-            }});
-            namedEmiCardMap[loanKey].combinedTotal += group.total;
-            namedEmiCardMap[loanKey].totalItemsCount += filteredItems.length;
-          }} else {{
-            const foundLoan = loanDetails.loanObj;
-            let foundLoanId = loanDetails.loanKey;
-            let overallLoanAmount = foundLoan ? (foundLoan.total_amount || "") : "";
-            let totalTenure = loanDetails.totalTenure || "";
-            let remainingCount = "";
-
-            if (foundLoan) {{
-              const mTot = (foundLoan.total_tenure || "").match(/\d+/);
-              if (mTot && !totalTenure) totalTenure = mTot[0];
-              const mBal = (foundLoan.balance_tenure || "").match(/\d+/);
-              if (mBal) remainingCount = mBal[0];
-            }}
-
-            let currInstNum = loanDetails.currInst ? parseInt(loanDetails.currInst, 10) : 1;
-            if (!loanDetails.currInst && totalTenure && remainingCount) {{
-              const calc = parseInt(totalTenure, 10) - parseInt(remainingCount, 10);
-              if (calc > 0) currInstNum = calc;
-            }}
-
-            const instLabel = totalTenure ? `Installment ${{currInstNum}} of ${{totalTenure}}` : `Installment #${{currInstNum}}`;
-            const monthInstallmentTitle = `${{stmt.statement_month}} • ${{instLabel}}`;
-            const monthDueLabel = `${{stmt.statement_month}} Due to be Paid`;
-
-            const personName = emiName ? emiName.trim().split(/\s+/)[0] : "";
-            const cheerEmojis = String.fromCodePoint(0x1F60A) + String.fromCodePoint(0x1F44D);
-            const cheerMessage = personName ? `Hi ${{personName}}! Only ${{remainingCount ? remainingCount + ' more to go' : 'almost there'}} ${{cheerEmojis}}` : "";
-
-            const cardObj = {{
-              type: 'named_emi',
-              loanKey: loanKey,
-              emiName: emiName,
-              loanId: foundLoanId,
-              overallLoanAmount: overallLoanAmount,
-              monthInstallmentTitle: monthInstallmentTitle,
-              monthDueLabel: monthDueLabel,
-              currInstNum: currInstNum,
-              totalTenure: totalTenure,
-              remainingCount: remainingCount,
-              cheerMessage: cheerMessage,
-              dates: [{{
-                dateStr: dateStr,
-                items: sortedItems,
-                dateTotal: group.total
-              }}],
-              combinedTotal: group.total,
-              totalItemsCount: filteredItems.length
-            }};
-            namedEmiCardMap[loanKey] = cardObj;
-            cardsList.push(cardObj);
+        // Pass 2: Attach same-Ref# CGST/SGST/IGST items (or ICICI IGST on a single-loan EMI date) to that exact loan
+        const uniqueLoansOnDate = [];
+        const seenLk = new Set();
+        itemLoanMatches.forEach(ld => {{
+          if (!seenLk.has(ld.loanKey)) {{
+            seenLk.add(ld.loanKey);
+            uniqueLoansOnDate.push(ld);
           }}
-        }} else {{
+        }});
+
+        filteredItems.forEach((itm, idx) => {{
+          if (itemLoanMatches.has(idx)) return;
+          const desc = String(itm.description || '');
+          const descLow = desc.toLowerCase();
+          const refM = desc.match(/Ref#\s*(\d+)/i);
+          if (refM && refToLoanMap[refM[1]]) {{
+            itemLoanMatches.set(idx, refToLoanMap[refM[1]]);
+            return;
+          }}
+          if (uniqueLoansOnDate.length === 1 && (descLow.includes('igst') || descLow.includes('cgst') || descLow.includes('sgst') || descLow.includes('procng fee') || descLow.includes('processing fee') || itm.is_emi)) {{
+            itemLoanMatches.set(idx, uniqueLoansOnDate[0]);
+            return;
+          }}
+        }});
+
+        // Fallback for single-loan statement dates with generic EMI setup charges
+        if (itemLoanMatches.size === 0 && group.has_emi) {{
+          const grpLd = getLoanDetailsForGroup(group, stmt);
+          if (grpLd) {{
+            filteredItems.forEach((itm, idx) => {{
+              const dLow = String(itm.description || '').toLowerCase();
+              if (itm.is_emi || dLow.includes('emi') || dLow.includes('cgst') || dLow.includes('sgst') || dLow.includes('igst')) {{
+                itemLoanMatches.set(idx, grpLd);
+              }}
+            }});
+          }}
+        }}
+
+        // Group matched items per distinct loanKey and keep unmatched regular spends separate!
+        const byLoan = {{}};
+        const loanDetailsByKey = {{}};
+        const regularItems = [];
+
+        filteredItems.forEach((itm, idx) => {{
+          const ld = itemLoanMatches.get(idx);
+          if (ld) {{
+            if (!byLoan[ld.loanKey]) {{
+              byLoan[ld.loanKey] = [];
+              loanDetailsByKey[ld.loanKey] = ld;
+            }}
+            byLoan[ld.loanKey].push(itm);
+          }} else {{
+            regularItems.push(itm);
+          }}
+        }});
+
+        Object.keys(byLoan).forEach(lk => {{
+          addItemsToNamedLoanCard(loanDetailsByKey[lk], dateStr, byLoan[lk]);
+        }});
+
+        if (regularItems.length > 0) {{
+          const regTotal = regularItems.reduce((acc, it) => acc + (it.is_credit ? 0 : (parseFloat(it.amount) || 0)), 0);
           cardsList.push({{
             type: 'date',
             dateStr: dateStr,
-            group: group,
-            items: filteredItems,
-            isEmiGroup: group.has_emi
+            group: Object.assign({{}}, group, {{ items: regularItems, total: regTotal, has_emi: false }}),
+            items: regularItems,
+            isEmiGroup: false
           }});
         }}
       }});
