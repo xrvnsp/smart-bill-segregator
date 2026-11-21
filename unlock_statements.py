@@ -5061,6 +5061,31 @@ def generate_modern_dashboard_html(results_list, output_dir=".", write_to_disk=T
         if (refNo && refToLoanMap) refToLoanMap[refNo] = res;
         return res;
       }}
+      // 3. Match Pre-EMI full purchase debit or AGGREGATOR EMI - OFFUS CREDIT by exact loan total_amount (e.g. ₹21,282.00 -> Loan #148456196)
+      const itmAmt = parseFloat(itm.amount) || 0;
+      const isConversionLine = itmAmt > 0 && (
+        descLow.includes('aggregator emi') ||
+        descLow.includes('offus credit') ||
+        descLow.startsWith('emi ') ||
+        descLow.includes('emi flipkart') ||
+        descLow.includes('emi ptm*') ||
+        (itm.is_credit && descLow.includes('emi'))
+      );
+      if (isConversionLine) {{
+        for (const emi of (stmt.ongoing_emis || [])) {{
+          const loanAmt = parseFloat(String(emi.total_amount || '0').replace(/[^0-9.]/g, '')) || 0;
+          if (loanAmt > 0 && Math.abs(itmAmt - loanAmt) < 1.0) {{
+            const saved = getSavedName(emi.loan_id, emi.custom_name);
+            itm.is_conversion_offset = true;
+            return {{
+              loanKey: emi.loan_id,
+              loanName: saved || emi.display_name || ('Loan #' + emi.loan_id),
+              loanObj: emi,
+              isConversionOffset: true
+            }};
+          }}
+        }}
+      }}
       return null;
     }}
 
@@ -7165,7 +7190,7 @@ def generate_modern_dashboard_html(results_list, output_dir=".", write_to_disk=T
         const loanKey = loanDetails.loanKey;
         const emiName = loanDetails.loanName;
         const sortedItems = enrichAndSortEmiItems(itemsForLoan);
-        const subTotal = itemsForLoan.reduce((acc, it) => acc + (it.is_credit ? 0 : (parseFloat(it.amount) || 0)), 0);
+        const subTotal = itemsForLoan.reduce((acc, it) => acc + ((it.is_credit || it.is_conversion_offset) ? 0 : (parseFloat(it.amount) || 0)), 0);
 
         if (namedEmiCardMap[loanKey]) {{
           const existingDateEntry = namedEmiCardMap[loanKey].dates.find(d => d.dateStr === dateStr);
@@ -7500,8 +7525,10 @@ def generate_modern_dashboard_html(results_list, output_dir=".", write_to_disk=T
                 : '';
 
               const creditBadge = isCredit 
-                ? `<span class="ml-2 px-2.5 py-0.5 rounded-full text-[10px] font-extrabold bg-blue-100 text-blue-800 border border-blue-300 uppercase tracking-wide emi-credit-pill" style="-webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; background-color: #dbeafe !important; color: #1e40af !important; border: 1px solid #93c5fd !important;">⚡ Before EMI Conversion Credit</span>` 
-                : '';
+                ? `<span class="ml-2 px-2.5 py-0.5 rounded-full text-[10px] font-extrabold bg-blue-100 text-blue-800 border border-blue-300 uppercase tracking-wide emi-credit-pill" style="-webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; background-color: #dbeafe !important; color: #1e40af !important; border: 1px solid #93c5fd !important;">⚡ Converted to EMI (Offset Credit)</span>`
+                : (item.is_conversion_offset
+                  ? `<span class="ml-2 px-2.5 py-0.5 rounded-full text-[10px] font-extrabold bg-sky-100 text-sky-900 border border-sky-300 uppercase tracking-wide">🔄 Full Purchase Before EMI Conversion (Net ₹0)</span>`
+                  : '');
 
               let themeBadge = '';
               if (item.groupTheme === 'interest') {{
@@ -7594,14 +7621,23 @@ def generate_modern_dashboard_html(results_list, output_dir=".", write_to_disk=T
               }}
             }}
           }}
-          const dPaidStatus = getPaymentStatus(dateBillKey, '');
-          const dPaidBtnHtml = `
+          const isCreditOnlyCard = card.group.total <= 0 && card.items.every(it => it.is_credit);
+          const isPrevBillPaymentCard = isCreditOnlyCard && card.items.some(it => /(bppy|bbps|pymt|payment\s+received|autopay)/i.test(it.description || ''));
+          const isCashbackCard = isCreditOnlyCard && card.items.some(it => /cashback|reward/i.test(it.description || ''));
+          const dPaidStatus = isCreditOnlyCard ? {{ isPaid: true, paidDate: card.dateStr }} : getPaymentStatus(dateBillKey, '');
+          const dPaidBtnHtml = isPrevBillPaymentCard
+            ? `<span class="px-3 py-1.5 rounded-xl border border-emerald-300 bg-emerald-100 text-emerald-900 text-xs font-extrabold flex items-center gap-1.5">✅ Paid in Previous Statement</span>`
+            : (isCashbackCard
+              ? `<span class="px-3 py-1.5 rounded-xl border border-emerald-300 bg-emerald-100 text-emerald-900 text-xs font-extrabold flex items-center gap-1.5">🎁 Cashback Credited</span>`
+              : (isCreditOnlyCard
+                ? `<span class="px-3 py-1.5 rounded-xl border border-sky-300 bg-sky-100 text-sky-900 text-xs font-extrabold flex items-center gap-1.5">✅ Credit Offset</span>`
+                : `
             <button onclick="togglePaymentStatus('${{dateBillKey}}', '₹${{card.group.total.toLocaleString('en-IN', {{minimumFractionDigits: 2, maximumFractionDigits: 2}})}}', '')" class="no-print px-3 py-1.5 rounded-xl border text-xs font-extrabold transition flex items-center gap-1.5 cursor-pointer ${{dPaidStatus.isPaid ? 'bg-emerald-100 border-emerald-400 text-emerald-900 hover:bg-emerald-200' : 'bg-white border-slate-300 text-slate-700 hover:bg-amber-50 hover:border-amber-300'}}">
               <span>${{dPaidStatus.isPaid ? '✅' : '☑️'}}</span>
               <span>${{dPaidStatus.isPaid ? ('Paid' + (dPaidStatus.paidDate ? ' (' + dPaidStatus.paidDate + ')' : '')) : 'Mark as Paid'}}</span>
             </button>
-          `;
-          const dNameBarHtml = `
+          `));
+          const dNameBarHtml = isCreditOnlyCard ? '' : `
             <div class="no-print w-full mt-2.5 pt-2.5 border-t border-slate-200/70 flex items-center gap-2 flex-wrap">
               <span class="text-[11px] font-extrabold text-slate-500">🏷️ Bill Name:</span>
               <input type="text" id="date-name-inp-${{cardIdx}}" value="${{customDateName.replace(/"/g, '&quot;')}}" placeholder="Name this bill (e.g. Swiggy, Fuel, Groceries)..." class="flex-1 min-w-[170px] px-2.5 py-1 text-xs font-semibold bg-white border border-slate-300 rounded-lg text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500">
@@ -7675,13 +7711,25 @@ def generate_modern_dashboard_html(results_list, output_dir=".", write_to_disk=T
             const emiBadge = item.is_emi && !isCredit
               ? `<span class="ml-2 px-2 py-0.5 rounded text-[10px] font-bold bg-purple-100 text-purple-700 emi-comp-badge uppercase tracking-wide" style="-webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; background-color: #f3e8ff !important; color: #6b21a8 !important;">EMI Component</span>` 
               : '';
-            const creditBadge = isCredit 
-              ? `<span class="ml-2 px-2.5 py-0.5 rounded-full text-[10px] font-extrabold bg-blue-100 text-blue-800 border border-blue-300 uppercase tracking-wide emi-credit-pill" style="-webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; background-color: #dbeafe !important; color: #1e40af !important; border: 1px solid #93c5fd !important;">⚡ Before EMI Conversion Credit</span>` 
-              : '';
+            const isPrevPymtItem = isCredit && /(bppy|bbps|pymt|payment\s+received|autopay)/i.test(item.description || '');
+            const isCbItem = isCredit && /cashback|reward/i.test(item.description || '');
+            const creditBadge = isPrevPymtItem
+              ? `<span class="ml-2 px-2.5 py-0.5 rounded-full text-[10px] font-extrabold bg-emerald-100 text-emerald-900 border border-emerald-300 uppercase tracking-wide">✅ Paid — Previous Statement Bill</span>`
+              : (isCbItem
+                ? `<span class="ml-2 px-2.5 py-0.5 rounded-full text-[10px] font-extrabold bg-emerald-100 text-emerald-900 border border-emerald-300 uppercase tracking-wide">🎁 Cashback Credited</span>`
+                : (isCredit
+                  ? `<span class="ml-2 px-2.5 py-0.5 rounded-full text-[10px] font-extrabold bg-blue-100 text-blue-800 border border-blue-300 uppercase tracking-wide emi-credit-pill">⚡ Credit / Offset</span>`
+                  : ''));
+            const subDescText = isPrevPymtItem
+              ? 'PAYMENT RECEIVED • PREVIOUS STATEMENT BILL SETTLED'
+              : (isCbItem
+                ? 'CASHBACK CREDIT • AUTO-ADJUSTED AGAINST STATEMENT DUE'
+                : (isCredit ? 'CREDIT / REFUND OFFSET' : 'DEBIT / CHARGE'));
+            const rightPillText = isPrevPymtItem ? 'Paid (Prev Bill)' : (isCbItem ? 'Cashback Cr' : (isCredit ? 'Credit' : 'Debit'));
 
             row.innerHTML = `
               <div class="flex items-center gap-3">
-                <span class="${{item.is_emi ? 'text-purple-500 font-bold' : (isCredit ? 'text-blue-500 font-bold' : 'text-slate-400')}} text-sm">↳</span>
+                <span class="${{item.is_emi ? 'text-purple-500 font-bold' : ((isPrevPymtItem || isCbItem) ? 'text-emerald-600 font-bold' : (isCredit ? 'text-blue-500 font-bold' : 'text-slate-400'))}} text-sm">↳</span>
                 <div>
                   <div class="font-semibold text-slate-800 text-sm flex items-center flex-wrap gap-1">
                     <span>${{item.description}}</span>
@@ -7689,12 +7737,12 @@ def generate_modern_dashboard_html(results_list, output_dir=".", write_to_disk=T
                     ${{emiBadge}}
                     ${{creditBadge}}
                   </div>
-                  <div class="text-[11px] text-slate-400 font-mono">${{isCredit ? 'CREDIT • BEFORE EMI CONVERSION (LOAN BOOKING OFFSET)' : 'DEBIT / CHARGE'}}</div>
+                  <div class="text-[11px] text-slate-400 font-mono">${{subDescText}}</div>
                 </div>
               </div>
               <div class="text-right">
-                <div class="font-bold text-sm ${{isCredit ? 'text-blue-700 font-extrabold' : (item.is_emi ? 'text-purple-900 font-extrabold' : 'text-slate-900')}}">${{item.amount_str}}</div>
-                <span class="text-[10px] uppercase font-bold px-2 py-0.5 rounded-full ${{isCredit ? 'bg-blue-100 text-blue-800 border border-blue-200 emi-credit-pill' : (item.is_emi ? 'bg-purple-100 text-purple-800' : 'bg-slate-100 text-slate-600')}}">${{isCredit ? 'Credit (Pre-EMI)' : 'Debit'}}</span>
+                <div class="font-bold text-sm ${{(isPrevPymtItem || isCbItem) ? 'text-emerald-700 font-extrabold' : (isCredit ? 'text-blue-700 font-extrabold' : (item.is_emi ? 'text-purple-900 font-extrabold' : 'text-slate-900'))}}">${{item.amount_str}}</div>
+                <span class="text-[10px] uppercase font-bold px-2 py-0.5 rounded-full ${{(isPrevPymtItem || isCbItem) ? 'bg-emerald-100 text-emerald-800 border border-emerald-200' : (isCredit ? 'bg-blue-100 text-blue-800 border border-blue-200 emi-credit-pill' : (item.is_emi ? 'bg-purple-100 text-purple-800' : 'bg-slate-100 text-slate-600'))}}">${{rightPillText}}</span>
               </div>
             `;
             table.appendChild(row);
@@ -7728,9 +7776,10 @@ def generate_modern_dashboard_html(results_list, output_dir=".", write_to_disk=T
             pendingCardCount++;
           }}
         }} else {{
+          const amt = (c.group && typeof c.group.total === 'number') ? c.group.total : 0;
+          if (amt <= 0) return; // Skip ₹0.00 previous statement payments & cashback credit cards from payable count
           const dKey = `date_${{stmt.bank_short}}_${{stmt.statement_month}}_${{c.dateStr}}`.replace(/[^a-zA-Z0-9_]/g, '_');
           const dStatus = getPaymentStatus(dKey, '');
-          const amt = (c.group && typeof c.group.total === 'number') ? c.group.total : 0;
           if (dStatus.isPaid) {{
             allPaidTotal += amt;
             paidCardCount++;
