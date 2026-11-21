@@ -5007,7 +5007,7 @@ def generate_modern_dashboard_html(results_list, output_dir=".", write_to_disk=T
           if (refNo && refToLoanMap) refToLoanMap[refNo] = res;
           return res;
         }}
-        const allDigits = descBeforeRef.match(/\d{4,18}/g) || [];
+        const allDigits = descBeforeRef.match(/\d{{4,18}}/g) || [];
         for (const num of allDigits) {{
           const cleanNum = num.replace(/^0+/, '');
           if (cleanNum.length >= 4 && (cleanLoanId.startsWith(cleanNum) || cleanNum.startsWith(cleanLoanId))) {{
@@ -5084,7 +5084,7 @@ def generate_modern_dashboard_html(results_list, output_dir=".", write_to_disk=T
           }}
 
           // Substring/prefix match for truncated references (e.g. 00000000001466 in fee vs 146608745)
-          const allDigits = (itm.description || '').match(/\d{4,16}/g) || [];
+          const allDigits = (itm.description || '').match(/\d{{4,16}}/g) || [];
           for (const num of allDigits) {{
             const cleanNum = num.replace(/^0+/, '');
             if (cleanNum && (cleanLoanId.startsWith(cleanNum) || cleanLoanId.includes(cleanNum) || cleanNum.startsWith(cleanLoanId))) {{
