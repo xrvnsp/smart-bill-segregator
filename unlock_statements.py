@@ -3116,7 +3116,7 @@ def generate_modern_dashboard_html(results_list, output_dir=".", write_to_disk=T
     </div>
   </header>
 
-  <main class="max-w-7xl mx-auto px-6 py-8">
+  <main class="max-w-7xl mx-auto px-3 sm:px-6 py-5 sm:py-8">
     
     <div id="bank-tabs" class="flex gap-2 border-b border-slate-200 mb-8 overflow-x-auto pb-2"></div>
     <div id="statement-hero" class="mb-8"></div>
@@ -7183,6 +7183,7 @@ def generate_modern_dashboard_html(results_list, output_dir=".", write_to_disk=T
       // For regular dates or unnamed EMIs, keep individual date cards.
       const cardsList = [];
       const namedEmiCardMap = {{}}; // emiName -> cardObj
+      window._cbClubCard = null;
 
       const refToLoanMap = {{}};
 
@@ -7343,13 +7344,50 @@ def generate_modern_dashboard_html(results_list, output_dir=".", write_to_disk=T
           addItemsToNamedLoanCard(loanDetailsByKey[lk], dateStr, byLoan[lk]);
         }});
 
-        if (regularItems.length > 0) {{
-          const regTotal = regularItems.reduce((acc, it) => acc + (it.is_credit ? 0 : (parseFloat(it.amount) || 0)), 0);
+        // Separate Cashback Credits & Cashback Reversals so they club into ONE Net Cashback Card
+        const cbItemsOnDate = [];
+        const nonCbRegularItems = [];
+        regularItems.forEach(it => {{
+          const dLow = String(it.description || '').toLowerCase();
+          if (dLow.includes('cashback') || dLow.includes('cash back')) {{
+            cbItemsOnDate.push(Object.assign({{}}, it, {{ _origDate: dateStr }}));
+          }} else {{
+            nonCbRegularItems.push(it);
+          }}
+        }});
+
+        if (cbItemsOnDate.length > 0) {{
+          if (!window._cbClubCard) {{
+            window._cbClubCard = {{
+              type: 'cashback_summary',
+              dateStr: dateStr,
+              datesList: [dateStr],
+              items: cbItemsOnDate.slice(),
+              earnedTotal: 0,
+              reversedTotal: 0,
+              netCashback: 0
+            }};
+            cardsList.push(window._cbClubCard);
+          }} else {{
+            if (!window._cbClubCard.datesList.includes(dateStr)) window._cbClubCard.datesList.push(dateStr);
+            window._cbClubCard.items = window._cbClubCard.items.concat(cbItemsOnDate);
+            window._cbClubCard.dateStr = window._cbClubCard.datesList.join(' • ');
+          }}
+          cbItemsOnDate.forEach(ci => {{
+            const amtV = parseFloat(ci.amount) || 0;
+            if (ci.is_credit) window._cbClubCard.earnedTotal += amtV;
+            else window._cbClubCard.reversedTotal += amtV;
+          }});
+          window._cbClubCard.netCashback = window._cbClubCard.earnedTotal - window._cbClubCard.reversedTotal;
+        }}
+
+        if (nonCbRegularItems.length > 0) {{
+          const regTotal = nonCbRegularItems.reduce((acc, it) => acc + (it.is_credit ? 0 : (parseFloat(it.amount) || 0)), 0);
           cardsList.push({{
             type: 'date',
             dateStr: dateStr,
-            group: Object.assign({{}}, group, {{ items: regularItems, total: regTotal, has_emi: false }}),
-            items: regularItems,
+            group: Object.assign({{}}, group, {{ items: nonCbRegularItems, total: regTotal, has_emi: false }}),
+            items: nonCbRegularItems,
             isEmiGroup: false
           }});
         }}
@@ -7503,7 +7541,7 @@ def generate_modern_dashboard_html(results_list, output_dir=".", write_to_disk=T
               const isCredit = item.is_credit;
 
               // Shared color theme styling for Parent & Child
-              let rowStyleClass = 'item-row px-6 py-3.5 flex justify-between items-center transition ';
+              let rowStyleClass = 'item-row px-4 sm:px-6 py-3.5 flex justify-between items-start sm:items-center gap-3 transition ';
               let inlineRowBg = '';
               if (item.groupTheme === 'interest') {{
                 rowStyleClass += 'bg-purple-100/80 hover:bg-purple-100 border-l-[6px] border-l-purple-600 ';
@@ -7542,7 +7580,7 @@ def generate_modern_dashboard_html(results_list, output_dir=".", write_to_disk=T
               }}
 
               row.innerHTML = `
-                <div class="flex items-center gap-3">
+                <div class="flex items-start gap-2.5 min-w-0 flex-1">
                   <span class="${{item.groupTheme === 'interest' ? 'text-indigo-600 font-extrabold' : (item.groupTheme === 'fee' ? 'text-amber-600 font-extrabold' : (isCredit ? 'text-blue-500 font-bold' : 'text-purple-500 font-bold'))}} text-sm">↳</span>
                   <div>
                     <div class="font-semibold text-slate-800 text-sm flex items-center flex-wrap gap-1">
@@ -7567,8 +7605,8 @@ def generate_modern_dashboard_html(results_list, output_dir=".", write_to_disk=T
                     <div class="text-[11px] font-mono ${{isCredit ? 'text-blue-600 font-bold' : (item.groupTheme === 'interest' ? 'text-indigo-600 font-medium' : (item.groupTheme === 'fee' ? 'text-amber-700 font-medium' : 'text-slate-400'))}}">${{isCredit ? 'CREDIT • BEFORE EMI CONVERSION (LOAN BOOKING OFFSET)' : (item.groupTheme === 'interest' ? 'DEBIT / CHARGE (MONTHLY EMI INTEREST)' : (item.groupTheme === 'fee' ? 'DEBIT / CHARGE (LOAN SETUP PROCESSING FEE)' : 'DEBIT / CHARGE'))}}</div>`}}
                   </div>
                 </div>
-                <div class="text-right">
-                  <div class="item-amount-val font-bold text-sm ${{isCredit ? 'text-blue-700 font-extrabold' : (item.groupTheme === 'interest' ? 'text-indigo-900 font-extrabold' : (item.groupTheme === 'fee' ? 'text-amber-900 font-extrabold' : (item.is_emi ? 'text-purple-900 font-extrabold' : 'text-slate-900')))}}">${{item.amount_str}}</div>
+                <div class="text-right shrink-0">
+                  <div class="item-amount-val whitespace-nowrap font-bold text-sm ${{isCredit ? 'text-blue-700 font-extrabold' : (item.groupTheme === 'interest' ? 'text-indigo-900 font-extrabold' : (item.groupTheme === 'fee' ? 'text-amber-900 font-extrabold' : (item.is_emi ? 'text-purple-900 font-extrabold' : 'text-slate-900')))}}">${{item.amount_str}}</div>
                   <span class="text-[10px] uppercase font-bold px-2 py-0.5 rounded-full ${{isCredit ? 'bg-blue-100 text-blue-800 border border-blue-200 emi-credit-pill' : (item.groupTheme === 'interest' ? 'bg-indigo-100 text-indigo-800 border border-indigo-200' : (item.groupTheme === 'fee' ? 'bg-amber-100 text-amber-800 border border-amber-200' : (item.is_emi ? 'bg-purple-100 text-purple-800' : 'bg-slate-100 text-slate-600')))}}">${{isCredit ? 'Credit (Pre-EMI)' : (item.taxInfo ? 'Tax (GST)' : 'Debit')}}</span>
                 </div>
               `;
@@ -7579,26 +7617,26 @@ def generate_modern_dashboard_html(results_list, output_dir=".", write_to_disk=T
 
           // BOTTOM GRAND TOTAL FOOTER (Moved down!)
           const grandTotalFooter = document.createElement('div');
-          grandTotalFooter.className = 'emi-receipt-footer px-6 sm:px-8 py-5 text-white flex flex-row justify-between items-center gap-4 border-t-2 border-purple-300';
+          grandTotalFooter.className = 'emi-receipt-footer px-4 sm:px-8 py-4 sm:py-5 text-white flex flex-col sm:flex-row justify-between items-stretch sm:items-center gap-3 sm:gap-4 border-t-2 border-purple-300';
           grandTotalFooter.setAttribute('style', '-webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; background-color: #3b0764 !important; background: #3b0764 !important;');
           grandTotalFooter.innerHTML = `
-            <div class="emi-footer-left flex items-center gap-3">
-              <div class="emi-footer-icon w-11 h-11 rounded-xl bg-white/10 flex items-center justify-center text-xl flex-shrink-0" style="-webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; background-color: rgba(255,255,255,0.2) !important;">
+            <div class="emi-footer-left flex items-center gap-3 min-w-0">
+              <div class="emi-footer-icon w-10 h-10 sm:w-11 sm:h-11 rounded-xl bg-white/10 flex items-center justify-center text-lg sm:text-xl flex-shrink-0" style="-webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; background-color: rgba(255,255,255,0.2) !important;">
                 💰
               </div>
-              <div>
+              <div class="min-w-0">
                 <div class="emi-footer-title text-xs uppercase font-black tracking-wider text-purple-200" style="color: #f3e8ff !important;">
                   ${{card.monthDueLabel || (stmt.statement_month + ' Due to be Paid')}}
                 </div>
-                <div class="emi-footer-subtitle text-[11px] text-purple-300" style="color: #d8b4fe !important;">
-                  Total installment & charges friend needs to reimburse for this billing cycle
+                <div class="emi-footer-subtitle text-[11px] text-purple-300 leading-snug" style="color: #d8b4fe !important;">
+                  Total installment &amp; charges to reimburse for this billing cycle
                 </div>
               </div>
             </div>
 
-            <div class="emi-footer-right flex items-center gap-3">
-              <span class="emi-footer-grand-label text-xs font-bold text-purple-200 uppercase tracking-wider" style="color: #e9d5ff !important;">Grand Total:</span>
-              <span class="emi-footer-pill px-4 py-2 rounded-xl bg-purple-600 text-white font-black text-xl sm:text-2xl shadow-lg border border-purple-400/50" style="-webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; background-color: #9333ea !important; color: #ffffff !important; border: 1.5px solid #c084fc !important;">
+            <div class="emi-footer-right flex items-center justify-between sm:justify-end gap-3 pt-2.5 sm:pt-0 border-t border-purple-400/25 sm:border-t-0 flex-shrink-0">
+              <span class="emi-footer-grand-label text-xs font-bold text-purple-200 uppercase tracking-wider whitespace-nowrap" style="color: #e9d5ff !important;">Grand Total:</span>
+              <span class="emi-footer-pill px-4 py-2 rounded-xl bg-purple-600 text-white font-black text-lg sm:text-2xl shadow-lg border border-purple-400/50 whitespace-nowrap" style="-webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; background-color: #9333ea !important; color: #ffffff !important; border: 1.5px solid #c084fc !important;">
                 ₹${{card.combinedTotal.toLocaleString('en-IN', {{minimumFractionDigits: 2, maximumFractionDigits: 2}})}}
               </span>
             </div>
@@ -7606,6 +7644,61 @@ def generate_modern_dashboard_html(results_list, output_dir=".", write_to_disk=T
           dateCard.appendChild(grandTotalFooter);
 
           container.appendChild(dateCard);
+
+        }} else if (card.type === 'cashback_summary') {{
+          const cbCard = document.createElement('div');
+          cbCard.className = 'bg-white rounded-2xl border-2 border-emerald-400 shadow-sm overflow-hidden transition';
+          const netSign = card.netCashback >= 0 ? '+' : '-';
+          const netAbs = Math.abs(card.netCashback).toLocaleString('en-IN', {{minimumFractionDigits: 2, maximumFractionDigits: 2}});
+          const cbHdr = document.createElement('div');
+          cbHdr.className = 'px-6 py-4 bg-emerald-50/85 border-b border-emerald-200 flex flex-wrap justify-between items-center gap-3';
+          cbHdr.innerHTML = `
+            <div class="flex items-center gap-3">
+              <span class="w-9 h-9 rounded-xl bg-emerald-600 text-white flex items-center justify-center font-bold text-base shadow-sm">🎁</span>
+              <div>
+                <div class="font-extrabold text-emerald-950 text-base flex items-center gap-2 flex-wrap">
+                  <span>Net Cashback Earned (Clubbed)</span>
+                  <span class="px-2.5 py-0.5 rounded-full text-[11px] font-extrabold bg-emerald-100 text-emerald-900 border border-emerald-300">Auto-Adjusted in Bill</span>
+                </div>
+                <div class="text-xs text-emerald-800 font-semibold mt-0.5">
+                  Earned: +₹${{card.earnedTotal.toLocaleString('en-IN', {{minimumFractionDigits: 2, maximumFractionDigits: 2}})}}
+                  ${{card.reversedTotal > 0 ? ` • Reversed: -₹${{card.reversedTotal.toLocaleString('en-IN', {{minimumFractionDigits: 2, maximumFractionDigits: 2}})}}` : ''}}
+                  • Dates: ${{card.dateStr}}
+                </div>
+              </div>
+            </div>
+            <div class="flex items-center gap-2">
+              <span class="text-xs font-extrabold text-emerald-800 uppercase tracking-wider">You Really Got:</span>
+              <span class="px-3.5 py-1.5 rounded-xl bg-emerald-600 text-white font-black text-sm shadow-sm">${{netSign}}₹${{netAbs}}</span>
+            </div>
+          `;
+          cbCard.appendChild(cbHdr);
+          const cbTbl = document.createElement('div');
+          cbTbl.className = 'divide-y divide-emerald-100';
+          card.items.forEach(it => {{
+            const isCr = it.is_credit;
+            const r = document.createElement('div');
+            r.className = 'px-6 py-3.5 flex justify-between items-center ' + (isCr ? 'bg-emerald-50/30' : 'bg-rose-50/40');
+            r.innerHTML = `
+              <div class="flex items-center gap-3">
+                <span class="${{isCr ? 'text-emerald-600' : 'text-rose-600'}} font-bold text-sm">↳</span>
+                <div>
+                  <div class="font-semibold text-slate-800 text-sm flex items-center flex-wrap gap-1.5">
+                    <span>${{it.description}}</span>
+                    <span class="px-2 py-0.5 rounded-full text-[10px] font-extrabold ${{isCr ? 'bg-emerald-100 text-emerald-900 border border-emerald-300' : 'bg-rose-100 text-rose-800 border border-rose-300'}} uppercase">${{isCr ? '🎁 Cashback Credited' : '↩️ Cashback Reversal (EMI)'}}</span>
+                  </div>
+                  <div class="text-[11px] text-slate-500 font-mono">Date: ${{it._origDate || card.dateStr}}</div>
+                </div>
+              </div>
+              <div class="text-right">
+                <div class="font-extrabold text-sm ${{isCr ? 'text-emerald-700' : 'text-rose-700'}}">${{isCr ? '+' : '-'}}₹${{(parseFloat(it.amount) || 0).toLocaleString('en-IN', {{minimumFractionDigits: 2, maximumFractionDigits: 2}})}}</div>
+                <span class="text-[10px] uppercase font-bold px-2 py-0.5 rounded-full ${{isCr ? 'bg-emerald-100 text-emerald-800' : 'bg-rose-100 text-rose-800'}}">${{isCr ? 'Credited' : 'Reversed'}}</span>
+              </div>
+            `;
+            cbTbl.appendChild(r);
+          }});
+          cbCard.appendChild(cbTbl);
+          container.appendChild(cbCard);
 
         }} else {{
           // Regular date card (with custom Bill Name + Mark as Paid checkbox)
@@ -7638,10 +7731,10 @@ def generate_modern_dashboard_html(results_list, output_dir=".", write_to_disk=T
             </button>
           `));
           const dNameBarHtml = isCreditOnlyCard ? '' : `
-            <div class="no-print w-full mt-2.5 pt-2.5 border-t border-slate-200/70 flex items-center gap-2 flex-wrap">
-              <span class="text-[11px] font-extrabold text-slate-500">🏷️ Bill Name:</span>
-              <input type="text" id="date-name-inp-${{cardIdx}}" value="${{customDateName.replace(/"/g, '&quot;')}}" placeholder="Name this bill (e.g. Swiggy, Fuel, Groceries)..." class="flex-1 min-w-[170px] px-2.5 py-1 text-xs font-semibold bg-white border border-slate-300 rounded-lg text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500">
-              <button onclick="saveBillCardCustomName('${{dateBillKey}}', 'date-name-inp-${{cardIdx}}')" class="px-3 py-1 rounded-lg bg-slate-900 hover:bg-slate-800 text-white text-[11px] font-extrabold cursor-pointer">
+            <div class="no-print w-full mt-2 pt-2 border-t border-slate-200/70 flex items-center gap-2 flex-nowrap">
+              <span class="text-[11px] font-extrabold text-slate-500 whitespace-nowrap shrink-0">🏷️</span>
+              <input type="text" id="date-name-inp-${{cardIdx}}" value="${{customDateName.replace(/"/g, '&quot;')}}" placeholder="Name this bill (Swiggy, Fuel...)" class="flex-1 min-w-0 px-2.5 py-1.5 text-xs font-semibold bg-white border border-slate-300 rounded-lg text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500">
+              <button onclick="saveBillCardCustomName('${{dateBillKey}}', 'date-name-inp-${{cardIdx}}')" class="px-3 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-white text-[11px] font-extrabold cursor-pointer whitespace-nowrap shrink-0">
                 💾 Save
               </button>
             </div>
@@ -7705,7 +7798,7 @@ def generate_modern_dashboard_html(results_list, output_dir=".", write_to_disk=T
             const row = document.createElement('div');
             row.className = isEmiGroup 
               ? 'px-6 py-3.5 flex justify-between items-center bg-purple-50/30 hover:bg-purple-100/40 transition'
-              : 'px-6 py-3.5 flex justify-between items-center hover:bg-slate-50/70 transition';
+              : 'px-4 sm:px-6 py-3.5 flex justify-between items-start sm:items-center gap-3 hover:bg-slate-50/70 transition';
 
             const isCredit = item.is_credit;
             const emiBadge = item.is_emi && !isCredit
@@ -7728,7 +7821,7 @@ def generate_modern_dashboard_html(results_list, output_dir=".", write_to_disk=T
             const rightPillText = isPrevPymtItem ? 'Paid (Prev Bill)' : (isCbItem ? 'Cashback Cr' : (isCredit ? 'Credit' : 'Debit'));
 
             row.innerHTML = `
-              <div class="flex items-center gap-3">
+              <div class="flex items-start gap-2.5 min-w-0 flex-1">
                 <span class="${{item.is_emi ? 'text-purple-500 font-bold' : ((isPrevPymtItem || isCbItem) ? 'text-emerald-600 font-bold' : (isCredit ? 'text-blue-500 font-bold' : 'text-slate-400'))}} text-sm">↳</span>
                 <div>
                   <div class="font-semibold text-slate-800 text-sm flex items-center flex-wrap gap-1">
@@ -7738,10 +7831,25 @@ def generate_modern_dashboard_html(results_list, output_dir=".", write_to_disk=T
                     ${{creditBadge}}
                   </div>
                   <div class="text-[11px] text-slate-400 font-mono">${{subDescText}}</div>
+                  ${{(() => {{
+                    if (isCredit) return '';
+                    const dStr = String(item.description || '');
+                    const isGstLine = /\b(CGST|SGST|IGST)\b/i.test(dStr);
+                    if (!isGstLine) return '';
+                    const rateM = dStr.match(/(?:RATE\s*|@\s*)(\d+(?:\.\d+)?)\s*%?/i);
+                    const gstRate = rateM ? parseFloat(rateM[1]) : (/IGST/i.test(dStr) ? 18 : 9);
+                    const amtV = parseFloat(item.amount) || 0;
+                    if (gstRate > 0 && amtV > 0) {{
+                      const baseAmt = amtV / (gstRate / 100.0);
+                      const gstType = /CGST/i.test(dStr) ? 'CGST' : (/SGST/i.test(dStr) ? 'SGST' : 'IGST');
+                      return `<div class="mt-1 inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md bg-indigo-50 border border-indigo-200 text-indigo-900 text-[11px] font-bold">📊 ${{gstType}} (${{gstRate}}%) calculated on base amount <b>₹${{baseAmt.toLocaleString('en-IN', {{minimumFractionDigits: 2, maximumFractionDigits: 2}})}}</b> (Prior Statement EMI Interest / Fee)</div>`;
+                    }}
+                    return '';
+                  }})()}}
                 </div>
               </div>
-              <div class="text-right">
-                <div class="font-bold text-sm ${{(isPrevPymtItem || isCbItem) ? 'text-emerald-700 font-extrabold' : (isCredit ? 'text-blue-700 font-extrabold' : (item.is_emi ? 'text-purple-900 font-extrabold' : 'text-slate-900'))}}">${{item.amount_str}}</div>
+              <div class="text-right shrink-0">
+                <div class="font-bold text-sm whitespace-nowrap ${{(isPrevPymtItem || isCbItem) ? 'text-emerald-700 font-extrabold' : (isCredit ? 'text-blue-700 font-extrabold' : (item.is_emi ? 'text-purple-900 font-extrabold' : 'text-slate-900'))}}">${{item.amount_str}}</div>
                 <span class="text-[10px] uppercase font-bold px-2 py-0.5 rounded-full ${{(isPrevPymtItem || isCbItem) ? 'bg-emerald-100 text-emerald-800 border border-emerald-200' : (isCredit ? 'bg-blue-100 text-blue-800 border border-blue-200 emi-credit-pill' : (item.is_emi ? 'bg-purple-100 text-purple-800' : 'bg-slate-100 text-slate-600'))}}">${{rightPillText}}</span>
               </div>
             `;
@@ -7764,6 +7872,7 @@ def generate_modern_dashboard_html(results_list, output_dir=".", write_to_disk=T
       let pendingCardCount = 0;
 
       cardsList.forEach(c => {{
+        if (c.type === 'cashback_summary') return;
         if (c.type === 'named_emi') {{
           const pStatus = getPaymentStatus(c.loanKey, c.emiName);
           if (pStatus.isPaid) {{

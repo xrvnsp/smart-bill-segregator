@@ -6,28 +6,7 @@
     "21/10/2026_49264.00": "Surya Senior S25 FE",
     "146608745": "Vasanth LG Tv"
   },
-  "paid_cards": {
-    "21/10/2026_49264.00": {
-      "isPaid": true,
-      "paidDate": "Nov 14",
-      "amount": "₹9,068.8"
-    },
-    "28/09/2026_44370.00": {
-      "isPaid": true,
-      "paidDate": "Nov 14",
-      "amount": "₹5,359.47"
-    },
-    "Surya senior": {
-      "isPaid": true,
-      "paidDate": "Nov 14",
-      "amount": "₹9,068.8"
-    },
-    "Naveen s25 edge": {
-      "isPaid": true,
-      "paidDate": "Nov 14",
-      "amount": "₹5,359.47"
-    }
-  },
+  "paid_cards": {},
   "fold_tags": [
     {
       "id": "fold_0004_17_Nov_2026_904",
@@ -106,6 +85,7 @@
       ]
     }
   ],
+  "updated_at": "2026-11-18T14:32:26+05:30",
   "statement_summaries": {
     "ICICI_Amazon_October_2026": {
       "bank_short": "ICICI Amazon",
@@ -251,89 +231,6 @@
           ]
         }
       ]
-    },
-    "HDFC_November_2026": {
-      "bank_short": "HDFC",
-      "statement_month": "November 2026",
-      "total_due": "₹7,796.00",
-      "due_date": "09 Dec 2026",
-      "ongoing_emis": [
-        {
-          "loan_id": "146608745",
-          "name": "Vasanth LG Tv",
-          "total_amount": "₹24,598.00",
-          "monthly_emi": "",
-          "balance_tenure": "4 Months left"
-        },
-        {
-          "loan_id": "148456196",
-          "name": "Galaxy watch 8 classic Saravana",
-          "total_amount": "₹21,282.00",
-          "monthly_emi": "",
-          "balance_tenure": "5 Months left"
-        }
-      ],
-      "date_cards": [
-        {
-          "date": "19/10/2026",
-          "bill_key": "date_HDFC_November_2026_19_10_2026",
-          "total": 56.34,
-          "items": [
-            "CGST-VPS2729375326277-RATE 9.0 -33 (Ref# 09999999981019000946475) (₹28.17)",
-            "SGST-VPS2729375326277-RATE 9.0 -33 (Ref# 09999999981019000946475) (₹28.17)"
-          ]
-        },
-        {
-          "date": "06/11/2026",
-          "bill_key": "date_HDFC_November_2026_06_11_2026",
-          "total": 132.0,
-          "items": [
-            "SwiggyBENGALURU (₹132.00)"
-          ]
-        },
-        {
-          "date": "11/11/2026",
-          "bill_key": "date_HDFC_November_2026_11_11_2026",
-          "total": 21282.0,
-          "items": [
-            "EMI PTM*FLIPKART INTERNETNOIDA (₹21,282.00)"
-          ]
-        },
-        {
-          "date": "17/11/2026",
-          "bill_key": "date_HDFC_November_2026_17_11_2026",
-          "total": 498.82000000000005,
-          "items": [
-            "OFFUS EMI,PROCNG FEE,00000000001484 (Ref# 09999999981117000948994) (₹299.00)",
-            "SWIGGY FOODBANGALORE (₹146.00)",
-            "CGST-VPS2732257689056-RATE 9.0 -33 (Ref# 09999999981117000948994) (₹26.91)",
-            "SGST-VPS2732257689056-RATE 9.0 -33 (Ref# 09999999981117000948994) (₹26.91)"
-          ]
-        },
-        {
-          "date": "18/11/2026",
-          "bill_key": "date_HDFC_November_2026_18_11_2026",
-          "total": 212.82,
-          "items": [
-            "1% Swiggy CashBack_Reversal (₹212.82)"
-          ]
-        },
-        {
-          "date": "19/11/2026",
-          "bill_key": "date_HDFC_November_2026_19_11_2026",
-          "total": 7960.0,
-          "items": [
-            "OFFUS EMI,PRIN NB:02,00000146608745 (Ref# 09999999981119001042462) (₹4,013.00)",
-            "OFFUS EMI,PRIN NB:01,00000148456196 (Ref# 09999999981119001042488) (₹3,424.00)",
-            "OFFUS EMI,INT NBR:02,00000146608745 (Ref# 09999999981119001042470) (₹292.00)",
-            "OFFUS EMI,INT NBR:01,00000148456196 (Ref# 09999999981119001042496) (₹231.00)"
-          ]
-        }
-      ]
     }
-  },
-  "sheets_webhook_url": "",
-  "sync_sheets_url_mobile": true,
-  "auto_push_expenses_sheets": false,
-  "updated_at": "2026-11-21T08:55:19+05:30"
+  }
 }
