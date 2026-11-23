@@ -2393,6 +2393,94 @@ def _extract_receipt_row_value(data, label_pattern):
         return " ".join(t for _, t in row_tokens).strip()
   return ""
 
+def scan_document_image(pil_img):
+  """Applies a Google Drive Scan-style document enhancement to a printed bill photo:
+    1. Auto-crops dark outer desk/table borders around a lighter paper receipt (if detected).
+    2. Estimates uneven illumination / shadows via downsampled Gaussian blur and divides them out
+       so the paper becomes crisp pure white while printed ink stays sharp and dark.
+    3. Applies gentle contrast stretch and unsharp masking for print-ready legibility.
+  """
+  import numpy as np
+  from PIL import Image, ImageFilter, ImageEnhance, ImageOps
+
+  rgb = ImageOps.exif_transpose(pil_img).convert("RGB")
+  w, h = rgb.size
+
+  # Step 1: Safe auto-crop of dark table/desk borders around bright paper receipt
+  try:
+    gray_small = rgb.convert("L").resize((max(64, w // 6), max(64, h // 6)), Image.Resampling.BILINEAR)
+    g_arr = np.array(gray_small, dtype=np.float32)
+    border_vals = np.concatenate([g_arr[0, :], g_arr[-1, :], g_arr[:, 0], g_arr[:, -1]])
+    center_med = float(np.median(g_arr[g_arr.shape[0]//4:3*g_arr.shape[0]//4, g_arr.shape[1]//4:3*g_arr.shape[1]//4]))
+    border_med = float(np.median(border_vals))
+    if center_med - border_med > 28:
+      thresh = border_med + (center_med - border_med) * 0.45
+      mask = g_arr > thresh
+      row_frac = mask.mean(axis=1)
+      col_frac = mask.mean(axis=0)
+      ys = np.where(row_frac > 0.12)[0]
+      xs = np.where(col_frac > 0.12)[0]
+      if len(ys) > 10 and len(xs) > 10:
+        sy = h / float(g_arr.shape[0])
+        sx = w / float(g_arr.shape[1])
+        pad_x = int(w * 0.015)
+        pad_y = int(h * 0.015)
+        x0 = max(0, int(xs[0] * sx) - pad_x)
+        y0 = max(0, int(ys[0] * sy) - pad_y)
+        x1 = min(w, int((xs[-1] + 1) * sx) + pad_x)
+        y1 = min(h, int((ys[-1] + 1) * sy) + pad_y)
+        if (x1 - x0) > w * 0.35 and (y1 - y0) > h * 0.35:
+          rgb = rgb.crop((x0, y0, x1, y1))
+          w, h = rgb.size
+  except Exception:
+    pass
+
+  # Step 2: Shadow & uneven lighting removal (background illumination division per channel)
+  scale_w = max(48, min(180, w // 10))
+  scale_h = max(48, min(180, h // 10))
+  bg_small = rgb.resize((scale_w, scale_h), Image.Resampling.BILINEAR)
+  bg_small = bg_small.filter(ImageFilter.MaxFilter(5))
+  bg_small = bg_small.filter(ImageFilter.GaussianBlur(radius=6))
+  bg_full = bg_small.resize((w, h), Image.Resampling.BILINEAR)
+
+  img_arr = np.array(rgb, dtype=np.float32)
+  bg_arr = np.maximum(np.array(bg_full, dtype=np.float32), 20.0)
+  norm = (img_arr / bg_arr) * 255.0
+
+  # Step 3: Clean white-paper stretch (push paper >= 232 to crisp pure white 255, deepen ink)
+  norm = np.clip((norm - 18.0) * (255.0 / (236.0 - 18.0)), 0.0, 255.0).astype(np.uint8)
+  scanned = Image.fromarray(norm, mode="RGB")
+
+  # Slight desaturation + crisp unsharp mask (Google Drive "Color Scan" look)
+  scanned = ImageEnhance.Color(scanned).enhance(0.75)
+  scanned = scanned.filter(ImageFilter.UnsharpMask(radius=1.4, percent=135, threshold=4))
+  return scanned
+
+def encode_printed_bill_image(img_bytes, apply_scan=True):
+  """Encodes a printed bill / paper receipt photo (with optional Google Drive Scan enhancement) into:
+    - full_b64: Full original-resolution Lossless PNG (zero downscaling, for Google Drive & Sheets)
+    - thumb_b64: Compact preview thumbnail for lightweight JSON storage & web table display
+  """
+  import base64
+  from PIL import Image, ImageOps
+  try:
+    im = Image.open(io.BytesIO(img_bytes))
+    im = ImageOps.exif_transpose(im)
+    if apply_scan:
+      im = scan_document_image(im)
+    full_buf = io.BytesIO()
+    im.save(full_buf, format="PNG", optimize=True)
+    full_b64 = "data:image/png;base64," + base64.b64encode(full_buf.getvalue()).decode("ascii")
+
+    thumb_im = im.convert("RGB")
+    thumb_im.thumbnail((280, 560), Image.Resampling.LANCZOS)
+    t_buf = io.BytesIO()
+    thumb_im.save(t_buf, format="WEBP", lossless=True, quality=100, method=4)
+    thumb_b64 = "data:image/webp;base64," + base64.b64encode(t_buf.getvalue()).decode("ascii")
+    return full_b64, thumb_b64
+  except Exception:
+    return "", ""
+
 def parse_expense_screenshot(img_bytes, filename="receipt.jpg"):
   """Parses a UPI / payment receipt screenshot (light or dark mode) for Amount, Date & Time, Recipient, Notes, UPI IDs, App Name, Transaction ID, and creates a compact WebP thumbnail."""
   import base64

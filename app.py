@@ -379,6 +379,7 @@ def update_shared_expenses_store(new_ledger, commit_msg="Sync Expense Calculator
     snapshot = copy.deepcopy(dict(new_ledger))
     for _ent in snapshot.get("entries", []):
         _ent.pop("full_b64", None)
+        _ent.pop("bill_full_b64", None)
     store = get_shared_expenses_store()
     store.clear()
     store.update(snapshot)
@@ -1468,26 +1469,81 @@ elif st.session_state.active_nav == "shafana":
                 st.rerun()
 
 # ==============================================================================
-# VIEW 4: EXPENSE CALCULATOR & UPI RECEIPT TRACKER
+# VIEW 4: EXPENSE CALCULATOR & UPI RECEIPT TRACKER (SAMSUNG PAY + PRINTED BILL)
 # ==============================================================================
 elif st.session_state.active_nav == "expenses":
-    # Instant Dedicated Screenshot Dropzone (Outside st.form so it auto-parses & updates table immediately!)
-    exp_up_files = st.file_uploader(
-        "📸 Instant Receipt OCR: Drop Samsung Wallet / GPay / PhonePe / Paytm Screenshot(s) — Auto-Parses Amount, Date & Time, Paid To & Notes Immediately",
-        type=["png", "jpg", "jpeg", "webp"],
-        accept_multiple_files=True,
-        key="dedicated_expense_uploader"
-    )
+    def _build_expense_sheet_row(e_obj):
+        eid = e_obj.get("id", "")
+        pay_img = (
+            e_obj.get("full_b64")
+            or st.session_state.get("full_receipt_images", {}).get(eid)
+            or e_obj.get("thumb_b64", "")
+        )
+        bill_img = (
+            e_obj.get("bill_full_b64")
+            or st.session_state.get("full_printed_bills", {}).get(eid)
+            or e_obj.get("bill_thumb_b64", "")
+        )
+        return {
+            "month": e_obj.get("date_time", ""),
+            "bank": f"{e_obj.get('app_name', 'UPI')} ({e_obj.get('category', 'Expense')})",
+            "loan_id": e_obj.get("transaction_id") or eid,
+            "friend_name": e_obj.get("paid_to", ""),
+            "notes": e_obj.get("notes", "UPI"),
+            "amount": f"₹{float(e_obj.get('amount', 0)):,.2f}",
+            "amount_num": float(e_obj.get("amount", 0)),
+            "remaining": e_obj.get("payee_upi") or "-",
+            "status": "Paid Expense",
+            "source_file": e_obj.get("source_file", "receipt.png"),
+            "thumb_b64": pay_img,
+            "bill_source_file": e_obj.get("bill_source_file", ""),
+            "bill_b64": bill_img
+        }
+
+    # Dual Upload Panel: Upload Transaction Screenshot (Samsung Pay / UPI) + Optional Printed Bill Together
+    up_c1, up_c2 = st.columns(2)
+    with up_c1:
+        exp_up_files = st.file_uploader(
+            "📱 1. Transaction Screenshot (Samsung Pay / GPay / PhonePe) — Auto-Parses Amount, Date & Time, Paid To & Notes",
+            type=["png", "jpg", "jpeg", "webp"],
+            accept_multiple_files=True,
+            key="dedicated_expense_uploader"
+        )
+    with up_c2:
+        paired_bill_file = st.file_uploader(
+            "🧾 2. Printed Bill / Paper Receipt Photo (Auto Drive-Scanned Lossless PNG)",
+            type=["png", "jpg", "jpeg", "webp"],
+            accept_multiple_files=False,
+            key="paired_printed_bill_uploader"
+        )
+        scan_bill_mode = st.toggle(
+            "✨ Auto-Scan Printed Bill (Google Drive Scan Look: White Paper, Shadow Removal & Auto-Crop)",
+            value=True,
+            key="tog_drive_scan_bill"
+        )
+
     if exp_up_files:
         exp_ledger_now = get_shared_expenses_store()
         seen_ded = st.session_state.setdefault("processed_ded_exp_hashes", set())
         newly_added_objs = []
-        for ef in exp_up_files:
+        bill_full_b64_pair, bill_thumb_b64_pair, bill_fname_pair = "", "", ""
+        if paired_bill_file is not None:
+            bill_fname_pair = paired_bill_file.name
+            bill_full_b64_pair, bill_thumb_b64_pair = unlock_statements.encode_printed_bill_image(apply_scan=st.session_state.get('tog_drive_scan_bill', True), img_bytes=paired_bill_file.getvalue())
+            st.session_state.setdefault("processed_paired_bill_hashes", set()).add(f"pb_{paired_bill_file.name}_{len(paired_bill_file.getvalue())}")
+
+        for idx_ef, ef in enumerate(exp_up_files):
             raw_ef = ef.getvalue()
             sig_ef = f"ded_{ef.name}_{len(raw_ef)}"
             parsed_ef = unlock_statements.parse_expense_screenshot(raw_ef, ef.name)
             if parsed_ef.get("full_b64"):
                 st.session_state.setdefault("full_receipt_images", {})[parsed_ef["id"]] = parsed_ef["full_b64"]
+            if idx_ef == 0 and bill_thumb_b64_pair:
+                parsed_ef["bill_thumb_b64"] = bill_thumb_b64_pair
+                parsed_ef["bill_full_b64"] = bill_full_b64_pair
+                parsed_ef["bill_source_file"] = bill_fname_pair
+                st.session_state.setdefault("full_printed_bills", {})[parsed_ef["id"]] = bill_full_b64_pair
+
             if sig_ef not in seen_ded:
                 seen_ded.add(sig_ef)
                 exp_ledger_now["entries"] = [x for x in exp_ledger_now.get("entries", []) if x.get("id") != parsed_ef["id"]]
@@ -1497,31 +1553,38 @@ elif st.session_state.active_nav == "expenses":
                 f"✅ Added to View Table ({ef.name}): ₹{parsed_ef['amount']:,.2f} · Paid to: {parsed_ef['paid_to']} · "
                 f"Date & Time: {parsed_ef['date_time']} · Notes: {parsed_ef.get('notes', 'UPI')} · "
                 f"Txn ID: {parsed_ef.get('transaction_id') or '-'}"
+                + (f" · 🧾 Printed Bill Attached ({bill_fname_pair})" if idx_ef == 0 and bill_fname_pair else "")
             )
         if newly_added_objs:
             update_shared_expenses_store(exp_ledger_now, commit_msg="Auto-parse UPI screenshot into Expense Table")
             bn_auto = unlock_statements.load_bill_names_web()
             wh_auto = _get_sheets_webhook_url()
             if bn_auto.get("auto_push_expenses_sheets") and wh_auto:
-                new_rows = [
-                    {
-                        "month": x.get("date_time", ""),
-                        "bank": f"{x.get('app_name', 'UPI')} ({x.get('category', 'Expense')})",
-                        "loan_id": x.get("transaction_id") or x.get("id", ""),
-                        "friend_name": x.get("paid_to", ""),
-                        "notes": x.get("notes", "UPI"),
-                        "amount": f"₹{float(x.get('amount', 0)):,.2f}",
-                        "amount_num": float(x.get("amount", 0)),
-                        "remaining": x.get("payee_upi") or "-",
-                        "status": "Paid Expense",
-                        "source_file": x.get("source_file", "receipt.png"),
-                        "thumb_b64": x.get("full_b64") or st.session_state.get("full_receipt_images", {}).get(x.get("id", "")) or x.get("thumb_b64", "")
-                    }
-                    for x in newly_added_objs
-                ]
+                new_rows = [_build_expense_sheet_row(x) for x in newly_added_objs]
                 ok_a, rj_a, msg_a = _post_to_apps_script(wh_auto, {"bills": [], "reimbursements": [], "expenses": new_rows})
-                if ok_a and rj_a.get("expenses_added", 0) > 0:
-                    st.toast(f"☁️ Auto-pushed {rj_a['expenses_added']} new receipt(s) to Google Sheets!", icon="☁️")
+                if ok_a and (rj_a.get("expenses_added", 0) > 0 or rj_a.get("expenses_updated", 0) > 0):
+                    st.toast("☁️ Auto-pushed lossless receipt(s) to Google Sheets!", icon="☁️")
+    elif paired_bill_file is not None:
+        raw_pb = paired_bill_file.getvalue()
+        sig_pb = f"pb_{paired_bill_file.name}_{len(raw_pb)}"
+        seen_pb = st.session_state.setdefault("processed_paired_bill_hashes", set())
+        exp_ledger_now = get_shared_expenses_store()
+        if sig_pb not in seen_pb and exp_ledger_now.get("entries"):
+            seen_pb.add(sig_pb)
+            bf_b64, bt_b64 = unlock_statements.encode_printed_bill_image(apply_scan=st.session_state.get('tog_drive_scan_bill', True), img_bytes=raw_pb)
+            top_e = exp_ledger_now["entries"][0]
+            top_e["bill_thumb_b64"] = bt_b64
+            top_e["bill_full_b64"] = bf_b64
+            top_e["bill_source_file"] = paired_bill_file.name
+            st.session_state.setdefault("full_printed_bills", {})[top_e["id"]] = bf_b64
+            update_shared_expenses_store(exp_ledger_now, commit_msg=f"Attach printed bill to {top_e.get('paid_to', 'expense')}")
+            st.success(f"🧾 Attached Printed Bill ({paired_bill_file.name}) to latest transaction: {top_e.get('paid_to')} (₹{float(top_e.get('amount', 0)):,.2f})!")
+            bn_auto = unlock_statements.load_bill_names_web()
+            wh_auto = _get_sheets_webhook_url()
+            if bn_auto.get("auto_push_expenses_sheets") and wh_auto:
+                ok_a, rj_a, _ = _post_to_apps_script(wh_auto, {"bills": [], "reimbursements": [], "expenses": [_build_expense_sheet_row(top_e)]})
+                if ok_a:
+                    st.toast("☁️ Synced Printed Bill (Lossless PNG) to Google Sheets!", icon="🧾")
 
     exp_ledger = get_shared_expenses_store()
     entries_list = exp_ledger.get("entries", [])
@@ -1563,8 +1626,8 @@ elif st.session_state.active_nav == "expenses":
 
     st.markdown("<div style='height: 12px;'></div>", unsafe_allow_html=True)
 
-    # Manual Add Money Form
-    with st.expander("➕ Add Manual Cash / Expense Entry (or Override Screenshot Details)", expanded=False):
+    # Manual Add Money + Optional Printed Bill Form
+    with st.expander("➕ Add Manual Cash / Expense Entry (with Optional Printed Bill Photo)", expanded=False):
         ist_now_default = datetime.now(tz=timezone(timedelta(hours=5, minutes=30))).strftime("%d %b %Y, %I:%M %p")
         with st.form("add_manual_expense_form", clear_on_submit=True):
             f_c1, f_c2, f_c3, f_c4, f_c5 = st.columns([1.0, 1.4, 1.2, 1.3, 1.2])
@@ -1579,11 +1642,19 @@ elif st.session_state.active_nav == "expenses":
             with f_c5:
                 m_dt = st.text_input("Date & Time", value=ist_now_default)
 
+            m_bill_pic = st.file_uploader("🧾 Optional Printed Bill Photo (Lossless PNG)", type=["png", "jpg", "jpeg", "webp"], key="manual_form_bill_pic")
             sub_exp = st.form_submit_button("➕ Add Manual Expense to View Table", use_container_width=True)
             if sub_exp:
                 if m_amt > 0:
+                    bf_m, bt_m, bn_m = "", "", ""
+                    if m_bill_pic is not None:
+                        bn_m = m_bill_pic.name
+                        bf_m, bt_m = unlock_statements.encode_printed_bill_image(apply_scan=st.session_state.get('tog_drive_scan_bill', True), img_bytes=m_bill_pic.getvalue())
+                    new_id = f"exp_manual_{int(time.time())}_{int(m_amt)}"
+                    if bf_m:
+                        st.session_state.setdefault("full_printed_bills", {})[new_id] = bf_m
                     new_item = {
-                        "id": f"exp_manual_{int(time.time())}_{int(m_amt)}",
+                        "id": new_id,
                         "amount": float(m_amt),
                         "paid_to": m_paid_to.strip() or "Cash / Manual Expense",
                         "category": m_cat,
@@ -1594,7 +1665,9 @@ elif st.session_state.active_nav == "expenses":
                         "transaction_id": f"MAN-{int(time.time())}",
                         "notes": m_notes.strip() or "Manual",
                         "source_file": "Manual Entry",
-                        "thumb_b64": ""
+                        "thumb_b64": "",
+                        "bill_source_file": bn_m,
+                        "bill_thumb_b64": bt_m
                     }
                     exp_ledger.setdefault("entries", []).insert(0, new_item)
                     update_shared_expenses_store(exp_ledger, commit_msg=f"Add manual expense ₹{m_amt:.2f}")
@@ -1642,7 +1715,7 @@ elif st.session_state.active_nav == "expenses":
         csv_buf = io.StringIO()
         csv_buf.write("\ufeff")  # UTF-8 BOM for Excel compatibility
         writer = csv.writer(csv_buf)
-        writer.writerow(["Date & Time", "Paid To / Merchant", "Amount (INR)", "Notes", "Category", "Payment App", "Payee UPI / Bank", "Sender UPI", "Transaction ID", "Screenshot File"])
+        writer.writerow(["Date & Time", "Paid To / Merchant", "Amount (INR)", "Notes", "Category", "Payment App", "Payee UPI / Bank", "Sender UPI", "Transaction ID", "Payment Screenshot", "Printed Bill"])
         for e in entries_list:
             writer.writerow([
                 e.get("date_time", ""),
@@ -1654,10 +1727,11 @@ elif st.session_state.active_nav == "expenses":
                 e.get("payee_upi", ""),
                 e.get("sender_upi", ""),
                 e.get("transaction_id", ""),
-                e.get("source_file", "")
+                e.get("source_file", ""),
+                e.get("bill_source_file", "")
             ])
         writer.writerow([])
-        writer.writerow(["TOTAL", "", f"{total_spent:.2f}", "", "", "", "", "", "", ""])
+        writer.writerow(["TOTAL", "", f"{total_spent:.2f}", "", "", "", "", "", "", "", ""])
         st.download_button(
             label=f"📊 Export Expense Sheet (.CSV / Excel) — ₹{total_spent:,.2f}",
             data=csv_buf.getvalue().encode("utf-8"),
@@ -1674,33 +1748,22 @@ elif st.session_state.active_nav == "expenses":
             elif not entries_list:
                 st.warning("No expense entries to push yet — upload a screenshot or add an expense first.")
             else:
-                exp_rows = [
-                    {
-                        "month": e.get("date_time", ""),
-                        "bank": f"{e.get('app_name', 'UPI')} ({e.get('category', 'Expense')})",
-                        "loan_id": e.get("transaction_id") or e.get("id", ""),
-                        "friend_name": e.get("paid_to", ""),
-                        "notes": e.get("notes", "UPI"),
-                        "amount": f"₹{float(e.get('amount', 0)):,.2f}",
-                        "amount_num": float(e.get("amount", 0)),
-                        "remaining": e.get("payee_upi") or "-",
-                        "status": "Paid Expense",
-                        "source_file": e.get("source_file", "receipt.png"),
-                        "thumb_b64": st.session_state.get("full_receipt_images", {}).get(e.get("id", "")) or e.get("full_b64") or e.get("thumb_b64", "")
-                    }
-                    for e in entries_list
-                ]
+                exp_rows = [_build_expense_sheet_row(e) for e in entries_list]
                 ok_sh, rj_sh, msg_sh = _post_to_apps_script(webhook_url, {"bills": [], "reimbursements": [], "expenses": exp_rows})
                 if ok_sh:
                     added_cnt = rj_sh.get("expenses_added", 0)
+                    updated_cnt = rj_sh.get("expenses_updated", 0)
                     skipped_cnt = rj_sh.get("expenses_skipped", 0)
-                    if added_cnt > 0 or skipped_cnt > 0:
-                        skip_note = f" ({skipped_cnt} duplicate(s) automatically skipped)" if skipped_cnt else ""
-                        st.success(f"✅ Verified! Pushed {added_cnt} new expense(s) with Original PNG receipts to 'Expenses & Receipts'{skip_note}.")
+                    if added_cnt > 0 or updated_cnt > 0 or skipped_cnt > 0:
+                        parts_msg = []
+                        if added_cnt: parts_msg.append(f"{added_cnt} new added")
+                        if updated_cnt: parts_msg.append(f"{updated_cnt} updated with Printed Bill")
+                        if skipped_cnt: parts_msg.append(f"{skipped_cnt} duplicate(s) skipped")
+                        st.success(f"✅ Verified! Synced Original Lossless PNG receipts to 'Expenses & Receipts' ({', '.join(parts_msg)}).")
                     else:
                         st.warning(
                             f"⚠️ Apps Script responded OK, but 'expenses_added' was 0. Raw response: `{msg_sh[:220]}` — "
-                            "Check that you replaced Code.gs (no duplicate doPost function in another file), clicked Deploy → Manage deployments → Edit → New version, and pasted the exact /exec URL in Vault → Save Integration Keys."
+                            "Check that you replaced Code.gs with v6, clicked Deploy → Manage deployments → Edit → New version, and pasted the exact /exec URL in Vault."
                         )
                 else:
                     st.error(f"⚠️ Google Sheets push failed: {msg_sh}")
@@ -1712,28 +1775,33 @@ elif st.session_state.active_nav == "expenses":
 
     st.markdown("<div style='height: 12px;'></div>", unsafe_allow_html=True)
 
-    # Live Structured HTML View Table ("📋 Expense Calculator View Table")
+    # Live Structured HTML View Table ("📋 Expense Calculator View Table") with BOTH Pay Pic & Printed Bill Pic
     if entries_list:
         th_bg = "#1e293b" if is_dark else "#f1f5f9"
         tr_alt = "rgba(30, 41, 59, 0.45)" if is_dark else "#f8fafc"
         rows_html = []
         for idx_r, e in enumerate(entries_list, 1):
             r_bg = tr_alt if idx_r % 2 == 0 else "transparent"
-            t_img = (
+            p_img = (
                 f"<img src='{e['thumb_b64']}' style='width:32px;height:52px;object-fit:cover;border-radius:6px;border:1px solid {border_subtle};vertical-align:middle;'/>"
                 if e.get("thumb_b64") else "—"
             )
+            b_img = (
+                f"<img src='{e['bill_thumb_b64']}' style='width:32px;height:52px;object-fit:cover;border-radius:6px;border:1px solid #10b981;vertical-align:middle;'/>"
+                if e.get("bill_thumb_b64") else "<span style='font-size:11px;color:#64748b;'>—</span>"
+            )
             rows_html.append(
                 f"<tr style='background:{r_bg};border-bottom:1px solid {border_subtle};'>"
-                f"<td style='padding:10px 12px;font-weight:700;color:{text_secondary};'>{idx_r}</td>"
-                f"<td style='padding:6px 10px;'>{t_img}</td>"
-                f"<td style='padding:10px 12px;font-weight:700;color:{text_primary};white-space:nowrap;'>{html_lib.escape(str(e.get('date_time', '-')))}</td>"
-                f"<td style='padding:10px 12px;font-weight:800;color:{text_primary};'>{html_lib.escape(str(e.get('paid_to', '-')))}</td>"
-                f"<td style='padding:10px 12px;font-weight:700;color:#6366f1;'>{html_lib.escape(str(e.get('notes', 'UPI')))}</td>"
-                f"<td style='padding:10px 12px;font-size:12px;color:{text_secondary};'>{html_lib.escape(str(e.get('category', 'UPI')))}</td>"
-                f"<td style='padding:10px 12px;font-size:12px;color:{text_secondary};'>{html_lib.escape(str(e.get('app_name', '-')))}<br/><span style='font-family:monospace;font-size:11px;'>{html_lib.escape(str(e.get('payee_upi', '')))}</span></td>"
-                f"<td style='padding:10px 12px;font-family:monospace;font-size:12px;color:{text_secondary};'>{html_lib.escape(str(e.get('transaction_id', '-')))}</td>"
-                f"<td style='padding:10px 14px;font-weight:800;font-size:14.5px;color:{text_primary};text-align:right;white-space:nowrap;'>₹{float(e.get('amount', 0)):,.2f}</td>"
+                f"<td style='padding:10px 10px;font-weight:700;color:{text_secondary};'>{idx_r}</td>"
+                f"<td style='padding:6px 8px;'>{p_img}</td>"
+                f"<td style='padding:6px 8px;'>{b_img}</td>"
+                f"<td style='padding:10px 10px;font-weight:700;color:{text_primary};white-space:nowrap;'>{html_lib.escape(str(e.get('date_time', '-')))}</td>"
+                f"<td style='padding:10px 10px;font-weight:800;color:{text_primary};'>{html_lib.escape(str(e.get('paid_to', '-')))}</td>"
+                f"<td style='padding:10px 10px;font-weight:700;color:#6366f1;'>{html_lib.escape(str(e.get('notes', 'UPI')))}</td>"
+                f"<td style='padding:10px 10px;font-size:12px;color:{text_secondary};'>{html_lib.escape(str(e.get('category', 'UPI')))}</td>"
+                f"<td style='padding:10px 10px;font-size:12px;color:{text_secondary};'>{html_lib.escape(str(e.get('app_name', '-')))}<br/><span style='font-family:monospace;font-size:11px;'>{html_lib.escape(str(e.get('payee_upi', '')))}</span></td>"
+                f"<td style='padding:10px 10px;font-family:monospace;font-size:12px;color:{text_secondary};'>{html_lib.escape(str(e.get('transaction_id', '-')))}</td>"
+                f"<td style='padding:10px 12px;font-weight:800;font-size:14.5px;color:{text_primary};text-align:right;white-space:nowrap;'>₹{float(e.get('amount', 0)):,.2f}</td>"
                 f"</tr>"
             )
         table_html = f"""
@@ -1746,15 +1814,16 @@ elif st.session_state.active_nav == "expenses":
                 <table style="width:100%;border-collapse:collapse;font-size:12.5px;text-align:left;">
                     <thead>
                         <tr style="background:{th_bg};color:{text_secondary};font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:0.04em;border-bottom:1px solid {border_subtle};">
-                            <th style="padding:10px 12px;">#</th>
-                            <th style="padding:10px 10px;">Pic</th>
-                            <th style="padding:10px 12px;">Date &amp; Time</th>
-                            <th style="padding:10px 12px;">Paid To</th>
-                            <th style="padding:10px 12px;">Notes</th>
-                            <th style="padding:10px 12px;">Category</th>
-                            <th style="padding:10px 12px;">App &amp; Payee UPI</th>
-                            <th style="padding:10px 12px;">Transaction ID</th>
-                            <th style="padding:10px 14px;text-align:right;">Amount (₹)</th>
+                            <th style="padding:10px 10px;">#</th>
+                            <th style="padding:10px 8px;">Pay Pic</th>
+                            <th style="padding:10px 8px;">Bill Pic</th>
+                            <th style="padding:10px 10px;">Date &amp; Time</th>
+                            <th style="padding:10px 10px;">Paid To</th>
+                            <th style="padding:10px 10px;">Notes</th>
+                            <th style="padding:10px 10px;">Category</th>
+                            <th style="padding:10px 10px;">App &amp; Payee UPI</th>
+                            <th style="padding:10px 10px;">Transaction ID</th>
+                            <th style="padding:10px 12px;text-align:right;">Amount (₹)</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -1762,7 +1831,7 @@ elif st.session_state.active_nav == "expenses":
                     </tbody>
                     <tfoot>
                         <tr style="background:{th_bg};border-top:2px solid {border_subtle};font-weight:800;color:{text_primary};">
-                            <td colspan="8" style="padding:12px 14px;text-align:right;font-size:13px;text-transform:uppercase;letter-spacing:0.04em;">Grand Total Expenses</td>
+                            <td colspan="9" style="padding:12px 14px;text-align:right;font-size:13px;text-transform:uppercase;letter-spacing:0.04em;">Grand Total Expenses</td>
                             <td style="padding:12px 14px;text-align:right;font-size:16px;color:#6366f1;">₹{total_spent:,.2f}</td>
                         </tr>
                     </tfoot>
@@ -1772,26 +1841,39 @@ elif st.session_state.active_nav == "expenses":
         """
         st.markdown(table_html, unsafe_allow_html=True)
 
-    # Render Expense Cards with Screenshot Proof & Individual Delete Button
+    # Render Expense Cards with BOTH Payment Screenshot + Printed Bill Proof, Full Viewer & Inline Attach Bill
     for idx_e, e in enumerate(entries_list):
+        eid = e.get("id", f"idx_{idx_e}")
         c_row1, c_row2 = st.columns([5.2, 0.8])
         with c_row1:
-            thumb_html = ""
+            thumbs_html = ""
             if e.get("thumb_b64"):
-                thumb_html = (
-                    f"<img src='{e['thumb_b64']}' style='width: 58px; height: 96px; object-fit: cover; "
-                    f"border-radius: 10px; border: 1px solid {border_subtle}; flex-shrink: 0;' alt='receipt'/>"
+                thumbs_html += (
+                    f"<div style='text-align:center;flex-shrink:0;'>"
+                    f"<img src='{e['thumb_b64']}' style='width:56px;height:92px;object-fit:cover;border-radius:10px;border:1.5px solid {border_subtle};' alt='payment'/>"
+                    f"<div style='font-size:9px;font-weight:700;color:{text_secondary};margin-top:2px;'>PAY</div></div>"
+                )
+            if e.get("bill_thumb_b64"):
+                thumbs_html += (
+                    f"<div style='text-align:center;flex-shrink:0;'>"
+                    f"<img src='{e['bill_thumb_b64']}' style='width:56px;height:92px;object-fit:cover;border-radius:10px;border:1.5px solid #10b981;' alt='bill'/>"
+                    f"<div style='font-size:9px;font-weight:700;color:#10b981;margin-top:2px;'>BILL</div></div>"
                 )
             upi_meta = " · ".join(x for x in [e.get("app_name"), e.get("payee_upi"), f"From: {e['sender_upi']}" if e.get("sender_upi") else "", f"Txn: {e['transaction_id']}" if e.get("transaction_id") else ""] if x)
+            bill_badge = (
+                f"<span style='font-size:10.5px;font-weight:700;padding:2px 9px;border-radius:999px;background:rgba(16,185,129,0.16);color:#10b981;border:1px solid rgba(16,185,129,0.35);'>🧾 Printed Bill Attached</span>"
+                if e.get("bill_thumb_b64") else ""
+            )
             st.markdown(f"""
-            <div style="background: {bg_surface}; border: 1.5px solid {border_subtle}; border-radius: 16px; padding: 14px 18px; margin-bottom: 10px; display: flex; align-items: center; justify-content: space-between; gap: 14px; flex-wrap: wrap;">
-                <div style="display: flex; align-items: center; gap: 14px; min-width: 240px; flex: 1;">
-                    {thumb_html}
+            <div style="background: {bg_surface}; border: 1.5px solid {border_subtle}; border-radius: 16px; padding: 14px 18px; margin-bottom: 6px; display: flex; align-items: center; justify-content: space-between; gap: 14px; flex-wrap: wrap;">
+                <div style="display: flex; align-items: center; gap: 12px; min-width: 240px; flex: 1;">
+                    {thumbs_html}
                     <div>
                         <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
                             <span style="font-size: 15.5px; font-weight: 800; color: {text_primary};">{html_lib.escape(str(e.get('paid_to', 'Expense')))}</span>
                             <span style="font-size: 10.5px; font-weight: 700; padding: 2px 9px; border-radius: 999px; background: rgba(99, 102, 241, 0.14); color: #6366f1; border: 1px solid rgba(99, 102, 241, 0.3);">{html_lib.escape(str(e.get('category', 'UPI')))}</span>
                             <span style="font-size: 11px; font-weight: 700; padding: 2px 9px; border-radius: 999px; background: rgba(16, 185, 129, 0.14); color: #10b981; border: 1px solid rgba(16, 185, 129, 0.3);">📝 Notes: {html_lib.escape(str(e.get('notes', 'UPI')))}</span>
+                            {bill_badge}
                         </div>
                         <div style="font-size: 12.5px; font-weight: 700; color: {text_secondary}; margin-top: 4px;">
                             🕒 {html_lib.escape(str(e.get('date_time', '')))}
@@ -1807,9 +1889,49 @@ elif st.session_state.active_nav == "expenses":
                 </div>
             </div>
             """, unsafe_allow_html=True)
+
+            # Expandable Full-Resolution Viewer + Inline Attach Printed Bill for this entry
+            with st.expander(f"🔍 View Full Images / 🧾 Attach Printed Bill — {e.get('paid_to', 'Expense')} (₹{float(e.get('amount', 0)):,.2f})", expanded=False):
+                v_c1, v_c2 = st.columns(2)
+                with v_c1:
+                    st.caption("📱 Payment Screenshot (Samsung Pay / UPI)")
+                    pay_view = st.session_state.get("full_receipt_images", {}).get(eid) or e.get("thumb_b64")
+                    if pay_view:
+                        st.image(pay_view, use_container_width=True)
+                    else:
+                        st.info("No payment screenshot attached.")
+                with v_c2:
+                    st.caption("🧾 Printed Bill / Paper Receipt")
+                    bill_view = st.session_state.get("full_printed_bills", {}).get(eid) or e.get("bill_thumb_b64")
+                    if bill_view:
+                        st.image(bill_view, use_container_width=True)
+                    else:
+                        st.info("No printed bill attached yet — upload below.")
+                    card_bill_up = st.file_uploader(
+                        "Attach / Replace Printed Bill (Lossless PNG)",
+                        type=["png", "jpg", "jpeg", "webp"],
+                        key=f"attach_bill_{eid}_{idx_e}"
+                    )
+                    if card_bill_up is not None:
+                        raw_cb = card_bill_up.getvalue()
+                        sig_cb = f"cb_{eid}_{card_bill_up.name}_{len(raw_cb)}"
+                        seen_cb = st.session_state.setdefault("processed_card_bill_hashes", set())
+                        if sig_cb not in seen_cb:
+                            seen_cb.add(sig_cb)
+                            bf_c, bt_c = unlock_statements.encode_printed_bill_image(apply_scan=st.session_state.get('tog_drive_scan_bill', True), img_bytes=raw_cb)
+                            entries_list[idx_e]["bill_thumb_b64"] = bt_c
+                            entries_list[idx_e]["bill_full_b64"] = bf_c
+                            entries_list[idx_e]["bill_source_file"] = card_bill_up.name
+                            st.session_state.setdefault("full_printed_bills", {})[eid] = bf_c
+                            update_shared_expenses_store(exp_ledger, commit_msg=f"Attach printed bill to {e.get('paid_to', '')}")
+                            bn_auto = unlock_statements.load_bill_names_web()
+                            wh_auto = _get_sheets_webhook_url()
+                            if bn_auto.get("auto_push_expenses_sheets") and wh_auto:
+                                _post_to_apps_script(wh_auto, {"bills": [], "reimbursements": [], "expenses": [_build_expense_sheet_row(entries_list[idx_e])]})
+                            st.rerun()
         with c_row2:
             st.markdown("<div style='height: 22px;'></div>", unsafe_allow_html=True)
-            if st.button("Delete", key=f"del_exp_{e.get('id', idx_e)}_{idx_e}", use_container_width=True, type="secondary"):
+            if st.button("Delete", key=f"del_exp_{eid}_{idx_e}", use_container_width=True, type="secondary"):
                 exp_ledger["entries"] = [x for i_x, x in enumerate(entries_list) if i_x != idx_e]
                 update_shared_expenses_store(exp_ledger, commit_msg=f"Delete expense {e.get('paid_to', '')}")
                 st.rerun()
