@@ -1526,34 +1526,63 @@ elif st.session_state.active_nav == "expenses":
         exp_ledger_now = get_shared_expenses_store()
         seen_ded = st.session_state.setdefault("processed_ded_exp_hashes", set())
         newly_added_objs = []
-        bill_full_b64_pair, bill_thumb_b64_pair, bill_fname_pair = "", "", ""
+        scan_flag = st.session_state.get("tog_drive_scan_bill", True)
+
+        # Smart auto-split: separate UPI app screenshots from printed paper bill camera photos even if dropped together!
+        upi_files_list = []
+        auto_bill_files = []
+        for ef in exp_up_files:
+            raw_ef = ef.getvalue()
+            if unlock_statements.is_printed_bill_photo(raw_ef, ef.name):
+                auto_bill_files.append((ef.name, raw_ef))
+            else:
+                upi_files_list.append((ef.name, raw_ef))
+
         if paired_bill_file is not None:
-            bill_fname_pair = paired_bill_file.name
-            bill_full_b64_pair, bill_thumb_b64_pair = unlock_statements.encode_printed_bill_image(apply_scan=st.session_state.get('tog_drive_scan_bill', True), img_bytes=paired_bill_file.getvalue())
+            auto_bill_files.insert(0, (paired_bill_file.name, paired_bill_file.getvalue()))
             st.session_state.setdefault("processed_paired_bill_hashes", set()).add(f"pb_{paired_bill_file.name}_{len(paired_bill_file.getvalue())}")
 
-        for idx_ef, ef in enumerate(exp_up_files):
-            raw_ef = ef.getvalue()
-            sig_ef = f"ded_{ef.name}_{len(raw_ef)}"
-            parsed_ef = unlock_statements.parse_expense_screenshot(raw_ef, ef.name)
+        # If ONLY printed bill photo(s) were dropped into Box #1, attach to latest existing transaction instead of creating a bogus entry
+        if not upi_files_list and auto_bill_files and exp_ledger_now.get("entries"):
+            b_name, b_raw = auto_bill_files[0]
+            sig_b = f"ded_bill_{b_name}_{len(b_raw)}"
+            if sig_b not in seen_ded:
+                seen_ded.add(sig_b)
+                bf_b64, bt_b64 = unlock_statements.encode_printed_bill_image(apply_scan=scan_flag, img_bytes=b_raw)
+                top_e = exp_ledger_now["entries"][0]
+                top_e["bill_thumb_b64"] = bt_b64
+                top_e["bill_full_b64"] = bf_b64
+                top_e["bill_source_file"] = b_name
+                st.session_state.setdefault("full_printed_bills", {})[top_e["id"]] = bf_b64
+                newly_added_objs.append(top_e)
+                st.success(f"🧾 Auto-paired Printed Bill ({b_name}) with {top_e.get('paid_to')} (₹{float(top_e.get('amount', 0)):,.2f})!")
+
+        for idx_ef, (ef_name, raw_ef) in enumerate(upi_files_list):
+            sig_ef = f"ded_{ef_name}_{len(raw_ef)}"
+            parsed_ef = unlock_statements.parse_expense_screenshot(raw_ef, ef_name)
             if parsed_ef.get("full_b64"):
                 st.session_state.setdefault("full_receipt_images", {})[parsed_ef["id"]] = parsed_ef["full_b64"]
-            if idx_ef == 0 and bill_thumb_b64_pair:
-                parsed_ef["bill_thumb_b64"] = bill_thumb_b64_pair
-                parsed_ef["bill_full_b64"] = bill_full_b64_pair
-                parsed_ef["bill_source_file"] = bill_fname_pair
-                st.session_state.setdefault("full_printed_bills", {})[parsed_ef["id"]] = bill_full_b64_pair
 
-            if sig_ef not in seen_ded:
-                seen_ded.add(sig_ef)
+            paired_b_name = ""
+            if idx_ef < len(auto_bill_files):
+                paired_b_name, paired_b_raw = auto_bill_files[idx_ef]
+                bf_p, bt_p = unlock_statements.encode_printed_bill_image(apply_scan=scan_flag, img_bytes=paired_b_raw)
+                parsed_ef["bill_thumb_b64"] = bt_p
+                parsed_ef["bill_full_b64"] = bf_p
+                parsed_ef["bill_source_file"] = paired_b_name
+                st.session_state.setdefault("full_printed_bills", {})[parsed_ef["id"]] = bf_p
+
+            full_sig = f"{sig_ef}_{paired_b_name}"
+            if full_sig not in seen_ded:
+                seen_ded.add(full_sig)
                 exp_ledger_now["entries"] = [x for x in exp_ledger_now.get("entries", []) if x.get("id") != parsed_ef["id"]]
                 exp_ledger_now["entries"].insert(0, parsed_ef)
                 newly_added_objs.append(parsed_ef)
             st.success(
-                f"✅ Added to View Table ({ef.name}): ₹{parsed_ef['amount']:,.2f} · Paid to: {parsed_ef['paid_to']} · "
+                f"✅ Added to View Table ({ef_name}): ₹{parsed_ef['amount']:,.2f} · Paid to: {parsed_ef['paid_to']} · "
                 f"Date & Time: {parsed_ef['date_time']} · Notes: {parsed_ef.get('notes', 'UPI')} · "
                 f"Txn ID: {parsed_ef.get('transaction_id') or '-'}"
-                + (f" · 🧾 Printed Bill Attached ({bill_fname_pair})" if idx_ef == 0 and bill_fname_pair else "")
+                + (f" · 🧾 Printed Bill Auto-Paired ({paired_b_name})" if paired_b_name else "")
             )
         if newly_added_objs:
             update_shared_expenses_store(exp_ledger_now, commit_msg="Auto-parse UPI screenshot into Expense Table")
@@ -1864,31 +1893,26 @@ elif st.session_state.active_nav == "expenses":
                 f"<span style='font-size:10.5px;font-weight:700;padding:2px 9px;border-radius:999px;background:rgba(16,185,129,0.16);color:#10b981;border:1px solid rgba(16,185,129,0.35);'>🧾 Printed Bill Attached</span>"
                 if e.get("bill_thumb_b64") else ""
             )
-            st.markdown(f"""
-            <div style="background: {bg_surface}; border: 1.5px solid {border_subtle}; border-radius: 16px; padding: 14px 18px; margin-bottom: 6px; display: flex; align-items: center; justify-content: space-between; gap: 14px; flex-wrap: wrap;">
-                <div style="display: flex; align-items: center; gap: 12px; min-width: 240px; flex: 1;">
-                    {thumbs_html}
-                    <div>
-                        <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
-                            <span style="font-size: 15.5px; font-weight: 800; color: {text_primary};">{html_lib.escape(str(e.get('paid_to', 'Expense')))}</span>
-                            <span style="font-size: 10.5px; font-weight: 700; padding: 2px 9px; border-radius: 999px; background: rgba(99, 102, 241, 0.14); color: #6366f1; border: 1px solid rgba(99, 102, 241, 0.3);">{html_lib.escape(str(e.get('category', 'UPI')))}</span>
-                            <span style="font-size: 11px; font-weight: 700; padding: 2px 9px; border-radius: 999px; background: rgba(16, 185, 129, 0.14); color: #10b981; border: 1px solid rgba(16, 185, 129, 0.3);">📝 Notes: {html_lib.escape(str(e.get('notes', 'UPI')))}</span>
-                            {bill_badge}
-                        </div>
-                        <div style="font-size: 12.5px; font-weight: 700; color: {text_secondary}; margin-top: 4px;">
-                            🕒 {html_lib.escape(str(e.get('date_time', '')))}
-                        </div>
-                        <div style="font-size: 11.5px; color: {text_secondary}; margin-top: 2px; font-family: monospace;">
-                            {html_lib.escape(upi_meta)}
-                        </div>
-                    </div>
-                </div>
-                <div style="text-align: right;">
-                    <div style="font-size: 20px; font-weight: 800; color: {text_primary}; letter-spacing: -0.02em;">₹{float(e.get('amount', 0)):,.2f}</div>
-                    <div style="font-size: 10.5px; color: {text_secondary};">{html_lib.escape(str(e.get('source_file', '')))}</div>
-                </div>
-            </div>
-            """, unsafe_allow_html=True)
+            card_html = (
+                f"<div style='background:{bg_surface};border:1.5px solid {border_subtle};border-radius:16px;padding:14px 18px;margin-bottom:6px;display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap;'>"
+                f"<div style='display:flex;align-items:center;gap:12px;min-width:240px;flex:1;'>"
+                f"{thumbs_html}"
+                f"<div>"
+                f"<div style='display:flex;align-items:center;gap:8px;flex-wrap:wrap;'>"
+                f"<span style='font-size:15.5px;font-weight:800;color:{text_primary};'>{html_lib.escape(str(e.get('paid_to', 'Expense')))}</span>"
+                f"<span style='font-size:10.5px;font-weight:700;padding:2px 9px;border-radius:999px;background:rgba(99,102,241,0.14);color:#6366f1;border:1px solid rgba(99,102,241,0.3);'>{html_lib.escape(str(e.get('category', 'UPI')))}</span>"
+                f"<span style='font-size:11px;font-weight:700;padding:2px 9px;border-radius:999px;background:rgba(16,185,129,0.14);color:#10b981;border:1px solid rgba(16,185,129,0.3);'>📝 Notes: {html_lib.escape(str(e.get('notes', 'UPI')))}</span>"
+                f"{bill_badge}"
+                f"</div>"
+                f"<div style='font-size:12.5px;font-weight:700;color:{text_secondary};margin-top:4px;'>🕒 {html_lib.escape(str(e.get('date_time', '')))}</div>"
+                f"<div style='font-size:11.5px;color:{text_secondary};margin-top:2px;font-family:monospace;'>{html_lib.escape(upi_meta)}</div>"
+                f"</div></div>"
+                f"<div style='text-align:right;'>"
+                f"<div style='font-size:20px;font-weight:800;color:{text_primary};letter-spacing:-0.02em;'>₹{float(e.get('amount', 0)):,.2f}</div>"
+                f"<div style='font-size:10.5px;color:{text_secondary};'>{html_lib.escape(str(e.get('source_file', '')))}</div>"
+                f"</div></div>"
+            )
+            st.markdown(card_html, unsafe_allow_html=True)
 
             # Expandable Full-Resolution Viewer + Inline Attach Printed Bill for this entry
             with st.expander(f"🔍 View Full Images / 🧾 Attach Printed Bill — {e.get('paid_to', 'Expense')} (₹{float(e.get('amount', 0)):,.2f})", expanded=False):

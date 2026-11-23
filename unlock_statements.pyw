@@ -2393,6 +2393,29 @@ def _extract_receipt_row_value(data, label_pattern):
         return " ".join(t for _, t in row_tokens).strip()
   return ""
 
+def is_printed_bill_photo(img_bytes, filename=""):
+  """Distinguishes a camera photo of a printed paper bill (e.g. 20261123_110947.jpg, IMG_*.jpg)
+  from a digital UPI app screenshot (Samsung Wallet, Google Pay, PhonePe, Paytm, CRED)."""
+  fn_low = (filename or "").lower()
+  if any(k in fn_low for k in ("screenshot", "gpay", "phonepe", "paytm", "wallet", "transaction", "upi")):
+    return False
+  try:
+    import pytesseract
+    import numpy as np
+    from PIL import Image, ImageOps
+    im = Image.open(io.BytesIO(img_bytes))
+    gray = ImageOps.grayscale(im)
+    if np.array(gray).mean() < 120:
+      gray = ImageOps.invert(gray)
+    txt = pytesseract.image_to_string(gray).lower()
+    upi_markers = ("samsung wallet", "paid from", "sent from:", "transaction id", "google pay", "pay again", "was debited", "phonepe", "powered by", "utr", "upi ref")
+    if any(m in txt for m in upi_markers):
+      return False
+    # If filename looks like a camera photo (YYYYMMDD_HHMMSS.jpg, IMG_*, PXL_*, etc.) or has no UPI markers, it's a printed bill photo
+    return True
+  except Exception:
+    return bool(re.match(r"^(?:20\d{6}_\d{6}|img_|pxl_|dsc|photo|bill)", fn_low))
+
 def scan_document_image(pil_img):
   """Applies a Google Drive Scan-style document enhancement to a printed bill photo:
     1. Auto-crops dark outer desk/table borders around a lighter paper receipt (if detected).

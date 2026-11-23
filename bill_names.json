@@ -85,6 +85,7 @@
       ]
     }
   ],
+  "updated_at": "2026-11-18T14:32:26+05:30",
   "statement_summaries": {
     "ICICI_Amazon_October_2026": {
       "bank_short": "ICICI Amazon",
@@ -231,9 +232,5 @@
         }
       ]
     }
-  },
-  "sheets_webhook_url": "https://script.google.com/macros/s/AKfycbxEo6GTYzJG7lufBmxo02yTO48x_gBmHER5Cf7rT1CxEvyrUcO6AdDe99LM0d7SbdJm/exec",
-  "sync_sheets_url_mobile": true,
-  "auto_push_expenses_sheets": false,
-  "updated_at": "2026-11-23T11:26:38+05:30"
+  }
 }
