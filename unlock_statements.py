@@ -2418,10 +2418,11 @@ def is_printed_bill_photo(img_bytes, filename=""):
 
 def scan_document_image(pil_img):
   """Applies a Google Drive Scan-style document enhancement to a printed bill photo:
-    1. Auto-crops dark outer desk/table borders around a lighter paper receipt (if detected).
-    2. Estimates uneven illumination / shadows via downsampled Gaussian blur and divides them out
-       so the paper becomes crisp pure white while printed ink stays sharp and dark.
-    3. Applies gentle contrast stretch and unsharp masking for print-ready legibility.
+    1. Strips any solid black letterboxing around screenshot previews.
+    2. Uses OCR text-cluster bounding boxes (--psm 11) to tightly auto-crop the receipt on ANY background
+       (even light wood desks, white tables, or silver laptops) while dropping isolated background stickers.
+    3. Falls back to brightness-contrast border cropping if fewer than 4 text tokens are found.
+    4. Removes shadows & uneven lighting via background illumination division and sharpens printed ink.
   """
   import numpy as np
   from PIL import Image, ImageFilter, ImageEnhance, ImageOps
@@ -2429,54 +2430,115 @@ def scan_document_image(pil_img):
   rgb = ImageOps.exif_transpose(pil_img).convert("RGB")
   w, h = rgb.size
 
-  # Step 1: Safe auto-crop of dark table/desk borders around bright paper receipt
+  # Step 0: Strip solid black letterboxing if present
   try:
-    gray_small = rgb.convert("L").resize((max(64, w // 6), max(64, h // 6)), Image.Resampling.BILINEAR)
-    g_arr = np.array(gray_small, dtype=np.float32)
-    border_vals = np.concatenate([g_arr[0, :], g_arr[-1, :], g_arr[:, 0], g_arr[:, -1]])
-    center_med = float(np.median(g_arr[g_arr.shape[0]//4:3*g_arr.shape[0]//4, g_arr.shape[1]//4:3*g_arr.shape[1]//4]))
-    border_med = float(np.median(border_vals))
-    if center_med - border_med > 28:
-      thresh = border_med + (center_med - border_med) * 0.45
-      mask = g_arr > thresh
-      row_frac = mask.mean(axis=1)
-      col_frac = mask.mean(axis=0)
-      ys = np.where(row_frac > 0.12)[0]
-      xs = np.where(col_frac > 0.12)[0]
-      if len(ys) > 10 and len(xs) > 10:
-        sy = h / float(g_arr.shape[0])
-        sx = w / float(g_arr.shape[1])
-        pad_x = int(w * 0.015)
-        pad_y = int(h * 0.015)
-        x0 = max(0, int(xs[0] * sx) - pad_x)
-        y0 = max(0, int(ys[0] * sy) - pad_y)
-        x1 = min(w, int((xs[-1] + 1) * sx) + pad_x)
-        y1 = min(h, int((ys[-1] + 1) * sy) + pad_y)
-        if (x1 - x0) > w * 0.35 and (y1 - y0) > h * 0.35:
-          rgb = rgb.crop((x0, y0, x1, y1))
-          w, h = rgb.size
+    g0 = np.array(rgb.convert("L"))
+    non_black_y = np.where(g0.mean(axis=1) > 12)[0]
+    non_black_x = np.where(g0.mean(axis=0) > 12)[0]
+    if len(non_black_y) > h * 0.3 and len(non_black_x) > w * 0.3:
+      rgb = rgb.crop((int(non_black_x[0]), int(non_black_y[0]), int(non_black_x[-1]) + 1, int(non_black_y[-1]) + 1))
+      w, h = rgb.size
   except Exception:
     pass
 
-  # Step 2: Shadow & uneven lighting removal (background illumination division per channel)
-  scale_w = max(48, min(180, w // 10))
-  scale_h = max(48, min(180, h // 10))
+  # Step 1: OCR-guided vertical-cluster receipt auto-crop (works on light wood, white desk, laptop, or dark table)
+  ocr_cropped = False
+  try:
+    import pytesseract
+    ocr_scale = 2.0 if w < 1100 else (0.5 if w > 2400 else 1.0)
+    gray_ocr = ImageOps.grayscale(rgb.resize((max(64, int(w * ocr_scale)), max(64, int(h * ocr_scale))), Image.Resampling.LANCZOS))
+    data = pytesseract.image_to_data(gray_ocr, config="--psm 11", output_type=pytesseract.Output.DICT)
+    boxes = []
+    for i, txt in enumerate(data.get("text", [])):
+      t = (txt or "").strip()
+      conf_raw = str(data["conf"][i])
+      conf = float(conf_raw) if conf_raw.lstrip("-").isdigit() else -1.0
+      bw = data["width"][i] / ocr_scale
+      bh = data["height"][i] / ocr_scale
+      bl = data["left"][i] / ocr_scale
+      bt = data["top"][i] / ocr_scale
+      if len(t) >= 2 and conf >= 35 and 4 <= bh <= h * 0.08 and bw <= w * 0.85:
+        boxes.append((bl, bt, bl + bw, bt + bh))
+
+    if len(boxes) >= 4:
+      boxes.sort(key=lambda b: b[1])
+      clusters = []
+      cur = [boxes[0]]
+      cur_max_y = boxes[0][3]
+      for b in boxes[1:]:
+        if (b[1] - cur_max_y) > h * 0.08:
+          clusters.append(cur)
+          cur = [b]
+          cur_max_y = b[3]
+        else:
+          cur.append(b)
+          cur_max_y = max(cur_max_y, b[3])
+      clusters.append(cur)
+      core = max(clusters, key=len)
+
+      if len(core) >= 4:
+        xs_mid = np.array([(b[0] + b[2]) / 2.0 for b in core])
+        med_x = float(np.median(xs_mid))
+        mad_x = max(float(np.median(np.abs(xs_mid - med_x))), w * 0.08)
+        core = [b for b in core if abs(((b[0] + b[2]) / 2.0) - med_x) <= mad_x * 2.5]
+        if len(core) >= 4:
+          x0 = int(min(b[0] for b in core))
+          y0 = int(min(b[1] for b in core))
+          x1 = int(max(b[2] for b in core))
+          y1 = int(max(b[3] for b in core))
+          rw, rh = x1 - x0, y1 - y0
+          pad_x = int(max(12, rw * 0.09))
+          pad_y = int(max(14, rh * 0.05))
+          cx0, cy0 = max(0, x0 - pad_x), max(0, y0 - pad_y)
+          cx1, cy1 = min(w, x1 + pad_x), min(h, y1 + pad_y)
+          if (cx1 - cx0) > w * 0.20 and (cy1 - cy0) > h * 0.20:
+            rgb = rgb.crop((cx0, cy0, cx1, cy1))
+            w, h = rgb.size
+            ocr_cropped = True
+  except Exception:
+    pass
+
+  # Step 1b: Brightness-contrast fallback crop if OCR didn't crop
+  if not ocr_cropped:
+    try:
+      gray_small = rgb.convert("L").resize((max(64, w // 6), max(64, h // 6)), Image.Resampling.BILINEAR)
+      g_arr = np.array(gray_small, dtype=np.float32)
+      border_vals = np.concatenate([g_arr[0, :], g_arr[-1, :], g_arr[:, 0], g_arr[:, -1]])
+      center_med = float(np.median(g_arr[g_arr.shape[0]//4:3*g_arr.shape[0]//4, g_arr.shape[1]//4:3*g_arr.shape[1]//4]))
+      border_med = float(np.median(border_vals))
+      if center_med - border_med > 28:
+        thresh = border_med + (center_med - border_med) * 0.45
+        mask = g_arr > thresh
+        ys = np.where(mask.mean(axis=1) > 0.12)[0]
+        xs = np.where(mask.mean(axis=0) > 0.12)[0]
+        if len(ys) > 10 and len(xs) > 10:
+          sy = h / float(g_arr.shape[0])
+          sx = w / float(g_arr.shape[1])
+          x0, y0 = max(0, int(xs[0] * sx) - int(w * 0.015)), max(0, int(ys[0] * sy) - int(h * 0.015))
+          x1, y1 = min(w, int((xs[-1] + 1) * sx) + int(w * 0.015)), min(h, int((ys[-1] + 1) * sy) + int(h * 0.015))
+          if (x1 - x0) > w * 0.35 and (y1 - y0) > h * 0.35:
+            rgb = rgb.crop((x0, y0, x1, y1))
+            w, h = rgb.size
+    except Exception:
+      pass
+
+  # Step 2: Shadow & uneven lighting removal (background illumination division)
+  scale_w = max(36, min(180, w // 8))
+  scale_h = max(36, min(180, h // 8))
   bg_small = rgb.resize((scale_w, scale_h), Image.Resampling.BILINEAR)
   bg_small = bg_small.filter(ImageFilter.MaxFilter(5))
-  bg_small = bg_small.filter(ImageFilter.GaussianBlur(radius=6))
+  bg_small = bg_small.filter(ImageFilter.GaussianBlur(radius=5))
   bg_full = bg_small.resize((w, h), Image.Resampling.BILINEAR)
 
   img_arr = np.array(rgb, dtype=np.float32)
   bg_arr = np.maximum(np.array(bg_full, dtype=np.float32), 20.0)
   norm = (img_arr / bg_arr) * 255.0
 
-  # Step 3: Clean white-paper stretch (push paper >= 232 to crisp pure white 255, deepen ink)
-  norm = np.clip((norm - 18.0) * (255.0 / (236.0 - 18.0)), 0.0, 255.0).astype(np.uint8)
+  # Step 3: Pure-white paper normalization + crisp ink sharpening
+  norm = np.clip((norm - 18.0) * (255.0 / (234.0 - 18.0)), 0.0, 255.0).astype(np.uint8)
   scanned = Image.fromarray(norm, mode="RGB")
-
-  # Slight desaturation + crisp unsharp mask (Google Drive "Color Scan" look)
-  scanned = ImageEnhance.Color(scanned).enhance(0.75)
-  scanned = scanned.filter(ImageFilter.UnsharpMask(radius=1.4, percent=135, threshold=4))
+  scanned = ImageEnhance.Color(scanned).enhance(0.55)
+  scanned = scanned.filter(ImageFilter.UnsharpMask(radius=1.4, percent=145, threshold=4))
   return scanned
 
 def encode_printed_bill_image(img_bytes, apply_scan=True):
